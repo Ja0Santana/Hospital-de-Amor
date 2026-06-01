@@ -14,32 +14,6 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 
 ---
 
-## 🚀 Como Executar o Projeto Localmente
-
-### 1. Pré-requisitos
-Certifique-se de possuir o [Node.js](https://nodejs.org/) instalado em sua máquina.
-
-### 2. Instalação das Dependências
-Instale todos os pacotes necessários na raiz do projeto:
-```bash
-npm install
-```
-
-### 3. Iniciar Servidor de Desenvolvimento
-Rode o servidor do Vite localmente:
-```bash
-npm run dev
-```
-O aplicativo estará acessível no endereço: `http://localhost:5173/`
-
-### 4. Compilação para Produção
-Valide a integridade estática e gere os arquivos minificados:
-```bash
-npm run build
-```
-
----
-
 ## 📋 Requisitos Implementados até o Momento
 
 ### Módulo de Identificação e Cadastro
