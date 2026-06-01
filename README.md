@@ -52,12 +52,4 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
     *   **Simulador de Caixa de Entrada (Inbox Sandbox)**: Simulador visual integrado de e-mail seguro enviado pelo hospital contendo link clicável de redefinição de senha que atualiza os dados no IndexedDB.
 *   **RNF82 – Restringir Tipos de Arquivos (Must Have)**: Bloqueio de upload por tipo de arquivo (MIME Type) e prevenção de arquivos executáveis maliciosos. Limite máximo de tamanho fixado em 5MB por arquivo.
 
----
 
-## 🎨 Identidade Visual e Layout
-
-O projeto segue rigorosamente o design system institucional do **Hospital de Amor**:
-*   Interface em Split-Screen premium na tela de login/cadastro.
-*   Sidebar na tonalidade rosa pastel (`#FFF0F6`) contendo cabeçalho com avatar dinâmico do paciente ativo.
-*   Tons de Rosa/Magenta escuro (`HSL 330 100% 38%`) empregados em botões primários, gradientes e sinalizações visuais.
-*   Micro-interações de botões (active:scale, hover) e suporte a Dark Mode.
