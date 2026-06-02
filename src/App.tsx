@@ -191,8 +191,10 @@ function App() {
             >
               <Menu className="w-5 h-5" aria-hidden="true" />
             </Button>
-            <div className="flex items-center gap-2">
-              <Heart className="w-5 h-5 text-primary fill-current" aria-hidden="true" />
+            <div className="flex items-center gap-3">
+              <div className="bg-white p-1 rounded-lg flex items-center justify-center border border-zinc-100 shadow-sm w-9 h-9">
+                <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
+              </div>
               <span className="font-extrabold text-sm tracking-tight text-zinc-400 uppercase">Hospital de Amor</span>
             </div>
           </div>

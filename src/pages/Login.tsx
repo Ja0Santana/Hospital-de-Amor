@@ -5,7 +5,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { formatCpf, validateCpf, formatPhone, sanitizeString } from '../lib/sanitizer';
-import { Heart, AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2 } from 'lucide-react';
 import { authenticateUser, createUser, getUserByCpf, updateUserPassword } from '../services/db';
 import type { PatientUser } from '../types';
 
@@ -240,10 +240,9 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" aria-hidden="true"></div>
           
           <div className="flex flex-col items-center space-y-2 relative z-10 pt-8">
-            <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center shadow-lg border border-white/20">
-              <Heart className="w-8 h-8 fill-current text-white" aria-hidden="true" />
+            <div className="bg-white p-4 rounded-3xl shadow-lg border border-zinc-100 flex items-center justify-center w-28 h-28">
+              <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
             </div>
-            <h2 className="text-xl font-black tracking-tight mt-2 uppercase">Hospital de Amor</h2>
           </div>
 
           <div className="space-y-4 relative z-10 my-8">
@@ -261,8 +260,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
         <div className="md:col-span-7 p-6 md:p-12 flex flex-col justify-center bg-white dark:bg-zinc-900">
           <div className="flex md:hidden items-center gap-3 mb-6">
-            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-md">
-              <Heart className="w-5 h-5 fill-current text-white" aria-hidden="true" />
+            <div className="bg-white p-1 rounded-xl flex items-center justify-center shadow-sm border border-zinc-100 w-12 h-12">
+              <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
             </div>
             <div>
               <p className="text-[11px] font-black uppercase tracking-widest text-primary">Hospital de Amor</p>
@@ -603,8 +602,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                   <div><strong className="text-zinc-700 dark:text-zinc-300">Assunto:</strong> Redefinição de Senha - Portal do Paciente</div>
                 </div>
                 <div className="p-6 bg-white dark:bg-zinc-950 flex flex-col items-center text-center space-y-4 text-xs">
-                  <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                    <Heart className="w-5 h-5 fill-current" aria-hidden="true" />
+                  <div className="bg-white p-1.5 rounded-xl flex items-center justify-center shadow-sm border border-zinc-100 w-12 h-12">
+                    <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
                   </div>
                   <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Recuperação de Senha</h2>
                   <p className="text-zinc-500 leading-relaxed max-w-sm">
