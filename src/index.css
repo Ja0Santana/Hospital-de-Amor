@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Comfortaa:wght@700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,19 +12,19 @@
     --card-foreground: 240 10% 3.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 337 84% 48%;
-    --primary-foreground: 337 84% 98%;
-    --secondary: 337 84% 97%;
-    --secondary-foreground: 337 84% 30%;
+    --primary: 211 89% 41%;
+    --primary-foreground: 211 89% 98%;
+    --secondary: 337 84% 48%;
+    --secondary-foreground: 337 84% 98%;
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
-    --accent: 330 100% 96%;
-    --accent-foreground: 330 100% 30%;
+    --accent: 211 89% 96%;
+    --accent-foreground: 211 89% 30%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 337 84% 48%;
+    --ring: 211 89% 41%;
     --radius: 0.75rem;
     --brand-pink: 337 84% 48%;
     --brand-blue: 211 89% 41%;
@@ -35,10 +37,10 @@
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 337 84% 58%;
-    --primary-foreground: 337 84% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
+    --primary: 211 89% 51%;
+    --primary-foreground: 211 89% 10%;
+    --secondary: 337 84% 58%;
+    --secondary-foreground: 337 84% 10%;
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
     --accent: 240 3.7% 15.9%;
@@ -47,7 +49,7 @@
     --destructive-foreground: 0 0% 98%;
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 337 84% 58%;
+    --ring: 211 89% 51%;
     --brand-pink: 337 84% 58%;
     --brand-blue: 211 89% 51%;
   }

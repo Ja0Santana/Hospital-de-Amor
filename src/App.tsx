@@ -7,6 +7,7 @@ import Login from './pages/Login';
 import { Button } from './components/ui/button';
 import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X } from 'lucide-react';
 import { getUserByCpf } from './services/db';
+import logoHospitalDeAmor from './assets/logoHospitalDeAmor.png';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -84,26 +85,26 @@ function App() {
         />
       )}
 
-      <aside className={`w-64 bg-[#FFF0F6] dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800 flex flex-col shrink-0 p-5 fixed md:sticky inset-y-0 left-0 z-40 transform transition-transform duration-300 md:translate-x-0 md:h-screen ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`w-64 bg-primary dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800 flex flex-col shrink-0 p-5 fixed inset-y-0 left-0 z-40 h-screen transform transition-transform duration-300 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex md:hidden justify-end mb-2">
-          <Button variant="ghost" size="icon" aria-label="Fechar menu lateral" onClick={() => setIsSidebarOpen(false)} className="h-8 w-8 hover:bg-zinc-200/40 rounded-lg">
-            <X className="w-5 h-5 text-zinc-500" aria-hidden="true" />
+          <Button variant="ghost" size="icon" aria-label="Fechar menu lateral" onClick={() => setIsSidebarOpen(false)} className="h-8 w-8 hover:bg-white/10 rounded-lg">
+            <X className="w-5 h-5 text-blue-100" aria-hidden="true" />
           </Button>
         </div>
 
         <div 
           onClick={() => navigateTo('profile')}
-          className="flex items-center gap-3 pb-6 border-b border-zinc-200/60 dark:border-zinc-800 cursor-pointer hover:opacity-85 transition-opacity"
+          className="flex items-center gap-3 pb-6 border-b border-white/15 dark:border-zinc-800 cursor-pointer hover:opacity-85 transition-opacity"
         >
-          <div className="w-11 h-11 bg-primary/20 rounded-full overflow-hidden flex items-center justify-center border-2 border-primary/40 shrink-0">
-            <svg className="w-full h-full text-primary" viewBox="0 0 32 32" aria-hidden="true">
-              <rect width="32" height="32" fill="#E80053" opacity="0.1" />
-              <path d="M16,16 A4,4 0 0 1 12,12 A4,4 0 0 1 16,8 A4,4 0 0 1 20,12 A4,4 0 0 1 16,16 Z M16,18 C11.5,18 8,21.5 8,26 L24,26 C24,21.5 20.5,18 16,18 Z" fill="#E80053" />
+          <div className="w-11 h-11 bg-white rounded-full overflow-hidden flex items-center justify-center border-2 border-white/20 shrink-0">
+            <svg className="w-full h-full text-secondary" viewBox="0 0 32 32" aria-hidden="true">
+              <rect width="32" height="32" fill="#e31463" opacity="0.15" />
+              <path d="M16,16 A4,4 0 0 1 12,12 A4,4 0 0 1 16,8 A4,4 0 0 1 20,12 A4,4 0 0 1 16,16 Z M16,18 C11.5,18 8,21.5 8,26 L24,26 C24,21.5 20.5,18 16,18 Z" fill="#e31463" />
             </svg>
           </div>
           <div className="min-w-0">
-            <h3 className="font-extrabold text-sm text-zinc-800 dark:text-zinc-200 truncate">{patientName}</h3>
-            <span className="text-[10px] font-bold text-zinc-400 block tracking-wider">ID: {patientId}</span>
+            <h3 className="font-extrabold text-sm text-white truncate">{patientName}</h3>
+            <span className="text-[10px] font-bold text-blue-200 block tracking-wider">ID: {patientId}</span>
           </div>
         </div>
 
@@ -112,7 +113,7 @@ function App() {
             <Button
               variant="ghost"
               onClick={() => navigateTo('dashboard')}
-              className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'dashboard' ? 'bg-primary text-white hover:bg-primary/95 shadow-md shadow-primary/10' : 'text-zinc-600 hover:bg-primary/5 hover:text-primary dark:text-zinc-400'}`}
+              className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'dashboard' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
             >
               <LayoutGrid className="w-4 h-4" />
               Início
@@ -120,7 +121,7 @@ function App() {
             <Button
               variant="ghost"
               onClick={() => navigateTo('new-request')}
-              className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'new-request' ? 'bg-primary text-white hover:bg-primary/95 shadow-md shadow-primary/10' : 'text-zinc-600 hover:bg-primary/5 hover:text-primary dark:text-zinc-400'}`}
+              className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'new-request' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
             >
               <PlusCircle className="w-4 h-4" />
               Nova Solicitação
@@ -128,22 +129,15 @@ function App() {
             <Button
               variant="ghost"
               onClick={() => navigateTo('status-check')}
-              className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'status-check' ? 'bg-primary text-white hover:bg-primary/95 shadow-md shadow-primary/10' : 'text-zinc-600 hover:bg-primary/5 hover:text-primary dark:text-zinc-400'}`}
+              className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'status-check' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
             >
               <Calendar className="w-4 h-4" />
               Meus Agendamentos
             </Button>
             <Button
               variant="ghost"
-              className="w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 text-zinc-600 hover:bg-primary/5 hover:text-primary dark:text-zinc-400"
-            >
-              <Heart className="w-4 h-4" />
-              Doações
-            </Button>
-            <Button
-              variant="ghost"
               onClick={() => navigateTo('profile')}
-              className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'profile' ? 'bg-primary text-white hover:bg-primary/95 shadow-md shadow-primary/10' : 'text-zinc-600 hover:bg-primary/5 hover:text-primary dark:text-zinc-400'}`}
+              className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'profile' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
             >
               <Settings className="w-4 h-4" />
               Configurações
@@ -153,15 +147,15 @@ function App() {
           <div className="space-y-4">
             <Button
               onClick={() => navigateTo('new-request')}
-              className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-primary/20 text-xs transition-transform hover:scale-[1.02] active:scale-[0.98]"
+              className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform hover:scale-[1.02] active:scale-[0.98]"
             >
               + Novo Agendamento
             </Button>
 
-            <div className="pt-4 border-t border-zinc-200/60 dark:border-zinc-800 space-y-1">
+            <div className="pt-4 border-t border-white/15 dark:border-zinc-800 space-y-1">
               <Button
                 variant="ghost"
-                className="w-full justify-start text-xs font-bold h-9 px-3.5 rounded-lg gap-3 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                className="w-full justify-start text-xs font-bold h-9 px-3.5 rounded-lg gap-3 text-blue-200 hover:bg-white/10 hover:text-white"
               >
                 <HelpCircle className="w-4 h-4" />
                 Ajuda
@@ -169,7 +163,7 @@ function App() {
               <Button
                 variant="ghost"
                 onClick={handleLogout}
-                className="w-full justify-start text-xs font-bold h-9 px-3.5 rounded-lg gap-3 text-zinc-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20"
+                className="w-full justify-start text-xs font-bold h-9 px-3.5 rounded-lg gap-3 text-blue-200 hover:bg-red-500/20 hover:text-red-300"
               >
                 <LogOut className="w-4 h-4" />
                 Sair
@@ -179,7 +173,7 @@ function App() {
         </div>
       </aside>
 
-      <main className="flex-1 min-w-0 bg-white dark:bg-zinc-950 min-h-screen overflow-y-auto">
+      <main className="flex-1 min-w-0 bg-white dark:bg-zinc-950 min-h-screen overflow-y-auto md:ml-64">
         <header className="h-16 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 bg-white/95 dark:bg-zinc-950/75 sticky top-0 z-10 backdrop-blur">
           <div className="flex items-center gap-2.5">
             <Button 
@@ -193,9 +187,13 @@ function App() {
             </Button>
             <div className="flex items-center gap-3">
               <div className="bg-white p-1 rounded-lg flex items-center justify-center border border-zinc-100 shadow-sm w-9 h-9">
-                <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
+                <img src={logoHospitalDeAmor} alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
               </div>
-              <span className="font-extrabold text-sm tracking-tight text-zinc-400 uppercase">Hospital de Amor</span>
+              <div className="font-comfortaa font-bold text-xs tracking-wide text-primary flex items-center select-none uppercase">
+                <span>Hospital de Am</span>
+                <Heart className="w-3 h-3 fill-brand-pink text-brand-pink inline mx-0.5 -mt-0.5" aria-hidden="true" />
+                <span>r</span>
+              </div>
             </div>
           </div>
         </header>

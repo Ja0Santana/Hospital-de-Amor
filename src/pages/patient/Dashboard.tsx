@@ -73,7 +73,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
           </div>
           <Button
             onClick={() => onNavigate('new-request')}
-            className="w-full bg-white hover:bg-white/90 text-primary font-bold h-12 rounded-2xl flex items-center justify-between px-5 shadow-md shadow-black/10 transition-transform active:scale-[0.98] group"
+            className="w-full bg-white hover:bg-white/90 text-brand-pink font-bold h-12 rounded-2xl flex items-center justify-between px-5 shadow-md shadow-black/10 transition-transform active:scale-[0.98] group"
           >
             <span>INICIAR</span>
             <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
