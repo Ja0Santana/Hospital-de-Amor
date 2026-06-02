@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Dashboard from './pages/patient/Dashboard';
 import NewRequest from './pages/patient/NewRequest';
 import StatusCheck from './pages/patient/StatusCheck';
@@ -48,6 +48,17 @@ function App() {
     setCurrentPage('dashboard');
   };
 
+  const PAGE_TITLES: Record<string, string> = {
+    dashboard: 'Início — Hospital de Amor',
+    'new-request': 'Nova Solicitação — Hospital de Amor',
+    'status-check': 'Acompanhar Agendamento — Hospital de Amor',
+    profile: 'Meu Perfil — Hospital de Amor',
+  };
+
+  useEffect(() => {
+    document.title = PAGE_TITLES[currentPage] ?? 'Hospital de Amor';
+  }, [currentPage]);
+
   const navigateTo = (path: string) => {
     setIsSidebarOpen(false);
     if (path.startsWith('status-')) {
@@ -75,8 +86,8 @@ function App() {
 
       <aside className={`w-64 bg-[#FFF0F6] dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800 flex flex-col shrink-0 p-5 fixed md:sticky inset-y-0 left-0 z-40 transform transition-transform duration-300 md:translate-x-0 md:h-screen ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex md:hidden justify-end mb-2">
-          <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)} className="h-8 w-8 hover:bg-zinc-200/40 rounded-lg">
-            <X className="w-5 h-5 text-zinc-500" />
+          <Button variant="ghost" size="icon" aria-label="Fechar menu lateral" onClick={() => setIsSidebarOpen(false)} className="h-8 w-8 hover:bg-zinc-200/40 rounded-lg">
+            <X className="w-5 h-5 text-zinc-500" aria-hidden="true" />
           </Button>
         </div>
 
@@ -85,7 +96,7 @@ function App() {
           className="flex items-center gap-3 pb-6 border-b border-zinc-200/60 dark:border-zinc-800 cursor-pointer hover:opacity-85 transition-opacity"
         >
           <div className="w-11 h-11 bg-primary/20 rounded-full overflow-hidden flex items-center justify-center border-2 border-primary/40 shrink-0">
-            <svg className="w-full h-full text-primary" viewBox="0 0 32 32">
+            <svg className="w-full h-full text-primary" viewBox="0 0 32 32" aria-hidden="true">
               <rect width="32" height="32" fill="#E80053" opacity="0.1" />
               <path d="M16,16 A4,4 0 0 1 12,12 A4,4 0 0 1 16,8 A4,4 0 0 1 20,12 A4,4 0 0 1 16,16 Z M16,18 C11.5,18 8,21.5 8,26 L24,26 C24,21.5 20.5,18 16,18 Z" fill="#E80053" />
             </svg>
@@ -174,13 +185,14 @@ function App() {
             <Button 
               variant="ghost" 
               size="icon" 
+              aria-label="Abrir menu lateral"
               onClick={() => setIsSidebarOpen(true)} 
               className="md:hidden text-zinc-500 hover:bg-zinc-100"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-5 h-5" aria-hidden="true" />
             </Button>
             <div className="flex items-center gap-2">
-              <Heart className="w-5 h-5 text-primary fill-current" />
+              <Heart className="w-5 h-5 text-primary fill-current" aria-hidden="true" />
               <span className="font-extrabold text-sm tracking-tight text-zinc-400 uppercase">Hospital de Amor</span>
             </div>
           </div>
@@ -193,7 +205,7 @@ function App() {
             <StatusCheck initialProtocol={selectedProtocol} onNavigate={navigateTo} />
           )}
           {currentPage === 'profile' && (
-            <Profile patientCpf={patientCpf} onLogout={handleLogout} />
+            <Profile patientCpf={patientCpf} onLogout={handleLogout} onNavigate={navigateTo} />
           )}
         </div>
       </main>
