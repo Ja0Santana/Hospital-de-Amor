@@ -5,7 +5,7 @@ import StatusCheck from './pages/patient/StatusCheck';
 import Profile from './pages/patient/Profile';
 import Login from './pages/Login';
 import { Button } from './components/ui/button';
-import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut } from 'lucide-react';
+import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X } from 'lucide-react';
 import { getUserByCpf } from './services/db';
 
 function App() {
@@ -15,6 +15,7 @@ function App() {
   const [patientId, setPatientId] = useState('');
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedProtocol, setSelectedProtocol] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const handleLoginSuccess = async (cpf: string) => {
     setPatientCpf(cpf);
@@ -38,6 +39,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    setIsSidebarOpen(false);
     setIsAuthenticated(false);
     setPatientCpf('');
     setPatientName('');
@@ -47,6 +49,7 @@ function App() {
   };
 
   const navigateTo = (path: string) => {
+    setIsSidebarOpen(false);
     if (path.startsWith('status-')) {
       const protocol = path.replace('status-', '');
       setSelectedProtocol(protocol);
@@ -62,8 +65,21 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex font-sans antialiased text-zinc-900 dark:text-zinc-50">
-      <aside className="w-64 bg-[#FFF0F6] dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800 flex flex-col shrink-0 sticky top-0 h-screen p-5">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex font-sans antialiased text-zinc-900 dark:text-zinc-50 overflow-x-hidden">
+      {isSidebarOpen && (
+        <div 
+          onClick={() => setIsSidebarOpen(false)}
+          className="fixed inset-0 bg-black/40 z-30 md:hidden animate-in fade-in"
+        />
+      )}
+
+      <aside className={`w-64 bg-[#FFF0F6] dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800 flex flex-col shrink-0 p-5 fixed md:sticky inset-y-0 left-0 z-40 transform transition-transform duration-300 md:translate-x-0 md:h-screen ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="flex md:hidden justify-end mb-2">
+          <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)} className="h-8 w-8 hover:bg-zinc-200/40 rounded-lg">
+            <X className="w-5 h-5 text-zinc-500" />
+          </Button>
+        </div>
+
         <div 
           onClick={() => navigateTo('profile')}
           className="flex items-center gap-3 pb-6 border-b border-zinc-200/60 dark:border-zinc-800 cursor-pointer hover:opacity-85 transition-opacity"
@@ -153,20 +169,24 @@ function App() {
       </aside>
 
       <main className="flex-1 min-w-0 bg-white dark:bg-zinc-950 min-h-screen overflow-y-auto">
-        <header className="h-16 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between px-8 bg-white/95 dark:bg-zinc-950/75 sticky top-0 z-10 backdrop-blur">
-          <div className="flex items-center gap-2">
-            <Heart className="w-5 h-5 text-primary fill-current" />
-            <span className="font-extrabold text-sm tracking-tight text-zinc-400 uppercase">Hospital de Amor</span>
-          </div>
-          <div className="flex items-center gap-4 text-xs font-semibold text-zinc-400">
-            <span className="flex items-center gap-1.5 text-[11px] text-green-600 bg-green-50 dark:bg-green-950/20 dark:text-green-400 px-2.5 py-1 rounded-full border border-green-200/30 dark:border-green-800/10">
-              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
-              LGPD
-            </span>
+        <header className="h-16 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 bg-white/95 dark:bg-zinc-950/75 sticky top-0 z-10 backdrop-blur">
+          <div className="flex items-center gap-2.5">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setIsSidebarOpen(true)} 
+              className="md:hidden text-zinc-500 hover:bg-zinc-100"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <div className="flex items-center gap-2">
+              <Heart className="w-5 h-5 text-primary fill-current" />
+              <span className="font-extrabold text-sm tracking-tight text-zinc-400 uppercase">Hospital de Amor</span>
+            </div>
           </div>
         </header>
 
-        <div className="p-8">
+        <div className="p-4 md:p-8">
           {currentPage === 'dashboard' && <Dashboard onNavigate={navigateTo} patientCpf={patientCpf} patientName={patientName} />}
           {currentPage === 'new-request' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
           {currentPage === 'status-check' && (
@@ -178,27 +198,6 @@ function App() {
         </div>
       </main>
     </div>
-  );
-}
-
-interface ShieldCheckProps extends React.SVGProps<SVGSVGElement> {}
-function ShieldCheck(props: ShieldCheckProps) {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M20 13c0 5-3.5 7.5-7.66 9.7a1 1 0 0 1-.68 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 .76-.97l8-2a1 1 0 0 1 .48 0l8 2A1 1 0 0 1 20 6z" />
-      <path d="m9 12 2 2 4-4" />
-    </svg>
   );
 }
 
