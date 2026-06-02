@@ -1,7 +1,7 @@
-import type { Specialty, City, Appointment, PatientUser } from '../types';
+import type { Specialty, City, Appointment, PatientUser, SymptomLog } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -85,6 +85,10 @@ export function initDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('users')) {
         db.createObjectStore('users', { keyPath: 'cpf' });
       }
+
+      if (!db.objectStoreNames.contains('symptoms_diary')) {
+        db.createObjectStore('symptoms_diary', { keyPath: 'id', autoIncrement: true });
+      }
     };
   }).then((db) => {
     return seedData(db);
@@ -93,11 +97,12 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
     const userStore = tx.objectStore('users');
+    const symptomStore = tx.objectStore('symptoms_diary');
 
     specStore.clear();
     cityStore.clear();
@@ -192,6 +197,57 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
           }
         ];
         mockApps.forEach((app) => appStore.put(app));
+      }
+    };
+
+    const symptomReq = symptomStore.getAll();
+    symptomReq.onsuccess = () => {
+      if (symptomReq.result.length === 0) {
+        const mockSymptoms = [
+          {
+            patientCpf: '12345678900',
+            mood: 'Bem',
+            symptoms: ['Fadiga'],
+            notes: 'Sentindo um cansaço leve à tarde.',
+            createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            patientCpf: '12345678900',
+            mood: 'Ótimo',
+            symptoms: [],
+            notes: 'Me senti muito bem hoje.',
+            createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            patientCpf: '12345678900',
+            mood: 'Razoável',
+            symptoms: ['Náusea', 'Falta de apetite'],
+            notes: 'Enjoo leve após a medicação.',
+            createdAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            patientCpf: '12345678900',
+            mood: 'Ruim',
+            symptoms: ['Náusea', 'Dor de cabeça'],
+            notes: 'Muita indisposição e dor de cabeça.',
+            createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            patientCpf: '12345678900',
+            mood: 'Razoável',
+            symptoms: ['Fadiga'],
+            notes: 'Cansaço diminuindo aos poucos.',
+            createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            patientCpf: '12345678900',
+            mood: 'Bem',
+            symptoms: [],
+            notes: 'Alimentação boa e sem enjoos.',
+            createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+          }
+        ];
+        mockSymptoms.forEach((s) => symptomStore.put(s));
       }
     };
 
@@ -426,5 +482,34 @@ export async function deleteUserAndAppointments(cpf: string): Promise<void> {
 
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function addSymptomLog(log: SymptomLog): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('symptoms_diary', 'readwrite');
+    const store = tx.objectStore('symptoms_diary');
+    const req = store.add(log);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getSymptomLogs(patientCpf: string): Promise<SymptomLog[]> {
+  const db = await initDb();
+  const cleanCpf = patientCpf.replace(/\D/g, "");
+  return new Promise<SymptomLog[]>((resolve, reject) => {
+    const tx = db.transaction('symptoms_diary', 'readonly');
+    const store = tx.objectStore('symptoms_diary');
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const results = (req.result || []) as SymptomLog[];
+      const filtered = results
+        .filter((log) => log.patientCpf.replace(/\D/g, "") === cleanCpf)
+        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      resolve(filtered);
+    };
+    req.onerror = () => reject(req.error);
   });
 }

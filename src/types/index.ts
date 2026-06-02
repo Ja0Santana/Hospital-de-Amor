@@ -59,3 +59,12 @@ export interface PatientUser {
   createdAt: string;
 }
 
+export interface SymptomLog {
+  id?: number;
+  patientCpf: string;
+  mood: string;
+  symptoms: string[];
+  notes: string;
+  createdAt: string;
+}
+
