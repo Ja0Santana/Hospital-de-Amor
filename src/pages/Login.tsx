@@ -236,7 +236,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
       <Card className="w-full max-w-4xl border-none shadow-2xl rounded-3xl overflow-hidden bg-white dark:bg-zinc-900 grid grid-cols-1 md:grid-cols-12 min-h-[520px] max-h-screen md:max-h-none overflow-y-auto md:overflow-visible">
-        <div className="hidden md:flex md:col-span-5 bg-gradient-to-br from-primary via-primary/95 to-[#A80053] p-8 text-white flex-col justify-between items-center text-center relative overflow-hidden">
+        <div className="hidden md:flex md:col-span-5 bg-gradient-to-br from-primary via-primary/95 to-[#A80053] p-8 text-white flex-col justify-between items-center text-center relative overflow-hidden md:rounded-l-3xl">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" aria-hidden="true"></div>
           
           <div className="flex flex-col items-center space-y-2 relative z-10 pt-8">
@@ -258,7 +258,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           </div>
         </div>
 
-        <div className="md:col-span-7 p-6 md:p-12 flex flex-col justify-center bg-white dark:bg-zinc-900">
+        <div className="md:col-span-7 p-6 md:p-12 flex flex-col justify-center bg-white dark:bg-zinc-900 md:rounded-r-3xl">
           <div className="flex md:hidden items-center gap-3 mb-6">
             <div className="bg-white p-1 rounded-xl flex items-center justify-center shadow-sm border border-zinc-100 w-12 h-12">
               <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
