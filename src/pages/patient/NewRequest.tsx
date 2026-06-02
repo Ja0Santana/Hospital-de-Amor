@@ -308,7 +308,7 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
               type="button"
               onClick={handleSubmit}
               disabled={loading}
-              className="h-11 px-6 bg-primary hover:bg-primary/95 text-white font-semibold rounded-xl"
+              className="h-11 px-6 bg-brand-pink hover:bg-brand-pink/95 text-white font-semibold rounded-xl shadow-md shadow-brand-pink/20"
             >
               {loading ? 'Enviando...' : 'Confirmar e Enviar'}
             </Button>

@@ -5,15 +5,16 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { formatCpf, validateCpf, formatPhone, sanitizeString } from '../lib/sanitizer';
-import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart } from 'lucide-react';
 import { authenticateUser, createUser, getUserByCpf, updateUserPassword } from '../services/db';
 import type { PatientUser } from '../types';
+import logoHospitalDeAmor from '../assets/logoHospitalDeAmor.png';
 
 interface LoginProps {
   onLoginSuccess: (cpf: string) => void;
 }
 
-type LoginView = 'login' | 'register' | 'forgot-password' | 'recovery-success' | 'simulated-inbox' | 'reset-password' | 'reset-success';
+type LoginView = 'login' | 'register' | 'forgot-password' | 'recovery-success' | 'simulated-inbox' | 'reset-password' | 'reset-success' | 'donor-coming-soon';
 
 export default function Login({ onLoginSuccess }: LoginProps) {
   const [view, setView] = useState<LoginView>('login');
@@ -236,12 +237,17 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
       <Card className="w-full max-w-4xl border-none shadow-2xl rounded-3xl overflow-hidden bg-white dark:bg-zinc-900 grid grid-cols-1 md:grid-cols-12 min-h-[520px] max-h-screen md:max-h-none overflow-y-auto md:overflow-visible">
-        <div className="hidden md:flex md:col-span-5 bg-gradient-to-br from-primary via-primary/95 to-[#A80053] p-8 text-white flex-col justify-between items-center text-center relative overflow-hidden md:rounded-l-3xl">
+        <div className="hidden md:flex md:col-span-5 bg-primary p-8 text-white flex-col justify-between items-center text-center relative overflow-hidden md:rounded-l-3xl">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" aria-hidden="true"></div>
           
           <div className="flex flex-col items-center space-y-2 relative z-10 pt-8">
             <div className="bg-white p-4 rounded-3xl shadow-lg border border-zinc-100 flex items-center justify-center w-28 h-28">
-              <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
+              <img src={logoHospitalDeAmor} alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
+            </div>
+            <div className="font-comfortaa font-bold text-sm tracking-wider text-white flex items-center select-none uppercase pt-2.5">
+              <span>Hospital de Am</span>
+              <Heart className="w-3.5 h-3.5 fill-brand-pink text-brand-pink inline mx-0.5" aria-hidden="true" />
+              <span>r</span>
             </div>
           </div>
 
@@ -261,13 +267,78 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         <div className="md:col-span-7 p-6 md:p-12 flex flex-col justify-center bg-white dark:bg-zinc-900 md:rounded-r-3xl">
           <div className="flex md:hidden items-center gap-3 mb-6">
             <div className="bg-white p-1 rounded-xl flex items-center justify-center shadow-sm border border-zinc-100 w-12 h-12">
-              <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
+              <img src={logoHospitalDeAmor} alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
             </div>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-widest text-primary">Hospital de Amor</p>
+              <div className="font-comfortaa font-bold text-xs tracking-wide text-primary flex items-center select-none uppercase">
+                <span>Hospital de Am</span>
+                <Heart className="w-3 h-3 fill-brand-pink text-brand-pink inline mx-0.5 -mt-0.5" aria-hidden="true" />
+                <span>r</span>
+              </div>
               <p className="text-[10px] text-zinc-400">Portal do Paciente</p>
             </div>
           </div>
+
+          {['login', 'register', 'forgot-password', 'donor-coming-soon'].includes(view) && (
+            <div className="flex border-b border-zinc-100 dark:border-zinc-800 mb-6">
+              <button
+                type="button"
+                onClick={() => navigateToView('login')}
+                className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${
+                  view !== 'donor-coming-soon'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                }`}
+              >
+                Portal do Paciente
+              </button>
+              <button
+                type="button"
+                onClick={() => navigateToView('donor-coming-soon')}
+                className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${
+                  view === 'donor-coming-soon'
+                    ? 'border-secondary text-secondary'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
+                }`}
+              >
+                Portal do Doador
+              </button>
+            </div>
+          )}
+
+          {view === 'donor-coming-soon' && (
+            <div className="space-y-6 py-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                  <Heart className="w-8 h-8 fill-secondary/20" aria-hidden="true" />
+                </div>
+                <div className="space-y-2">
+                  <h1 className="text-2xl font-comfortaa font-bold tracking-tight text-zinc-900 dark:text-zinc-50 uppercase">
+                    Portal do Doador
+                  </h1>
+                  <p className="text-xs font-semibold text-secondary uppercase tracking-widest">
+                    Em Breve / Em Desenvolvimento
+                  </p>
+                </div>
+                <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed max-w-md">
+                  A ala exclusiva para doadores e parceiros do Hospital de Amor está sendo construída.
+                  Neste espaço, você poderá realizar doações de forma rápida via Pix, Cartão ou Criptomoedas,
+                  acompanhar seu nível de doador (Bronze, Prata e Ouro), acumular pontos de fidelidade e
+                  enviar mensagens de apoio que serão transmitidas diretamente no hospital.
+                </p>
+              </div>
+
+              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-center">
+                <Button
+                  onClick={() => navigateToView('login')}
+                  className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-6 rounded-2xl shadow-lg shadow-primary/20 text-xs transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  Voltar para o Portal do Paciente
+                </Button>
+              </div>
+            </div>
+          )}
+
           {view === 'login' && (
             <div className="space-y-6">
               <div className="space-y-2">
@@ -324,7 +395,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-12 rounded-2xl shadow-lg shadow-primary/20 text-sm transition-transform active:scale-[0.98]"
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-12 rounded-2xl shadow-lg shadow-brand-pink/20 text-sm transition-transform active:scale-[0.98]"
                 >
                   {loading ? 'Entrando...' : 'Entrar no Portal'}
                 </Button>
@@ -484,7 +555,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-primary/20 text-xs transition-transform active:scale-[0.98] mt-2"
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform active:scale-[0.98] mt-2"
                 >
                   {loading ? 'Criando Conta...' : 'Criar Conta'}
                 </Button>
@@ -533,7 +604,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-12 rounded-2xl shadow-lg shadow-primary/20 text-sm transition-transform active:scale-[0.98]"
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-12 rounded-2xl shadow-lg shadow-brand-pink/20 text-sm transition-transform active:scale-[0.98]"
                 >
                   {loading ? 'Verificando...' : 'Recuperar Senha'}
                 </Button>
@@ -566,7 +637,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 <Button
                   type="button"
                   onClick={() => navigateToView('simulated-inbox')}
-                  className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-primary/20 text-xs transition-transform active:scale-[0.98]"
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform active:scale-[0.98]"
                 >
                   Abrir Simulador de E-mail
                 </Button>
@@ -603,7 +674,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 </div>
                 <div className="p-6 bg-white dark:bg-zinc-950 flex flex-col items-center text-center space-y-4 text-xs">
                   <div className="bg-white p-1.5 rounded-xl flex items-center justify-center shadow-sm border border-zinc-100 w-12 h-12">
-                    <img src="/logoHospitalDeAmor.png" alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
+                    <img src={logoHospitalDeAmor} alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
                   </div>
                   <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Recuperação de Senha</h2>
                   <p className="text-zinc-500 leading-relaxed max-w-sm">
@@ -674,7 +745,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-primary/20 text-xs transition-transform active:scale-[0.98]"
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform active:scale-[0.98]"
                 >
                   {loading ? 'Salvando...' : 'Salvar Nova Senha'}
                 </Button>
