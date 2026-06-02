@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
 import { getAppointmentByCpf } from '../../services/db';
 import type { Appointment } from '../../types';
-import { formatCpf } from '../../lib/sanitizer';
 import { Search, AlertCircle, CheckCircle2, Clock, XCircle, Info, ChevronRight, FileText } from 'lucide-react';
 
 interface DashboardProps {
@@ -14,32 +12,29 @@ interface DashboardProps {
   patientName: string;
 }
 
+function formatNextEventDate(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 3);
+  return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+function getNextEventIsoDate(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 3);
+  return date.toISOString().split('T')[0];
+}
+
 export default function Dashboard({ onNavigate, patientCpf, patientName }: DashboardProps) {
-  const [cpfQuery, setCpfQuery] = useState(patientCpf);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [searched, setSearched] = useState(false);
 
   useEffect(() => {
-    handleAutoSearch();
+    loadAppointments();
   }, [patientCpf]);
 
-  const handleAutoSearch = async () => {
+  const loadAppointments = async () => {
     try {
       const results = await getAppointmentByCpf(patientCpf);
       setAppointments(results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-      setSearched(true);
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!cpfQuery) return;
-    try {
-      const results = await getAppointmentByCpf(cpfQuery);
-      setAppointments(results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-      setSearched(true);
     } catch (error) {
       console.error(error);
     }
@@ -55,7 +50,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
     const { color, icon: Icon } = config[status] || config['Pendente'];
     return (
       <Badge variant="outline" className={`${color} flex items-center gap-1 w-fit px-2.5 py-0.5 font-semibold text-[11px] rounded-full`}>
-        <Icon className="w-3 h-3" />
+        <Icon className="w-3 h-3" aria-hidden="true" />
         {status}
       </Badge>
     );
@@ -69,7 +64,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <Card className="lg:col-span-2 bg-primary text-white border-none shadow-lg rounded-3xl p-6 flex flex-col justify-between h-[210px]">
+        <Card className="lg:col-span-2 bg-primary text-white border-none shadow-lg rounded-3xl p-6 flex flex-col justify-between min-h-[190px]">
           <div className="space-y-2">
             <h2 className="text-2xl font-black tracking-tight">Iniciar nova solicitação</h2>
             <p className="text-white/80 text-sm max-w-[210px] leading-snug">
@@ -81,29 +76,29 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
             className="w-full bg-white hover:bg-white/90 text-primary font-bold h-12 rounded-2xl flex items-center justify-between px-5 shadow-md shadow-black/10 transition-transform active:scale-[0.98] group"
           >
             <span>INICIAR</span>
-            <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" aria-hidden="true" />
           </Button>
         </Card>
 
-        <Card className="lg:col-span-3 border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 flex flex-col sm:flex-row h-[210px]">
+        <Card className="lg:col-span-3 border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 flex flex-row min-h-[190px]">
           <div className="flex-1 p-6 flex flex-col justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-primary">Próximo Evento</span>
-              <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-50">Consulta de Retorno - Oncologia</h3>
+              <h2 className="text-[10px] font-bold uppercase tracking-wider text-primary">Próximo Evento</h2>
+              <p className="text-lg font-black text-zinc-900 dark:text-zinc-50 leading-tight">Consulta de Retorno - Oncologia</p>
             </div>
-            <div className="space-y-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+            <div className="space-y-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-3">
               <p className="flex items-center gap-1.5 font-medium">
-                <Clock className="w-4 h-4 text-primary shrink-0" />
-                15 de Maio, 2026 às 14:30
+                <Clock className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+                <time dateTime={getNextEventIsoDate()}>{formatNextEventDate()} às 14:30</time>
               </p>
               <p className="flex items-center gap-1.5 font-medium">
-                <MapPin className="w-4 h-4 text-primary shrink-0" />
+                <MapPin className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
                 Unidade Barretos - Ala B, Consultório 4
               </p>
             </div>
           </div>
-          <div className="w-full sm:w-[180px] bg-[#FFF0F6] dark:bg-zinc-900/30 flex items-center justify-center p-4 shrink-0 border-l border-zinc-100 dark:border-zinc-800">
-            <svg className="w-full h-full text-primary max-h-[140px]" viewBox="0 0 160 120" fill="none">
+          <div className="hidden sm:flex w-[160px] bg-[#FFF0F6] dark:bg-zinc-900/30 items-center justify-center p-4 shrink-0 border-l border-zinc-100 dark:border-zinc-800">
+            <svg className="w-full h-full text-primary max-h-[130px]" viewBox="0 0 160 120" fill="none" aria-hidden="true">
               <circle cx="130" cy="30" r="10" fill="#FFB703" />
               <path d="M125,45 a6,6 0 0,1 12,0 a4,4 0 0,1 8,0 a2,2 0 0,1 2,2 a4,4 0 0,1 -4,4 h-16 a4,4 0 0,1 -2,-6" fill="white" opacity="0.9" />
               <rect x="25" y="45" width="110" height="65" rx="6" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
@@ -125,79 +120,63 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2 shadow-sm border-zinc-200/80 dark:border-zinc-800 rounded-3xl">
-          <CardHeader className="pb-3 flex flex-row items-center justify-between gap-4">
-            <div>
-              <CardTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                <Search className="w-5 h-5 text-primary" />
-                Pedidos recentes
-              </CardTitle>
-              <CardDescription>Acompanhe a situação dos seus últimos pedidos encaminhados.</CardDescription>
-            </div>
-            <div className="relative w-44">
-              <form onSubmit={handleSearch}>
-                <Input
-                  type="text"
-                  placeholder="Buscar CPF..."
-                  value={formatCpf(cpfQuery)}
-                  onChange={(e) => setCpfQuery(e.target.value)}
-                  maxLength={14}
-                  className="h-8 pl-8 pr-2 text-xs border-zinc-200 focus-visible:ring-primary rounded-lg"
-                />
-                <Search className="absolute left-2.5 top-2.5 w-3 h-3 text-zinc-400" />
-              </form>
-            </div>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-xl font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+              <Search className="w-5 h-5 text-primary" aria-hidden="true" />
+              <h2 className="text-xl font-bold">Pedidos recentes</h2>
+            </CardTitle>
+            <CardDescription>Acompanhe a situação dos seus últimos pedidos encaminhados.</CardDescription>
           </CardHeader>
           <CardContent className="pt-2">
-            {searched && (
-              <div className="space-y-4">
+            <div className="space-y-4">
                 {appointments.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800">
                     <AlertCircle className="w-8 h-8 text-zinc-400 mb-2" />
                     <p className="font-semibold text-zinc-600 dark:text-zinc-400">Nenhum agendamento encontrado.</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <ul className="space-y-3 list-none">
                     {appointments.map((app) => (
-                      <div
+                      <li
                         key={app.id}
                         className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900/30 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-xs hover:border-primary/30 transition-all gap-4"
                       >
                         <div className="space-y-1">
-                          <h4 className="text-sm font-bold text-zinc-950 dark:text-zinc-50">{app.examName}</h4>
-                          <span className="text-[10px] text-zinc-400 block">Solicitado em {new Date(app.createdAt).toLocaleDateString('pt-BR')} • Protocolo: {app.protocol}</span>
+                          <h3 className="text-sm font-bold text-zinc-950 dark:text-zinc-50">{app.examName}</h3>
+                          <span className="text-[10px] text-zinc-400 block">Solicitado em <time dateTime={app.createdAt.split('T')[0]}>{new Date(app.createdAt).toLocaleDateString('pt-BR')}</time> • Protocolo: {app.protocol}</span>
                         </div>
                         <div className="flex items-center gap-3">
                           {getStatusBadge(app.status)}
                           <Button
                             variant="ghost"
                             size="icon"
+                            aria-label={`Ver detalhes do agendamento ${app.protocol}`}
                             onClick={() => onNavigate(`status-${app.protocol}`)}
                             className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
                           >
-                            <ChevronRight className="w-4 h-4 text-zinc-400" />
+                            <ChevronRight className="w-4 h-4 text-zinc-400" aria-hidden="true" />
                           </Button>
                         </div>
-                      </div>
+                      </li>
                     ))}
-                  </div>
+                  </ul>
                 )}
-              </div>
-            )}
+            </div>
           </CardContent>
         </Card>
 
         <Card className="shadow-sm border-zinc-200/80 dark:border-zinc-800 rounded-3xl bg-zinc-50/20 dark:bg-zinc-900/10">
           <CardHeader>
             <CardTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-              <Info className="w-5 h-5 text-primary" />
-              Instruções
+              <Info className="w-5 h-5 text-primary" aria-hidden="true" />
+              <h2 className="text-lg font-bold">Instruções</h2>
             </CardTitle>
             <CardDescription>Informações importantes sobre seu preparo e comparecimento.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-xs flex gap-3">
-              <div className="p-2 bg-yellow-50 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400 rounded-xl h-fit">
-                <Clock className="w-4 h-4" />
+              <div className="p-2 bg-yellow-50 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400 rounded-xl h-fit" aria-hidden="true">
+                <Clock className="w-4 h-4" aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-zinc-800 dark:text-zinc-200">Preparo para Exame</h4>
@@ -208,8 +187,8 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
             </div>
 
             <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-xs flex gap-3">
-              <div className="p-2 bg-primary/10 text-primary rounded-xl h-fit">
-                <FileText className="w-4 h-4" />
+              <div className="p-2 bg-primary/10 text-primary rounded-xl h-fit" aria-hidden="true">
+                <FileText className="w-4 h-4" aria-hidden="true" />
               </div>
               <div className="space-y-1">
                 <h4 className="font-bold text-xs text-zinc-800 dark:text-zinc-200">Documentos Necessários</h4>

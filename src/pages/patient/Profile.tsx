@@ -6,18 +6,19 @@ import { Label } from '../../components/ui/label';
 import { Checkbox } from '../../components/ui/checkbox';
 import { formatPhone, formatCpf } from '../../lib/sanitizer';
 import { getUserByCpf, updatePatientUser, deleteUserAndAppointments, getAppointmentByCpf, updateUserPassword } from '../../services/db';
-import type { PatientUser } from '../../types';
+import type { PatientUser, Appointment } from '../../types';
 import { 
   User, Lock, Mail, Phone, Calendar, MapPin, Download, Trash2, 
-  Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck 
+  Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck
 } from 'lucide-react';
 
 interface ProfileProps {
   patientCpf: string;
   onLogout: () => void;
+  onNavigate: (page: string) => void;
 }
 
-export default function Profile({ patientCpf, onLogout }: ProfileProps) {
+export default function Profile({ patientCpf, onLogout, onNavigate }: ProfileProps) {
   const [user, setUser] = useState<PatientUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -40,6 +41,8 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
   const [isWhatsappNotify, setIsWhatsappNotify] = useState(true);
 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [openAppointments, setOpenAppointments] = useState<Appointment[]>([]);
 
   const auditLogs = [
     { date: 'Hoje', time: '20:15', action: 'Autenticação', desc: 'Login efetuado com sucesso no portal.' },
@@ -186,6 +189,25 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
     }
   };
 
+  const OPEN_STATUSES: Appointment['status'][] = ['Pendente', 'Em análise', 'Confirmado'];
+
+  const handleRequestDelete = async () => {
+    try {
+      const cleanCpf = patientCpf.replace(/\D/g, "");
+      const allAppointments = await getAppointmentByCpf(cleanCpf);
+      const pendingOnes = allAppointments.filter((a) => OPEN_STATUSES.includes(a.status));
+      if (pendingOnes.length > 0) {
+        setOpenAppointments(pendingOnes);
+        setShowBlockedModal(true);
+      } else {
+        setShowDeleteModal(true);
+      }
+    } catch (err) {
+      console.error(err);
+      setShowDeleteModal(true);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div>
@@ -197,7 +219,7 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
         <div className="lg:col-span-8 space-y-8">
           <Card className="border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
             <div className="bg-zinc-50 dark:bg-zinc-900/40 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
-              <User className="w-5 h-5 text-primary" />
+              <User className="w-5 h-5 text-primary" aria-hidden="true" />
               <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">Dados do Paciente</h2>
             </div>
             <CardContent className="p-6">
@@ -230,7 +252,7 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
                     <Label className="text-xs font-semibold text-zinc-500">Data de Nascimento</Label>
                     <div className="relative">
                       <Input value={user ? new Date(user.birthDate + 'T00:00:00').toLocaleDateString('pt-BR') : ''} disabled className="pl-9 bg-zinc-50 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 text-zinc-500 rounded-xl" />
-                      <Calendar className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <Calendar className="absolute left-3 top-3 w-4 h-4 text-zinc-400" aria-hidden="true" />
                     </div>
                   </div>
 
@@ -238,7 +260,7 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
                     <Label htmlFor="email" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">E-mail de Contato</Label>
                     <div className="relative">
                       <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-9 border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl" />
-                      <Mail className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <Mail className="absolute left-3 top-3 w-4 h-4 text-zinc-400" aria-hidden="true" />
                     </div>
                   </div>
 
@@ -246,7 +268,7 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
                     <Label htmlFor="phone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Telefone Principal</Label>
                     <div className="relative">
                       <Input id="phone" type="text" value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} maxLength={15} className="pl-9 border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl" />
-                      <Phone className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <Phone className="absolute left-3 top-3 w-4 h-4 text-zinc-400" aria-hidden="true" />
                     </div>
                   </div>
 
@@ -254,7 +276,7 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
                     <Label htmlFor="state" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Estado (UF)</Label>
                     <div className="relative">
                       <Input id="state" type="text" value={state} onChange={(e) => setState(e.target.value)} className="pl-9 border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl" />
-                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-zinc-400" aria-hidden="true" />
                     </div>
                   </div>
 
@@ -262,7 +284,7 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
                     <Label htmlFor="city" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Cidade</Label>
                     <div className="relative">
                       <Input id="city" type="text" value={city} onChange={(e) => setCity(e.target.value)} className="pl-9 border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl" />
-                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <MapPin className="absolute left-3 top-3 w-4 h-4 text-zinc-400" aria-hidden="true" />
                     </div>
                   </div>
                 </div>
@@ -278,7 +300,7 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
 
           <Card className="border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
             <div className="bg-zinc-50 dark:bg-zinc-900/40 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
-              <Lock className="w-5 h-5 text-primary" />
+              <Lock className="w-5 h-5 text-primary" aria-hidden="true" />
               <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">Alterar Senha de Acesso</h2>
             </div>
             <CardContent className="p-6">
@@ -326,7 +348,7 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
         <div className="lg:col-span-4 space-y-8">
           <Card className="border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
             <div className="bg-zinc-50 dark:bg-zinc-900/40 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
-              <Bell className="w-5 h-5 text-primary" />
+              <Bell className="w-5 h-5 text-primary" aria-hidden="true" />
               <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">Alertas e Notificações</h2>
             </div>
             <CardContent className="p-6 space-y-4">
@@ -359,13 +381,13 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
 
           <Card className="border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
             <div className="bg-zinc-50 dark:bg-zinc-900/40 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-primary" />
+              <Shield className="w-5 h-5 text-primary" aria-hidden="true" />
               <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">Painel LGPD e Privacidade</h2>
             </div>
             <CardContent className="p-6 space-y-5">
               <div className="bg-blue-50/20 dark:bg-blue-950/10 border border-blue-200/30 dark:border-blue-800/20 p-4 rounded-2xl space-y-2 text-xs leading-normal">
                 <p className="text-zinc-700 dark:text-zinc-400 font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  <ShieldCheck className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" aria-hidden="true" />
                   Controle de Consentimento:
                 </p>
                 <p className="text-[11px] text-zinc-500 leading-relaxed">
@@ -380,17 +402,17 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
                   variant="outline" 
                   className="w-full h-11 border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900 font-bold rounded-xl gap-2 text-xs"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-4 h-4" aria-hidden="true" />
                   Exportar Meus Dados (JSON)
                 </Button>
 
                 <Button 
-                  onClick={() => setShowDeleteModal(true)} 
+                  onClick={handleRequestDelete} 
                   type="button" 
                   variant="ghost" 
                   className="w-full h-11 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 text-zinc-500 font-bold rounded-xl gap-2 text-xs"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
                   Excluir Meu Cadastro
                 </Button>
               </div>
@@ -399,26 +421,78 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
 
           <Card className="border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
             <div className="bg-zinc-50 dark:bg-zinc-900/40 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
-              <History className="w-5 h-5 text-primary" />
+              <History className="w-5 h-5 text-primary" aria-hidden="true" />
               <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">Log de Auditoria LGPD</h2>
             </div>
             <CardContent className="p-6">
               <p className="text-[11px] text-zinc-500 leading-normal mb-3">Histórico de ações de processamento sobre suas informações pessoais:</p>
-              <div className="space-y-3">
+              <ol className="space-y-3 list-none">
                 {auditLogs.map((log, idx) => (
-                  <div key={idx} className="flex gap-2.5 text-xs">
-                    <div className="text-zinc-400 font-mono text-[10px] shrink-0 pt-0.5">{log.date} às {log.time}</div>
+                  <li key={idx} className="flex gap-2.5 text-xs">
+                    <time className="text-zinc-400 font-mono text-[10px] shrink-0 pt-0.5">{log.date} às {log.time}</time>
                     <div className="space-y-0.5">
                       <div className="font-bold text-zinc-800 dark:text-zinc-200 text-[11px]">{log.action}</div>
                       <div className="text-[10px] text-zinc-500 leading-normal">{log.desc}</div>
                     </div>
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ol>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {showBlockedModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5">
+            <div className="flex gap-3 items-start">
+              <div className="p-2.5 bg-yellow-100 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400 rounded-full shrink-0 border border-yellow-200/20">
+                <AlertTriangle className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-50">Você tem eventos em aberto</h3>
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  Não é possível excluir sua conta enquanto houver consultas ou exames pendentes. Resolva os itens abaixo antes de continuar.
+                </p>
+              </div>
+            </div>
+
+            <ul className="space-y-2 list-none max-h-48 overflow-y-auto">
+              {openAppointments.map((app) => (
+                <li key={app.id} className="flex items-center justify-between gap-3 p-3 bg-zinc-50 dark:bg-zinc-900/40 rounded-xl border border-zinc-100 dark:border-zinc-800 text-xs">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-zinc-800 dark:text-zinc-200">{app.examName}</p>
+                    <p className="text-zinc-400 text-[10px]">Protocolo: {app.protocol}</p>
+                  </div>
+                  <span className={`shrink-0 font-semibold text-[10px] px-2 py-0.5 rounded-full border ${
+                    app.status === 'Confirmado' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400' :
+                    app.status === 'Em análise' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400' :
+                    'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/20 dark:text-yellow-400'
+                  }`}>{app.status}</span>
+                </li>
+              ))}
+            </ul>
+
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowBlockedModal(false)}
+                className="h-10 px-4 border-zinc-200 dark:border-zinc-800 rounded-xl font-bold text-xs"
+              >
+                Fechar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => { setShowBlockedModal(false); onNavigate('status-check'); }}
+                className="h-10 px-5 bg-primary hover:bg-primary/95 text-white rounded-xl font-bold text-xs shadow-md"
+              >
+                Ver Meus Agendamentos
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in">
@@ -428,9 +502,9 @@ export default function Profile({ patientCpf, onLogout }: ProfileProps) {
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="font-extrabold text-lg text-zinc-900 dark:text-zinc-50">Tem certeza absoluta?</h3>
+                <h3 className="font-extrabold text-lg text-zinc-900 dark:text-zinc-50">Excluir conta?</h3>
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  Ao confirmar a exclusão do cadastro, sua conta de acesso e **todos os seus agendamentos, protocolos e arquivos de exames enviados** serão apagados permanentemente do banco de dados local (IndexedDB) em conformidade com o seu direito de exclusão da LGPD. Esta ação não poderá ser desfeita.
+                  Ao confirmar, seu acesso ao portal será encerrado e todo o seu histórico de agendamentos e exames será removido. Você precisará criar uma nova conta caso queira utilizar o serviço novamente.
                 </p>
               </div>
             </div>

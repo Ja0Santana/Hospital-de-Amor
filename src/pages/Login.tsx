@@ -235,13 +235,13 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
-      <Card className="w-full max-w-4xl border-none shadow-2xl rounded-3xl overflow-hidden bg-white dark:bg-zinc-900 grid grid-cols-1 md:grid-cols-12 min-h-[520px]">
-        <div className="md:col-span-5 bg-gradient-to-br from-primary via-primary/95 to-[#A80053] p-8 text-white flex flex-col justify-between items-center text-center relative overflow-hidden">
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+      <Card className="w-full max-w-4xl border-none shadow-2xl rounded-3xl overflow-hidden bg-white dark:bg-zinc-900 grid grid-cols-1 md:grid-cols-12 min-h-[520px] max-h-screen md:max-h-none overflow-y-auto md:overflow-visible">
+        <div className="hidden md:flex md:col-span-5 bg-gradient-to-br from-primary via-primary/95 to-[#A80053] p-8 text-white flex-col justify-between items-center text-center relative overflow-hidden">
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" aria-hidden="true"></div>
           
           <div className="flex flex-col items-center space-y-2 relative z-10 pt-8">
             <div className="w-14 h-14 bg-white/10 backdrop-blur rounded-2xl flex items-center justify-center shadow-lg border border-white/20">
-              <Heart className="w-8 h-8 fill-current text-white" />
+              <Heart className="w-8 h-8 fill-current text-white" aria-hidden="true" />
             </div>
             <h2 className="text-xl font-black tracking-tight mt-2 uppercase">Hospital de Amor</h2>
           </div>
@@ -254,12 +254,21 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           </div>
 
           <div className="text-[10px] text-white/50 flex items-center gap-1 relative z-10 pb-4">
-            <ShieldCheck className="w-3.5 h-3.5" />
+            <ShieldCheck className="w-3.5 h-3.5" aria-hidden="true" />
             <span>Portal Seguro LGPD</span>
           </div>
         </div>
 
-        <div className="md:col-span-7 p-8 md:p-12 flex flex-col justify-center bg-white dark:bg-zinc-900 overflow-y-auto max-h-[650px]">
+        <div className="md:col-span-7 p-6 md:p-12 flex flex-col justify-center bg-white dark:bg-zinc-900">
+          <div className="flex md:hidden items-center gap-3 mb-6">
+            <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-md">
+              <Heart className="w-5 h-5 fill-current text-white" aria-hidden="true" />
+            </div>
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-primary">Hospital de Amor</p>
+              <p className="text-[10px] text-zinc-400">Portal do Paciente</p>
+            </div>
+          </div>
           {view === 'login' && (
             <div className="space-y-6">
               <div className="space-y-2">
@@ -288,7 +297,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                         maxLength={14}
                         className="pl-10 h-11 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl"
                       />
-                      <User className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" />
+                      <User className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" aria-hidden="true" />
                     </div>
                   </div>
 
@@ -308,7 +317,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                         onChange={(e) => setPassword(e.target.value)}
                         className="pl-10 h-11 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl"
                       />
-                      <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" />
+                      <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" aria-hidden="true" />
                     </div>
                   </div>
                 </div>
@@ -334,8 +343,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           {view === 'register' && (
             <div className="space-y-6">
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" onClick={() => navigateToView('login')} className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
-                  <ChevronLeft className="w-4 h-4 text-zinc-500" />
+                <Button variant="ghost" size="icon" aria-label="Voltar ao login" onClick={() => navigateToView('login')} className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
+                  <ChevronLeft className="w-4 h-4 text-zinc-500" aria-hidden="true" />
                 </Button>
                 <span className="text-xs font-semibold text-zinc-500">Voltar ao Login</span>
               </div>
@@ -487,8 +496,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           {view === 'forgot-password' && (
             <div className="space-y-6">
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" onClick={() => navigateToView('login')} className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
-                  <ChevronLeft className="w-4 h-4 text-zinc-500" />
+                <Button variant="ghost" size="icon" aria-label="Voltar ao login" onClick={() => navigateToView('login')} className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
+                  <ChevronLeft className="w-4 h-4 text-zinc-500" aria-hidden="true" />
                 </Button>
                 <span className="text-xs font-semibold text-zinc-500">Voltar ao Login</span>
               </div>
@@ -576,8 +585,8 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           {view === 'simulated-inbox' && (
             <div className="space-y-6">
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" onClick={() => navigateToView('recovery-success')} className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
-                  <ChevronLeft className="w-4 h-4 text-zinc-500" />
+                <Button variant="ghost" size="icon" aria-label="Voltar à confirmação de e-mail" onClick={() => navigateToView('recovery-success')} className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
+                  <ChevronLeft className="w-4 h-4 text-zinc-500" aria-hidden="true" />
                 </Button>
                 <span className="text-xs font-semibold text-zinc-500">Voltar à Confirmação</span>
               </div>
@@ -595,7 +604,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                 </div>
                 <div className="p-6 bg-white dark:bg-zinc-950 flex flex-col items-center text-center space-y-4 text-xs">
                   <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center text-primary">
-                    <Heart className="w-5 h-5 fill-current" />
+                    <Heart className="w-5 h-5 fill-current" aria-hidden="true" />
                   </div>
                   <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Recuperação de Senha</h2>
                   <p className="text-zinc-500 leading-relaxed max-w-sm">
