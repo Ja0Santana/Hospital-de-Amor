@@ -39,6 +39,15 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **RF20 – Cancelar Solicitação (Must Have)**: Permite que o paciente cancele solicitações ativas diretamente no Portal, registrando o motivo e gerando os devidos logs.
 *   **RF39 – Visualizar Detalhes e Instruções (Must Have)**: Detalhes de consultas confirmadas e instruções específicas disponíveis para visualização ou impressão.
 *   **RF41 – Coletar Feedback do Paciente (Could Have)**: Pesquisa de satisfação NPS (0 a 10) e caixa de comentário obrigatório salvos no IndexedDB de forma integrada.
+*   **RF67 – Diário de Sintomas e Bem-estar (Must Have)**: Painel diário para registro clínico e de humor do paciente.
+    *   **Registro Completo**: Permite informar humor diário via escala de emojis (Péssimo a Ótimo), selecionar sintomas frequentes (Náusea, Fadiga, Dor de cabeça, etc.) ou sintomas personalizados, além de notas de texto salvas no IndexedDB.
+    *   **Gráfico de Evolução Dinâmico**: Visualização da evolução da saúde nos últimos 7 dias renderizada em tempo real através de um gráfico de área e linha SVG dinâmico e interativo (com sementeira automática de histórico).
+    *   **Widget Flutuante de Registro Rápido**: Lembrete fixado no canto inferior direito (`fixed bottom-6 right-6`) que permite preencher o diário a partir de qualquer tela do portal. O widget é ocultado na tela principal do diário para evitar redundância.
+    *   **Bloqueio e Desbloqueio Inteligente**: Bloqueia o preenchimento duplicado exibindo a mensagem *"Volte todo dia para manter seu status atualizado"*, mas oferece um botão de destravamento manual se o paciente passar mal e precisar registrar outro status no mesmo dia.
+
+### Identidade Visual, Tipografia e Acessos
+*   **Seletor de Portal no Login**: Adicionado um seletor visual por abas no cabeçalho do login que divide o acesso entre "Portal do Paciente" (fluxo principal) e "Portal do Doador" (exibindo uma tela informativa de "Em Breve" detalhando os futuros recursos).
+*   **Tipografia Institucional Comfortaa**: Importada e configurada a fonte geométrica **Comfortaa** para todos os textos nominativos de marca (`HOSPITAL DE AM♥R`), aplicando o coração rosa choque no lugar da letra "O", perfeitamente alinhada à identidade visual e logotipo oficial.
 
 ### Segurança, Privacidade e LGPD
 *   **RNF45 – Garantir Conformidade LGPD (Must Have)**: Checkboxes destacados de consentimento de dados de saúde no cadastro e no envio de exames.
