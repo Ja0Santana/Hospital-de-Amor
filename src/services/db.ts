@@ -1,7 +1,7 @@
-import type { Specialty, City, Appointment, PatientUser, SymptomLog } from '../types';
+import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -98,6 +98,10 @@ export function initDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('login_attempts')) {
         db.createObjectStore('login_attempts', { keyPath: 'cpf' });
       }
+
+      if (!db.objectStoreNames.contains('clinical_history')) {
+        db.createObjectStore('clinical_history', { keyPath: 'id', autoIncrement: true });
+      }
     };
   }).then((db) => {
     return seedData(db);
@@ -106,12 +110,13 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
     const userStore = tx.objectStore('users');
     const symptomStore = tx.objectStore('symptoms_diary');
+    const clinicalStore = tx.objectStore('clinical_history');
 
     specStore.clear();
     cityStore.clear();
@@ -260,6 +265,43 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
       }
     };
 
+    const clinicalReq = clinicalStore.getAll();
+    clinicalReq.onsuccess = () => {
+      if (clinicalReq.result.length === 0) {
+        const mockHistory = [
+          {
+            patientCpf: '12345678900',
+            title: 'Laudo de Ultrassonografia Mamária',
+            type: 'Laudo',
+            date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            specialtyName: 'Mastologia',
+            fileAttachment: {
+              name: 'ultrassonografia_mama_fleury.pdf',
+              type: 'application/pdf',
+              size: 1250000,
+              base64: 'data:application/pdf;base64,JVBERi0xLjQKJ...'
+            },
+            createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+          },
+          {
+            patientCpf: '12345678900',
+            title: 'Hemograma Completo',
+            type: 'Exame',
+            date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            specialtyName: 'Hematologia',
+            fileAttachment: {
+              name: 'hemograma_sirio_libanes.pdf',
+              type: 'application/pdf',
+              size: 850000,
+              base64: 'data:application/pdf;base64,JVBERi0xLjQKJ...'
+            },
+            createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
+          }
+        ];
+        mockHistory.forEach((record) => clinicalStore.put(record));
+      }
+    };
+
     tx.oncomplete = () => resolve(db);
     tx.onerror = () => reject(tx.error);
   });
@@ -382,6 +424,17 @@ export async function getAppointmentByCpf(cpf: string): Promise<Appointment[]> {
   });
 }
 
+export async function updateAppointment(appointment: Appointment): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('appointments', 'readwrite');
+    const store = tx.objectStore('appointments');
+    const request = store.put(appointment);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 export async function getUserByCpf(cpf: string): Promise<PatientUser | null> {
   const db = await initDb();
   const cleanCpf = cpf.replace(/\D/g, "");
@@ -473,10 +526,12 @@ export async function updatePatientUser(cpf: string, data: Partial<Omit<PatientU
 export async function deleteUserAndAppointments(cpf: string): Promise<void> {
   const db = await initDb();
   const cleanCpf = cpf.replace(/\D/g, "");
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(['users', 'appointments'], 'readwrite');
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['users', 'appointments', 'symptoms_diary', 'clinical_history'], 'readwrite');
     const userStore = tx.objectStore('users');
     const appStore = tx.objectStore('appointments');
+    const symptomStore = tx.objectStore('symptoms_diary');
+    const clinicalStore = tx.objectStore('clinical_history');
 
     userStore.delete(cleanCpf);
 
@@ -486,6 +541,24 @@ export async function deleteUserAndAppointments(cpf: string): Promise<void> {
       const userApps = apps.filter((app: any) => app.patientCpf.replace(/\D/g, "") === cleanCpf);
       userApps.forEach((app: any) => {
         appStore.delete(app.id);
+      });
+    };
+
+    const symReq = symptomStore.getAll();
+    symReq.onsuccess = () => {
+      const syms = symReq.result || [];
+      const userSyms = syms.filter((sym: any) => sym.patientCpf.replace(/\D/g, "") === cleanCpf);
+      userSyms.forEach((sym: any) => {
+        symptomStore.delete(sym.id);
+      });
+    };
+
+    const clinReq = clinicalStore.getAll();
+    clinReq.onsuccess = () => {
+      const clins = clinReq.result || [];
+      const userClins = clins.filter((clin: any) => clin.patientCpf.replace(/\D/g, "") === cleanCpf);
+      userClins.forEach((clin: any) => {
+        clinicalStore.delete(clin.id);
       });
     };
 
@@ -614,6 +687,46 @@ export async function clearLoginAttempts(cpf: string): Promise<void> {
     const tx = db.transaction('login_attempts', 'readwrite');
     const store = tx.objectStore('login_attempts');
     const req = store.delete(cleanCpf);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function addClinicalRecord(record: ClinicalRecord): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('clinical_history', 'readwrite');
+    const store = tx.objectStore('clinical_history');
+    const req = store.add(record);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getClinicalRecords(patientCpf: string): Promise<ClinicalRecord[]> {
+  const db = await initDb();
+  const cleanCpf = patientCpf.replace(/\D/g, "");
+  return new Promise<ClinicalRecord[]>((resolve, reject) => {
+    const tx = db.transaction('clinical_history', 'readonly');
+    const store = tx.objectStore('clinical_history');
+    const req = store.getAll();
+    req.onsuccess = () => {
+      const results = (req.result || []) as ClinicalRecord[];
+      const filtered = results
+        .filter((record) => record.patientCpf.replace(/\D/g, "") === cleanCpf)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      resolve(filtered);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteClinicalRecord(id: number): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('clinical_history', 'readwrite');
+    const store = tx.objectStore('clinical_history');
+    const req = store.delete(id);
     req.onsuccess = () => resolve();
     req.onerror = () => reject(req.error);
   });

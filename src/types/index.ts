@@ -71,3 +71,14 @@ export interface SymptomLog {
   createdAt: string;
 }
 
+export interface ClinicalRecord {
+  id?: number;
+  patientCpf: string;
+  title: string;
+  type: 'Exame' | 'Laudo' | 'Receituário';
+  date: string;
+  specialtyName: string;
+  fileAttachment: FileAttachment;
+  createdAt: string;
+}
+

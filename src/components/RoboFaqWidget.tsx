@@ -196,7 +196,7 @@ export default function RoboFaqWidget({ currentPage }: RoboFaqWidgetProps) {
       ) : (
         <Button
           onClick={() => setIsOpen(true)}
-          className="w-12 h-12 bg-primary hover:bg-primary/95 text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/20 transition-all hover:scale-110 active:scale-95 animate-bounce"
+          className="w-12 h-12 bg-primary hover:bg-primary/95 text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/20 transition-all hover:scale-110 active:scale-95"
           aria-label="Abrir assistente virtual"
         >
           <MessageSquare className="w-5 h-5" />
