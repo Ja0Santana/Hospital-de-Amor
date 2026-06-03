@@ -1,9 +1,10 @@
 import type { Specialty, City, Appointment, PatientUser, SymptomLog } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbInstance: IDBDatabase | null = null;
+
 
 const DEFAULT_SPECIALTIES: Specialty[] = [
   {
@@ -88,6 +89,14 @@ export function initDb(): Promise<IDBDatabase> {
 
       if (!db.objectStoreNames.contains('symptoms_diary')) {
         db.createObjectStore('symptoms_diary', { keyPath: 'id', autoIncrement: true });
+      }
+
+      if (!db.objectStoreNames.contains('appointment_drafts')) {
+        db.createObjectStore('appointment_drafts', { keyPath: 'cpf' });
+      }
+
+      if (!db.objectStoreNames.contains('login_attempts')) {
+        db.createObjectStore('login_attempts', { keyPath: 'cpf' });
       }
     };
   }).then((db) => {
@@ -513,3 +522,100 @@ export async function getSymptomLogs(patientCpf: string): Promise<SymptomLog[]> 
     req.onerror = () => reject(req.error);
   });
 }
+
+export async function saveAppointmentDraft(cpf: string, data: any): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('appointment_drafts', 'readwrite');
+    const store = tx.objectStore('appointment_drafts');
+    const req = store.put({
+      cpf: cleanCpf,
+      data,
+      updatedAt: new Date().toISOString()
+    });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getAppointmentDraft(cpf: string): Promise<any | null> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise<any | null>((resolve, reject) => {
+    const tx = db.transaction('appointment_drafts', 'readonly');
+    const store = tx.objectStore('appointment_drafts');
+    const req = store.get(cleanCpf);
+    req.onsuccess = () => {
+      if (req.result) {
+        resolve(req.result.data);
+      } else {
+        resolve(null);
+      }
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function deleteAppointmentDraft(cpf: string): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('appointment_drafts', 'readwrite');
+    const store = tx.objectStore('appointment_drafts');
+    const req = store.delete(cleanCpf);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getLoginAttempts(cpf: string): Promise<{ attemptsCount: number; blockedUntil: string | null } | null> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('login_attempts', 'readonly');
+    const store = tx.objectStore('login_attempts');
+    const req = store.get(cleanCpf);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function recordLoginAttempt(cpf: string, isSuccess: boolean): Promise<{ attemptsCount: number; blockedUntil: string | null }> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  const currentRecord = await getLoginAttempts(cleanCpf);
+
+  const record = currentRecord || { cpf: cleanCpf, attemptsCount: 0, blockedUntil: null };
+
+  if (isSuccess) {
+    record.attemptsCount = 0;
+    record.blockedUntil = null;
+  } else {
+    record.attemptsCount += 1;
+    if (record.attemptsCount >= 5) {
+      record.blockedUntil = new Date(Date.now() + 2 * 60 * 1000).toISOString();
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('login_attempts', 'readwrite');
+    const store = tx.objectStore('login_attempts');
+    const req = store.put(record);
+    req.onsuccess = () => resolve({ attemptsCount: record.attemptsCount, blockedUntil: record.blockedUntil });
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function clearLoginAttempts(cpf: string): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('login_attempts', 'readwrite');
+    const store = tx.objectStore('login_attempts');
+    const req = store.delete(cleanCpf);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+

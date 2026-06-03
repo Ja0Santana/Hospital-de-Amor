@@ -30,6 +30,8 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **RF02 – Informar Cidade de Origem (Should Have)**: Campo obrigatório com auto-sugestão de Sergipe ao detectar DDD (79) no telefone e classificação das regiões de saúde (ex: Região de Lagarto, Aracaju).
 *   **RF04 – Visualizar Resumo da Solicitação (Must Have)**: Tela de revisão com exibição de todos os dados inseridos, preview do arquivo anexado e checkbox obrigatório de consentimento da LGPD.
 *   **RF05 – Registrar Solicitação (Must Have)**: Gravação assíncrona da solicitação com carimbo de data/hora no IndexedDB sob o status inicial "Pendente".
+*   **RNF81 – Salvamento Automático de Rascunhos (Must Have)**: O formulário de agendamento detecta e salva automaticamente o progresso do preenchimento a cada 30 segundos ou em transições de etapa no IndexedDB. Ao acessar a tela novamente, o paciente é questionado se deseja recuperar o rascunho anterior ou iniciar um novo.
+
 
 ### Módulo de Acompanhamento de Status e Feedback
 *   **RF06 – Acompanhar Status (Must Have)**: Busca por protocolo ou CPF exibindo linha do tempo de status (Pendente, Em análise, Confirmado, Cancelado).
@@ -44,6 +46,8 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
     *   **Gráfico de Evolução Dinâmico**: Visualização da evolução da saúde nos últimos 7 dias renderizada em tempo real através de um gráfico de área e linha SVG dinâmico e interativo (com sementeira automática de histórico).
     *   **Widget Flutuante de Registro Rápido**: Lembrete fixado no canto inferior direito (`fixed bottom-6 right-6`) que permite preencher o diário a partir de qualquer tela do portal. O widget é ocultado na tela principal do diário para evitar redundância.
     *   **Bloqueio e Desbloqueio Inteligente**: Bloqueia o preenchimento duplicado exibindo a mensagem *"Volte todo dia para manter seu status atualizado"*, mas oferece um botão de destravamento manual se o paciente passar mal e precisar registrar outro status no mesmo dia.
+*   **RF50 – Central de Lembretes Automáticos (Must Have)**: Exibição dinâmica de alertas de alta prioridade no topo da Dashboard, notificando o paciente sobre o preparo obrigatório de exames confirmados (ex: jejum) e lembrando do preenchimento pendente do diário de sintomas do dia atual.
+
 
 ### Identidade Visual, Tipografia e Acessos
 *   **Seletor de Portal no Login**: Adicionado um seletor visual por abas no cabeçalho do login que divide o acesso entre "Portal do Paciente" (fluxo principal) e "Portal do Doador" (exibindo uma tela informativa de "Em Breve" detalhando os futuros recursos).
@@ -51,6 +55,9 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 
 ### Segurança, Privacidade e LGPD
 *   **RNF45 – Garantir Conformidade LGPD (Must Have)**: Checkboxes destacados de consentimento de dados de saúde no cadastro e no envio de exames.
+*   **RNF76 – Encerramento de Sessão por Inatividade (Must Have)**: Temporizador global que encerra a sessão e desloga o paciente automaticamente após 14 minutos de ociosidade, apresentando um modal de contagem regressiva de 60 segundos com opção de estender a sessão ativa.
+*   **RNF78 – Proteção contra Força Bruta (Must Have)**: Limitação rigorosa de 5 tentativas consecutivas de senha inválida por CPF, bloqueando acessos adicionais temporariamente por 2 minutos no IndexedDB com timer dinâmico de liberação na interface.
+*   **RNF83 – Validador de Complexidade de Senha (Must Have)**: Componente interativo de feedback visual que valida os critérios fortes de senha (mínimo de 8 caracteres, com maiúscula, minúscula, número e caractere especial) nas telas de cadastro de pacientes e na troca de senha no perfil.
 *   **RF56 – Painel de Privacidade e Gestão de Dados (Could Have / Must Have LGPD)**:
     *   **Preferências de Comunicação**: Opt-In/Opt-Out para notificações via E-mail, SMS e WhatsApp.
     *   **Portabilidade (Direito de Acesso)**: Botão de exportação que compila todos os dados cadastrais do paciente e o histórico completo de agendamentos dele em um arquivo JSON para download.
@@ -60,5 +67,6 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
     *   Exibição do e-mail mascarado (ex: `an**.*z@email.com`) sob as regras da LGPD.
     *   **Simulador de Caixa de Entrada (Inbox Sandbox)**: Simulador visual integrado de e-mail seguro enviado pelo hospital contendo link clicável de redefinição de senha que atualiza os dados no IndexedDB.
 *   **RNF82 – Restringir Tipos de Arquivos (Must Have)**: Bloqueio de upload por tipo de arquivo (MIME Type) e prevenção de arquivos executáveis maliciosos. Limite máximo de tamanho fixado em 5MB por arquivo.
+
 
 

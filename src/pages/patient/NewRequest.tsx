@@ -5,10 +5,11 @@ import { Alert, AlertTitle, AlertDescription } from '../../components/ui/alert';
 import StepPatientData from './components/StepPatientData';
 import StepExamSelection from './components/StepExamSelection';
 import StepUploadReview from './components/StepUploadReview';
-import { createAppointment, checkDuplicateRequest, getUserByCpf } from '../../services/db';
+import { createAppointment, checkDuplicateRequest, getUserByCpf, saveAppointmentDraft, getAppointmentDraft, deleteAppointmentDraft } from '../../services/db';
 import { formatCpf } from '../../lib/sanitizer';
 import type { FileAttachment } from '../../types';
 import { AlertCircle, CheckCircle2, ChevronRight, ChevronLeft, Copy, ClipboardCheck } from 'lucide-react';
+
 
 interface NewRequestProps {
   onNavigate: (page: string) => void;
@@ -35,34 +36,78 @@ const INITIAL_FORM_DATA = {
 export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
-
-  useEffect(() => {
-    const loadPatientData = async () => {
-      if (!patientCpf) return;
-      try {
-        const cleanCpf = patientCpf.replace(/\D/g, "");
-        const user = await getUserByCpf(cleanCpf);
-        if (user) {
-          setFormData((prev) => ({
-            ...prev,
-            patientName: user.name,
-            patientCpf: formatCpf(user.cpf),
-            patientBirthDate: user.birthDate,
-            patientPhone: user.phone,
-            patientEmail: user.email
-          }));
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    loadPatientData();
-  }, [patientCpf]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState('');
   const [loading, setLoading] = useState(false);
   const [successData, setSuccessData] = useState<{ protocol: string } | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const [isReadyToSave, setIsReadyToSave] = useState(false);
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [draftData, setDraftData] = useState<any | null>(null);
+
+  useEffect(() => {
+    const initForm = async () => {
+      if (!patientCpf) return;
+      try {
+        const cleanCpf = patientCpf.replace(/\D/g, "");
+        const user = await getUserByCpf(cleanCpf);
+        let baseData = { ...INITIAL_FORM_DATA };
+        if (user) {
+          baseData = {
+            ...baseData,
+            patientName: user.name,
+            patientCpf: formatCpf(user.cpf),
+            patientBirthDate: user.birthDate,
+            patientPhone: user.phone,
+            patientEmail: user.email
+          };
+        }
+        setFormData(baseData);
+
+        const draft = await getAppointmentDraft(patientCpf);
+        if (draft) {
+          setDraftData(draft);
+          setShowRestoreModal(true);
+        } else {
+          setIsReadyToSave(true);
+        }
+      } catch (err) {
+        console.error(err);
+        setIsReadyToSave(true);
+      }
+    };
+    initForm();
+  }, [patientCpf]);
+
+  useEffect(() => {
+    if (!isReadyToSave || !patientCpf) return;
+
+    const interval = setInterval(async () => {
+      if (successData) return;
+      await saveAppointmentDraft(patientCpf, { formData, currentStep });
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [isReadyToSave, formData, currentStep, patientCpf, successData]);
+
+  const handleRestoreDraft = () => {
+    if (draftData) {
+      setFormData(draftData.formData);
+      setCurrentStep(draftData.currentStep);
+    }
+    setShowRestoreModal(false);
+    setIsReadyToSave(true);
+  };
+
+  const handleDiscardDraft = async () => {
+    if (patientCpf) {
+      await deleteAppointmentDraft(patientCpf);
+    }
+    setShowRestoreModal(false);
+    setIsReadyToSave(true);
+  };
+
 
   const steps = [
     { title: 'Dados Básicos', description: 'Identificação e Contato' },
@@ -125,13 +170,22 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
   const handleNext = async () => {
     const isValid = await validateStep();
     if (isValid) {
-      setCurrentStep((prev) => prev + 1);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      if (patientCpf) {
+        await saveAppointmentDraft(patientCpf, { formData, currentStep: nextStep });
+      }
     }
   };
 
-  const handleBack = () => {
-    setCurrentStep((prev) => prev - 1);
+  const handleBack = async () => {
+    const prevStep = currentStep - 1;
+    setCurrentStep(prevStep);
+    if (patientCpf) {
+      await saveAppointmentDraft(patientCpf, { formData, currentStep: prevStep });
+    }
   };
+
 
   const handleSubmit = async () => {
     const isValid = await validateStep();
@@ -156,6 +210,9 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
         observations: formData.observations
       });
 
+      if (patientCpf) {
+        await deleteAppointmentDraft(patientCpf);
+      }
       setSuccessData({ protocol: result.protocol });
     } catch (err) {
       console.error(err);
@@ -164,6 +221,7 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
       setLoading(false);
     }
   };
+
 
   const handleCopyProtocol = () => {
     if (!successData) return;
@@ -315,6 +373,45 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
           )}
         </CardFooter>
       </Card>
+
+      {showRestoreModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5">
+            <div className="flex gap-4 items-start text-left">
+              <div className="p-3 bg-primary/10 text-primary rounded-full shrink-0 border border-primary/20">
+                <ClipboardCheck className="w-6 h-6" aria-hidden="true" />
+              </div>
+              <div className="space-y-1.5">
+                <h3 className="font-extrabold text-base text-zinc-900 dark:text-zinc-50 leading-tight">
+                  Recuperar rascunho pendente?
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  Você possui uma solicitação de agendamento não finalizada. Deseja retomar de onde parou ou iniciar um novo formulário?
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleDiscardDraft}
+                className="h-10 px-4 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-500 font-bold rounded-xl text-xs"
+              >
+                Iniciar Novo
+              </Button>
+              <Button
+                type="button"
+                onClick={handleRestoreDraft}
+                className="h-10 px-5 bg-primary hover:bg-primary/95 text-white rounded-xl font-bold text-xs shadow-md shadow-primary/20 transition-transform active:scale-95"
+              >
+                Recuperar Rascunho
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
