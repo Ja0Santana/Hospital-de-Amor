@@ -11,6 +11,8 @@ import {
   User, Lock, Mail, Phone, Calendar, MapPin, Download, Trash2, 
   Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck
 } from 'lucide-react';
+import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
+
 
 interface ProfileProps {
   patientCpf: string;
@@ -35,6 +37,8 @@ export default function Profile({ patientCpf, onLogout, onNavigate }: ProfilePro
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [isNewPasswordValid, setIsNewPasswordValid] = useState(false);
+
 
   const [isEmailNotify, setIsEmailNotify] = useState(true);
   const [isSmsNotify, setIsSmsNotify] = useState(false);
@@ -105,10 +109,11 @@ export default function Profile({ patientCpf, onLogout, onNavigate }: ProfilePro
       return;
     }
 
-    if (newPassword.length < 6) {
-      setPasswordError('A nova senha deve conter no mínimo 6 caracteres.');
+    if (!isNewPasswordValid) {
+      setPasswordError('A nova senha não atende aos requisitos mínimos de segurança.');
       return;
     }
+
 
     if (newPassword !== confirmNewPassword) {
       setPasswordError('A nova senha e a confirmação não coincidem.');
@@ -335,11 +340,18 @@ export default function Profile({ patientCpf, onLogout, onNavigate }: ProfilePro
                   </div>
                 </div>
 
+                {newPassword && (
+                  <div className="pt-2">
+                    <PasswordStrengthMeter password={newPassword} onValidityChange={setIsNewPasswordValid} />
+                  </div>
+                )}
+
                 <div className="flex justify-end pt-2">
-                  <Button type="submit" disabled={loading} className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-6 rounded-xl shadow-md transition-transform active:scale-[0.98]">
+                  <Button type="submit" disabled={loading || !isNewPasswordValid} className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-6 rounded-xl shadow-md transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed">
                     {loading ? 'Salvando...' : 'Alterar Senha'}
                   </Button>
                 </div>
+
               </form>
             </CardContent>
           </Card>

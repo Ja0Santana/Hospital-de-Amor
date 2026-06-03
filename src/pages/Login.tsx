@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -6,9 +6,12 @@ import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { formatCpf, validateCpf, formatPhone, sanitizeString } from '../lib/sanitizer';
 import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart } from 'lucide-react';
-import { authenticateUser, createUser, getUserByCpf, updateUserPassword } from '../services/db';
+import { authenticateUser, createUser, getUserByCpf, updateUserPassword, getLoginAttempts, recordLoginAttempt, clearLoginAttempts } from '../services/db';
+
 import type { PatientUser } from '../types';
 import logoHospitalDeAmor from '../assets/logoHospitalDeAmor.png';
+import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
+
 
 interface LoginProps {
   onLoginSuccess: (cpf: string) => void;
@@ -39,6 +42,49 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
+  const [isRegPasswordValid, setIsRegPasswordValid] = useState(false);
+  const [isResetPasswordValid, setIsResetPasswordValid] = useState(false);
+
+  const [blockedSecondsLeft, setBlockedSecondsLeft] = useState(0);
+
+  useEffect(() => {
+    if (blockedSecondsLeft <= 0) return;
+    const timer = setInterval(() => {
+      setBlockedSecondsLeft((prev) => {
+        if (prev <= 1) {
+          setError('');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [blockedSecondsLeft]);
+
+  const checkCpfBlock = async (rawCpf: string) => {
+    const cleanCpf = rawCpf.replace(/\D/g, "");
+    if (cleanCpf.length === 11) {
+      const record = await getLoginAttempts(cleanCpf);
+      if (record && record.blockedUntil) {
+        const diff = new Date(record.blockedUntil).getTime() - Date.now();
+        if (diff > 0) {
+          const sec = Math.ceil(diff / 1000);
+          setBlockedSecondsLeft(sec);
+          setError(`Acesso bloqueado por múltiplas tentativas incorretas. Aguarde ${sec} segundos.`);
+        } else {
+          setBlockedSecondsLeft(0);
+          await clearLoginAttempts(cleanCpf);
+        }
+      } else {
+        setBlockedSecondsLeft(0);
+      }
+    } else {
+      setBlockedSecondsLeft(0);
+    }
+  };
+
+
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -54,30 +100,54 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       return;
     }
 
+    if (blockedSecondsLeft > 0) {
+      setError(`Acesso bloqueado por múltiplas tentativas incorretas. Aguarde ${blockedSecondsLeft} segundos.`);
+      return;
+    }
+
+    const record = await getLoginAttempts(cleanCpf);
+    if (record && record.blockedUntil) {
+      const diff = new Date(record.blockedUntil).getTime() - Date.now();
+      if (diff > 0) {
+        const sec = Math.ceil(diff / 1000);
+        setBlockedSecondsLeft(sec);
+        setError(`Acesso bloqueado por múltiplas tentativas incorretas. Aguarde ${sec} segundos.`);
+        return;
+      } else {
+        await clearLoginAttempts(cleanCpf);
+      }
+    }
+
     if (!password) {
       setError('Por favor, insira a sua senha de acesso.');
       return;
     }
 
-    if (password.length < 6) {
-      setError('A senha deve conter no mínimo 6 caracteres.');
-      return;
-    }
 
     setLoading(true);
     try {
       const authenticatedUser = await authenticateUser(cleanCpf, password);
-      setLoading(false);
       if (authenticatedUser) {
+        await recordLoginAttempt(cleanCpf, true);
+        setLoading(false);
         onLoginSuccess(authenticatedUser.cpf === '12345678900' ? '123.456.789-00' : formatCpf(authenticatedUser.cpf));
       } else {
-        setError('CPF não cadastrado ou senha incorreta. Verifique suas credenciais.');
+        const attempt = await recordLoginAttempt(cleanCpf, false);
+        setLoading(false);
+        if (attempt.blockedUntil) {
+          const sec = Math.ceil((new Date(attempt.blockedUntil).getTime() - Date.now()) / 1000);
+          setBlockedSecondsLeft(sec);
+          setError(`Múltiplas tentativas de login incorretas. CPF bloqueado temporariamente por 2 minutos.`);
+        } else {
+          setError(`CPF não cadastrado ou senha incorreta. Tentativa ${attempt.attemptsCount} de 5.`);
+        }
       }
     } catch (err: any) {
       setLoading(false);
       setError('Ocorreu um erro ao realizar o login. Tente novamente.');
     }
   };
+
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,10 +190,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       return;
     }
 
-    if (regPassword.length < 6) {
-      setError('A senha deve conter no mínimo 6 caracteres.');
+    if (!isRegPasswordValid) {
+      setError('A senha criada não atende aos requisitos mínimos de segurança.');
       return;
     }
+
 
     if (regPassword !== regConfirmPassword) {
       setError('As senhas informadas não coincidem.');
@@ -207,10 +278,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError('A senha deve conter no mínimo 6 caracteres.');
+    if (!isResetPasswordValid) {
+      setError('A nova senha não atende aos requisitos mínimos de segurança.');
       return;
     }
+
 
     if (newPassword !== confirmNewPassword) {
       setError('As senhas digitadas não coincidem.');
@@ -363,10 +435,15 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                         type="text"
                         placeholder="000.000.000-00"
                         value={formatCpf(cpf)}
-                        onChange={(e) => setCpf(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCpf(val);
+                          checkCpfBlock(val);
+                        }}
                         maxLength={14}
                         className="pl-10 h-11 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl"
                       />
+
                       <User className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" aria-hidden="true" />
                     </div>
                   </div>
@@ -394,10 +471,10 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
                 <Button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-12 rounded-2xl shadow-lg shadow-brand-pink/20 text-sm transition-transform active:scale-[0.98]"
+                  disabled={loading || blockedSecondsLeft > 0}
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-12 rounded-2xl shadow-lg shadow-brand-pink/20 text-sm transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {loading ? 'Entrando...' : 'Entrar no Portal'}
+                  {loading ? 'Entrando...' : blockedSecondsLeft > 0 ? `Bloqueado (${blockedSecondsLeft}s)` : 'Entrar no Portal'}
                 </Button>
               </form>
 
@@ -538,6 +615,12 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
                     </div>
                   </div>
+
+                  {regPassword && (
+                    <div className="sm:col-span-2">
+                      <PasswordStrengthMeter password={regPassword} onValidityChange={setIsRegPasswordValid} />
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex gap-2.5 items-start p-3 bg-zinc-50 dark:bg-zinc-900/30 rounded-xl border border-zinc-200/50 dark:border-zinc-800 mt-2">
@@ -554,11 +637,12 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
                 <Button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform active:scale-[0.98] mt-2"
+                  disabled={loading || !isRegPasswordValid || !regConsent}
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform active:scale-[0.98] mt-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Criando Conta...' : 'Criar Conta'}
                 </Button>
+
               </form>
             </div>
           )}
@@ -740,15 +824,20 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
                     </div>
                   </div>
+
+                  {newPassword && (
+                    <PasswordStrengthMeter password={newPassword} onValidityChange={setIsResetPasswordValid} />
+                  )}
                 </div>
 
                 <Button
                   type="submit"
-                  disabled={loading}
-                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform active:scale-[0.98]"
+                  disabled={loading || !isResetPasswordValid}
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Salvando...' : 'Salvar Nova Senha'}
                 </Button>
+
               </form>
             </div>
           )}
