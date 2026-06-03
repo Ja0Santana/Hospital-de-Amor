@@ -11,6 +11,8 @@ import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, 
 import { getUserByCpf } from './services/db';
 import logoHospitalDeAmor from './assets/logoHospitalDeAmor.png';
 import { InactivityTimeout } from './components/InactivityTimeout';
+import HelpCenter from './pages/patient/HelpCenter';
+import RoboFaqWidget from './components/RoboFaqWidget';
 
 
 function App() {
@@ -59,6 +61,7 @@ function App() {
     'new-request': 'Nova Solicitação — Hospital de Amor',
     'status-check': 'Acompanhar Agendamento — Hospital de Amor',
     profile: 'Meu Perfil — Hospital de Amor',
+    'help-center': 'Central de Ajuda — Hospital de Amor',
   };
 
   useEffect(() => {
@@ -169,7 +172,8 @@ function App() {
               <div className="pt-4 border-t border-white/15 dark:border-zinc-800 space-y-1">
                 <Button
                   variant="ghost"
-                  className="w-full justify-start text-xs font-bold h-9 px-3.5 rounded-lg gap-3 text-blue-200 hover:bg-white/10 hover:text-white"
+                  onClick={() => navigateTo('help-center')}
+                  className={`w-full justify-start text-xs font-bold h-9 px-3.5 rounded-lg gap-3 ${currentPage === 'help-center' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-200 hover:bg-white/10 hover:text-white'}`}
                 >
                   <HelpCircle className="w-4 h-4" />
                   Ajuda
@@ -222,9 +226,11 @@ function App() {
             {currentPage === 'profile' && (
               <Profile patientCpf={patientCpf} onLogout={handleLogout} onNavigate={navigateTo} />
             )}
+            {currentPage === 'help-center' && <HelpCenter />}
           </div>
         </main>
         <SymptomFloatingWidget patientCpf={patientCpf} currentPage={currentPage} />
+        <RoboFaqWidget currentPage={currentPage} />
       </div>
     </InactivityTimeout>
   );
