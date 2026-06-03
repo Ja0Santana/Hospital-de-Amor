@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { getAppointmentByCpf } from '../../services/db';
+import { getAppointmentByCpf, getSymptomLogs, getSpecialties } from '../../services/db';
 import type { Appointment } from '../../types';
 import { Search, AlertCircle, CheckCircle2, Clock, XCircle, Info, ChevronRight, FileText } from 'lucide-react';
+
 
 interface DashboardProps {
   onNavigate: (page: string) => void;
@@ -26,19 +27,49 @@ function getNextEventIsoDate(): string {
 
 export default function Dashboard({ onNavigate, patientCpf, patientName }: DashboardProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [showDiaryAlert, setShowDiaryAlert] = useState(false);
+  const [prepAlerts, setPrepAlerts] = useState<{ id: string; title: string; desc: string }[]>([]);
 
   useEffect(() => {
-    loadAppointments();
+    loadAppointmentsAndAlerts();
   }, [patientCpf]);
 
-  const loadAppointments = async () => {
+  const loadAppointmentsAndAlerts = async () => {
     try {
       const results = await getAppointmentByCpf(patientCpf);
       setAppointments(results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+
+      const logs = await getSymptomLogs(patientCpf);
+      const hasLoggedToday = logs.some((log) => {
+        const logDate = new Date(log.createdAt).toDateString();
+        const todayDate = new Date().toDateString();
+        return logDate === todayDate;
+      });
+      setShowDiaryAlert(!hasLoggedToday);
+
+      const specialties = await getSpecialties();
+      const confirmedApps = results.filter(app => app.status === 'Confirmado');
+      const alerts = confirmedApps.map(app => {
+        let prep = 'Siga as orientações passadas pela equipe médica.';
+        const spec = specialties.find(s => s.id === app.specialtyId);
+        if (spec) {
+          const exam = spec.exams.find(e => e.id === app.examId);
+          if (exam) {
+            prep = exam.defaultPrepInstructions;
+          }
+        }
+        return {
+          id: app.id,
+          title: `Preparo para: ${app.examName}`,
+          desc: prep
+        };
+      });
+      setPrepAlerts(alerts);
     } catch (error) {
       console.error(error);
     }
   };
+
 
   const getStatusBadge = (status: Appointment['status']) => {
     const config = {
@@ -62,6 +93,42 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
         <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Olá, {patientName}</h1>
         <p className="text-zinc-500 mt-1">Aqui está o resumo do seu cuidado hoje.</p>
       </div>
+
+      {(showDiaryAlert || prepAlerts.length > 0) && (
+        <div className="space-y-3">
+          {showDiaryAlert && (
+            <div className="p-4 rounded-3xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-in slide-in-from-top-2 duration-300">
+              <div className="flex gap-3 items-start text-left">
+                <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="space-y-0.5">
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-50">Diário de Sintomas Pendente</h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Você ainda não informou como está se sentindo hoje. Registrar seus sintomas ajuda na regulação do seu tratamento.</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => onNavigate('symptoms')}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold h-9 px-4 rounded-xl text-xs shrink-0 self-end sm:self-center transition-transform active:scale-95 shadow-sm"
+              >
+                Registrar Saúde
+              </Button>
+            </div>
+          )}
+
+          {prepAlerts.map((alert) => (
+            <div key={alert.id} className="p-4 rounded-3xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 flex gap-3 text-left animate-in slide-in-from-top-2 duration-300">
+              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" aria-hidden="true" />
+              <div className="space-y-0.5">
+                <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-50">{alert.title}</h4>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                  <strong className="text-blue-600 dark:text-blue-400 font-semibold">Instruções de preparo: </strong>
+                  {alert.desc}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <Card className="lg:col-span-2 bg-primary text-white border-none shadow-lg rounded-3xl p-6 flex flex-col justify-between min-h-[190px]">

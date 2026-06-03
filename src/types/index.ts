@@ -47,6 +47,9 @@ export interface Appointment {
   consentLgpd: boolean;
   feedbackNps: number | null;
   feedbackComment: string | null;
+  presenceConfirmed?: boolean;
+  rescheduledDate?: string;
+  rescheduledTime?: string;
 }
 
 export interface PatientUser {

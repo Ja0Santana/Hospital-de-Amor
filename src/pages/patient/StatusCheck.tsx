@@ -7,7 +7,7 @@ import { Badge } from '../../components/ui/badge';
 import { getAppointmentByProtocol, getSpecialties } from '../../services/db';
 import type { Appointment, Specialty } from '../../types';
 import { formatCpf } from '../../lib/sanitizer';
-import { Search, Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare } from 'lucide-react';
+import { Search, Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare, X } from 'lucide-react';
 
 interface StatusCheckProps {
   initialProtocol?: string;
@@ -25,6 +25,12 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
   const [npsComment, setNpsComment] = useState('');
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
+
+  const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [presenceSuccess, setPresenceSuccess] = useState(false);
+  const [rescheduleSuccess, setRescheduleSuccess] = useState(false);
 
   useEffect(() => {
     getSpecialties().then(setSpecialties).catch(console.error);
@@ -90,6 +96,86 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
       console.error(error);
       setFeedbackError('Ocorreu um erro ao enviar o feedback. Tente novamente.');
     }
+  };
+
+  const handleConfirmPresence = async () => {
+    if (!appointment) return;
+    try {
+      const updatedApp: Appointment = {
+        ...appointment,
+        presenceConfirmed: true
+      };
+
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('HospitalAmorDB', 4);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+
+      const tx = db.transaction('appointments', 'readwrite');
+      const store = tx.objectStore('appointments');
+      await new Promise<void>((resolve, reject) => {
+        const req = store.put(updatedApp);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+
+      setAppointment(updatedApp);
+      setPresenceSuccess(true);
+      setTimeout(() => setPresenceSuccess(false), 5000);
+      window.dispatchEvent(new CustomEvent('appointment-updated'));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleRescheduleSubmit = async () => {
+    if (!appointment || !selectedDate || !selectedTime) return;
+    try {
+      const formattedDate = selectedDate.toISOString().split('T')[0];
+      const updatedApp: Appointment = {
+        ...appointment,
+        rescheduledDate: formattedDate,
+        rescheduledTime: selectedTime
+      };
+
+      const db = await new Promise<IDBDatabase>((resolve, reject) => {
+        const req = indexedDB.open('HospitalAmorDB', 4);
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+
+      const tx = db.transaction('appointments', 'readwrite');
+      const store = tx.objectStore('appointments');
+      await new Promise<void>((resolve, reject) => {
+        const req = store.put(updatedApp);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+      });
+
+      setAppointment(updatedApp);
+      setIsRescheduleOpen(false);
+      setRescheduleSuccess(true);
+      setTimeout(() => setRescheduleSuccess(false), 5000);
+      window.dispatchEvent(new CustomEvent('appointment-updated'));
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const getNext5BusinessDays = () => {
+    const dates: Date[] = [];
+    const current = new Date();
+    let loops = 0;
+    while (dates.length < 5 && loops < 15) {
+      current.setDate(current.getDate() + 1);
+      const day = current.getDay();
+      if (day !== 0 && day !== 6) { // Pula Domingo (0) e Sábado (6)
+        dates.push(new Date(current));
+      }
+      loops++;
+    }
+    return dates;
   };
 
   const getStatusConfig = (status: Appointment['status']) => {
@@ -199,7 +285,13 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
                               <span className="text-[10px] uppercase font-bold text-zinc-400 block">Data e Horário</span>
                               <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                                 <Calendar className="w-4 h-4 text-primary" />
-                                15/06/2026 às 08:30h
+                                {appointment.rescheduledDate && appointment.rescheduledTime ? (
+                                  <span>
+                                    {new Date(appointment.rescheduledDate + 'T12:00:00').toLocaleDateString('pt-BR')} às {appointment.rescheduledTime}h <span className="text-[10px] text-primary font-bold ml-1">(Reagendado)</span>
+                                  </span>
+                                ) : (
+                                  <span>15/06/2026 às 08:30h</span>
+                                )}
                               </p>
                             </div>
                             <div className="space-y-1">
@@ -216,6 +308,50 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
                                 Unidade Principal - Bloco B, Sala de Exames 03 (Mamógrafo 01)
                               </p>
                             </div>
+                          </div>
+
+                          {presenceSuccess && (
+                            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 animate-in fade-in duration-200">
+                              <CheckCircle2 className="w-4 h-4" />
+                              Presença confirmada com sucesso!
+                            </div>
+                          )}
+                          {rescheduleSuccess && (
+                            <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 text-blue-800 dark:text-blue-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 animate-in fade-in duration-200">
+                              <Info className="w-4 h-4" />
+                              Atendimento reagendado com sucesso!
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-2.5 pt-3 border-t border-zinc-150 dark:border-zinc-800/50">
+                            {appointment.presenceConfirmed ? (
+                              <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-800/40 font-bold px-3 py-1.5 text-[11px] rounded-xl flex items-center gap-1.5">
+                                <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
+                                Presença Confirmada
+                              </div>
+                            ) : (
+                              <Button
+                                type="button"
+                                onClick={handleConfirmPresence}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                              >
+                                <CheckCircle2 className="w-4 h-4" />
+                                Confirmar Presença
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedDate(getNext5BusinessDays()[0]);
+                                setSelectedTime('08:30');
+                                setIsRescheduleOpen(true);
+                              }}
+                              className="border-zinc-200/80 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all active:scale-95"
+                            >
+                              <Calendar className="w-4 h-4 text-primary" />
+                              Reagendar Atendimento
+                            </Button>
                           </div>
                         </div>
 
@@ -362,6 +498,101 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
             </div>
           )}
         </>
+      )}
+
+      {isRescheduleOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <Card className="max-w-md w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 p-5 flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-bold text-zinc-900 dark:text-zinc-50">Reagendar Atendimento</CardTitle>
+                <CardDescription className="text-xs">Selecione uma nova data e horário abaixo.</CardDescription>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => setIsRescheduleOpen(false)}
+                className="h-8 w-8 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="p-5 space-y-4">
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Dia</span>
+                <div className="grid grid-cols-5 gap-2">
+                  {getNext5BusinessDays().map((date, idx) => {
+                    const isSelected = selectedDate?.toDateString() === date.toDateString();
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setSelectedDate(date)}
+                        className={`p-2.5 rounded-2xl flex flex-col items-center justify-center border text-center transition-all ${
+                          isSelected
+                            ? 'bg-primary border-primary text-white scale-[1.03] shadow-md shadow-primary/10'
+                            : 'bg-zinc-50 border-zinc-150 text-zinc-700 hover:border-primary/30 dark:bg-zinc-950 dark:border-zinc-850 dark:text-zinc-400'
+                        }`}
+                      >
+                        <span className="text-[8px] font-bold uppercase tracking-wider block opacity-75">
+                          {date.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3)}
+                        </span>
+                        <span className="text-sm font-extrabold block mt-0.5">
+                          {date.getDate()}
+                        </span>
+                        <span className="text-[8px] font-bold block mt-0.5">
+                          {date.toLocaleDateString('pt-BR', { month: 'short' }).slice(0, 3)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className="text-[10px] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Horário</span>
+                <div className="grid grid-cols-4 gap-2">
+                  {['08:30', '10:00', '13:30', '15:00'].map((time) => {
+                    const isSelected = selectedTime === time;
+                    return (
+                      <button
+                        key={time}
+                        type="button"
+                        onClick={() => setSelectedTime(time)}
+                        className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                          isSelected
+                            ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm'
+                            : 'bg-zinc-50 border-zinc-150 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-850 dark:text-zinc-400'
+                        }`}
+                      >
+                        {time}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsRescheduleOpen(false)}
+                  className="flex-1 h-10 text-xs font-semibold rounded-xl"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleRescheduleSubmit}
+                  disabled={!selectedDate || !selectedTime}
+                  className="flex-1 h-10 text-xs font-bold bg-primary hover:bg-primary/95 text-white rounded-xl shadow-md"
+                >
+                  Confirmar
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );
