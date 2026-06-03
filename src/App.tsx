@@ -7,12 +7,13 @@ import Login from './pages/Login';
 import SymptomsDiary from './pages/patient/SymptomsDiary';
 import SymptomFloatingWidget from './components/SymptomFloatingWidget';
 import { Button } from './components/ui/button';
-import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity } from 'lucide-react';
+import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText } from 'lucide-react';
 import { getUserByCpf } from './services/db';
 import logoHospitalDeAmor from './assets/logoHospitalDeAmor.png';
 import { InactivityTimeout } from './components/InactivityTimeout';
 import HelpCenter from './pages/patient/HelpCenter';
 import RoboFaqWidget from './components/RoboFaqWidget';
+import ClinicalHistory from './pages/patient/ClinicalHistory';
 
 
 function App() {
@@ -58,6 +59,7 @@ function App() {
   const PAGE_TITLES: Record<string, string> = {
     dashboard: 'Início — Hospital de Amor',
     symptoms: 'Diário de Sintomas — Hospital de Amor',
+    'clinical-history': 'Histórico Clínico — Hospital de Amor',
     'new-request': 'Nova Solicitação — Hospital de Amor',
     'status-check': 'Acompanhar Agendamento — Hospital de Amor',
     profile: 'Meu Perfil — Hospital de Amor',
@@ -134,6 +136,14 @@ function App() {
               >
                 <Activity className="w-4 h-4" />
                 Diário de Sintomas
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigateTo('clinical-history')}
+                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'clinical-history' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+              >
+                <FileText className="w-4 h-4" />
+                Histórico Clínico
               </Button>
               <Button
                 variant="ghost"
@@ -219,6 +229,7 @@ function App() {
           <div className="p-4 md:p-8">
             {currentPage === 'dashboard' && <Dashboard onNavigate={navigateTo} patientCpf={patientCpf} patientName={patientName} />}
             {currentPage === 'symptoms' && <SymptomsDiary patientCpf={patientCpf} />}
+            {currentPage === 'clinical-history' && <ClinicalHistory patientCpf={patientCpf} onNavigate={navigateTo} />}
             {currentPage === 'new-request' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
             {currentPage === 'status-check' && (
               <StatusCheck initialProtocol={selectedProtocol} onNavigate={navigateTo} />
