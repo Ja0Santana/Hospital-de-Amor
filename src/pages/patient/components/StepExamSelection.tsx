@@ -4,7 +4,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { Card, CardContent } from '../../../components/ui/card';
 import { getSpecialties } from '../../../services/db';
 import type { Specialty, Exam } from '../../../types';
-import { AlertCircle, FileText } from 'lucide-react';
+import { AlertCircle, FileText, HelpCircle } from 'lucide-react';
+import Tooltip from '../../../components/ui/Tooltip';
 
 interface StepExamSelectionProps {
   formData: {
@@ -86,7 +87,12 @@ export default function StepExamSelection({ formData, onChange, errors, setError
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Especialidade Médica *</Label>
+          <Label className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+            Especialidade Médica *
+            <Tooltip id="tooltip-specialty" content="A triagem direcionará seu pedido com base na especialidade médica selecionada.">
+              <HelpCircle className="w-3.5 h-3.5 text-zinc-400 hover:text-zinc-650 transition-colors" />
+            </Tooltip>
+          </Label>
           <Select value={formData.specialtyId} onValueChange={handleSpecialtyChange}>
             <SelectTrigger className={`h-11 border-zinc-200 focus:ring-primary ${errors.specialtyId ? 'border-red-500 focus:ring-red-500' : ''}`}>
               <SelectValue placeholder="Selecione a Especialidade" />
@@ -106,7 +112,12 @@ export default function StepExamSelection({ formData, onChange, errors, setError
         </div>
 
         <div className="space-y-2">
-          <Label className="font-semibold text-zinc-700 dark:text-zinc-300">Tipo de Atendimento / Exame *</Label>
+          <Label className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+            Tipo de Atendimento / Exame *
+            <Tooltip id="tooltip-exam" content="Selecione o procedimento exato indicado em sua guia de encaminhamento médico.">
+              <HelpCircle className="w-3.5 h-3.5 text-zinc-400 hover:text-zinc-650 transition-colors" />
+            </Tooltip>
+          </Label>
           <Select
             value={formData.examId}
             onValueChange={handleExamChange}

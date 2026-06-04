@@ -9,7 +9,8 @@ import { getUserByCpf, updatePatientUser, deleteUserAndAppointments, getAppointm
 import type { PatientUser, Appointment } from '../../types';
 import { 
   User, Lock, Mail, Phone, Calendar, MapPin, Download, Trash2, 
-  Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck
+  Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck,
+  Type
 } from 'lucide-react';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 
@@ -18,9 +19,11 @@ interface ProfileProps {
   patientCpf: string;
   onLogout: () => void;
   onNavigate: (page: string) => void;
+  fontSize: string;
+  setFontSize: (size: string) => void;
 }
 
-export default function Profile({ patientCpf, onLogout, onNavigate }: ProfileProps) {
+export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, setFontSize }: ProfileProps) {
   const [user, setUser] = useState<PatientUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -358,6 +361,61 @@ export default function Profile({ patientCpf, onLogout, onNavigate }: ProfilePro
         </div>
 
         <div className="lg:col-span-4 space-y-8">
+          <Card className="border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
+            <div className="bg-zinc-50 dark:bg-zinc-900/40 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
+              <Type className="w-5 h-5 text-primary" aria-hidden="true" />
+              <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">Acessibilidade Visual</h2>
+            </div>
+            <CardContent className="p-6 space-y-4">
+              <p className="text-[11px] text-zinc-500 leading-normal">
+                Ajuste o tamanho da fonte do portal para uma leitura mais confortável:
+              </p>
+              
+              <div className="grid grid-cols-5 gap-1 p-1 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200/30 dark:border-zinc-800">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setFontSize('small')}
+                  className={`h-9 px-0 text-[10px] font-bold rounded-lg transition-colors ${fontSize === 'small' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                >
+                  Menor
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setFontSize('default')}
+                  className={`h-9 px-0 text-xs font-bold rounded-lg transition-colors ${fontSize === 'default' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                >
+                  Padrão
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setFontSize('medium')}
+                  className={`h-9 px-0 text-sm font-bold rounded-lg transition-colors ${fontSize === 'medium' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                >
+                  Médio
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setFontSize('large')}
+                  className={`h-9 px-0 text-base font-bold rounded-lg transition-colors ${fontSize === 'large' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                >
+                  Grande
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setFontSize('xlarge')}
+                  className={`h-9 px-0 text-lg font-bold rounded-lg transition-colors ${fontSize === 'xlarge' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                >
+                  G+
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
             <div className="bg-zinc-50 dark:bg-zinc-900/40 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
               <Bell className="w-5 h-5 text-primary" aria-hidden="true" />
