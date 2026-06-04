@@ -7,13 +7,14 @@ import Login from './pages/Login';
 import SymptomsDiary from './pages/patient/SymptomsDiary';
 import SymptomFloatingWidget from './components/SymptomFloatingWidget';
 import { Button } from './components/ui/button';
-import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText } from 'lucide-react';
+import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin } from 'lucide-react';
 import { getUserByCpf } from './services/db';
 import logoHospitalDeAmor from './assets/logoHospitalDeAmor.png';
 import { InactivityTimeout } from './components/InactivityTimeout';
 import HelpCenter from './pages/patient/HelpCenter';
 import RoboFaqWidget from './components/RoboFaqWidget';
 import ClinicalHistory from './pages/patient/ClinicalHistory';
+import Units from './pages/patient/Units';
 
 
 function App() {
@@ -24,6 +25,20 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedProtocol, setSelectedProtocol] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [fontSize, setFontSize] = useState(() => {
+    return localStorage.getItem('font-size-level') || 'default';
+  });
+
+  useEffect(() => {
+    let sizePercent = '106.25%';
+    if (fontSize === 'small') sizePercent = '93.75%';
+    if (fontSize === 'medium') sizePercent = '112.5%';
+    if (fontSize === 'large') sizePercent = '125%';
+    if (fontSize === 'xlarge') sizePercent = '137.5%';
+    
+    document.documentElement.style.fontSize = sizePercent;
+    localStorage.setItem('font-size-level', fontSize);
+  }, [fontSize]);
 
   const handleLoginSuccess = async (cpf: string) => {
     setPatientCpf(cpf);
@@ -64,6 +79,7 @@ function App() {
     'status-check': 'Acompanhar Agendamento — Hospital de Amor',
     profile: 'Meu Perfil — Hospital de Amor',
     'help-center': 'Central de Ajuda — Hospital de Amor',
+    units: 'Nossas Unidades — Hospital de Amor',
   };
 
   useEffect(() => {
@@ -163,6 +179,14 @@ function App() {
               </Button>
               <Button
                 variant="ghost"
+                onClick={() => navigateTo('units')}
+                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'units' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+              >
+                <MapPin className="w-4 h-4" />
+                Nossas Unidades
+              </Button>
+              <Button
+                variant="ghost"
                 onClick={() => navigateTo('profile')}
                 className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'profile' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
               >
@@ -224,6 +248,50 @@ function App() {
                 </div>
               </div>
             </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider hidden sm:inline select-none">Fonte:</span>
+              <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200/40 dark:border-zinc-800 shadow-sm">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    if (fontSize === 'medium') setFontSize('default');
+                    else if (fontSize === 'large') setFontSize('medium');
+                    else if (fontSize === 'xlarge') setFontSize('large');
+                    else if (fontSize === 'default') setFontSize('small');
+                  }}
+                  disabled={fontSize === 'small'}
+                  className="h-7 w-7 text-[10px] font-extrabold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 disabled:opacity-35"
+                  aria-label="Diminuir tamanho da fonte"
+                >
+                  A-
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setFontSize('default')}
+                  className={`h-7 px-2.5 text-[10px] font-bold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 ${fontSize === 'default' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : ''}`}
+                  aria-label="Tamanho de fonte padrão"
+                >
+                  A
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    if (fontSize === 'small') setFontSize('default');
+                    else if (fontSize === 'default') setFontSize('medium');
+                    else if (fontSize === 'medium') setFontSize('large');
+                    else if (fontSize === 'large') setFontSize('xlarge');
+                  }}
+                  disabled={fontSize === 'xlarge'}
+                  className="h-7 w-7 text-xs font-bold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 disabled:opacity-35"
+                  aria-label="Aumentar tamanho da fonte"
+                >
+                  A+
+                </Button>
+              </div>
+            </div>
           </header>
 
           <div className="p-4 md:p-8">
@@ -235,9 +303,16 @@ function App() {
               <StatusCheck initialProtocol={selectedProtocol} onNavigate={navigateTo} />
             )}
             {currentPage === 'profile' && (
-              <Profile patientCpf={patientCpf} onLogout={handleLogout} onNavigate={navigateTo} />
+              <Profile 
+                patientCpf={patientCpf} 
+                onLogout={handleLogout} 
+                onNavigate={navigateTo} 
+                fontSize={fontSize}
+                setFontSize={setFontSize}
+              />
             )}
             {currentPage === 'help-center' && <HelpCenter />}
+            {currentPage === 'units' && <Units onNavigate={navigateTo} />}
           </div>
         </main>
         <SymptomFloatingWidget patientCpf={patientCpf} currentPage={currentPage} />
