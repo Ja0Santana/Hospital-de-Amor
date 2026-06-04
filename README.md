@@ -57,6 +57,7 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **Seletor de Portal no Login**: Adicionado um seletor visual por abas no cabeçalho do login que divide o acesso entre "Portal do Paciente" (fluxo principal) e "Portal do Doador" (exibindo uma tela informativa de "Em Breve" detalhando os futuros recursos).
 *   **Tipografia Institucional Comfortaa**: Importada e configurada a fonte geométrica **Comfortaa** para todos os textos nominativos de marca (`HOSPITAL DE AM♥R`), aplicando o coração rosa choque no lugar da letra "O", perfeitamente alinhada à identidade visual e logotipo oficial.
 *   **RNF84 – Ajuda Contextual com Tooltips (Must Have)**: Dicas flutuantes acessíveis (ativadas por hover ou foco do teclado/touch) nos principais campos de formulário de agendamento, orientando o usuário e conectando com o link de "Saiba mais" para a Central de Ajuda.
+*   **RNF86 – Acessibilidade de Fontes (Must Have)**: Opção de acessibilidade visual na qual o usuário pode aumentar ou diminuir a escala de tamanho das fontes de texto do portal (Menor, Padrão, Médio, Grande, G+), com persistência de preferências no `localStorage` e aumento de 6.25% (17px) no tamanho base padrão para melhor legibilidade.
 
 ### Segurança, Privacidade e LGPD
 *   **RNF45 – Garantir Conformidade LGPD (Must Have)**: Checkboxes destacados de consentimento de dados de saúde no cadastro e no envio de exames.
