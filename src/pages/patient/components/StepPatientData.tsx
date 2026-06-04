@@ -5,7 +5,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '.
 import { getCities } from '../../../services/db';
 import type { City } from '../../../types';
 import { formatCpf, formatPhone, validateCpf, sanitizeString } from '../../../lib/sanitizer';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, HelpCircle } from 'lucide-react';
+import Tooltip from '../../../components/ui/Tooltip';
 
 interface StepPatientDataProps {
   formData: {
@@ -115,7 +116,12 @@ export default function StepPatientData({ formData, onChange, errors, setErrors 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="patientCpf" className="font-semibold text-zinc-700 dark:text-zinc-300">CPF *</Label>
+          <Label htmlFor="patientCpf" className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+            CPF *
+            <Tooltip id="tooltip-cpf" position="bottom" content="Seu CPF é validado matematicamente e protegido de acordo com as normas da LGPD.">
+              <HelpCircle className="w-3.5 h-3.5 text-zinc-400 hover:text-zinc-650 transition-colors" />
+            </Tooltip>
+          </Label>
           <Input
             id="patientCpf"
             type="text"
@@ -161,7 +167,12 @@ export default function StepPatientData({ formData, onChange, errors, setErrors 
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="patientPhone" className="font-semibold text-zinc-700 dark:text-zinc-300">Telefone para Contato *</Label>
+          <Label htmlFor="patientPhone" className="font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+            Telefone para Contato *
+            <Tooltip id="tooltip-phone" position="bottom" content="Para números de Sergipe (DDD 79), o sistema sugere automaticamente o estado e a cidade.">
+              <HelpCircle className="w-3.5 h-3.5 text-zinc-400 hover:text-zinc-650 transition-colors" />
+            </Tooltip>
+          </Label>
           <Input
             id="patientPhone"
             type="text"

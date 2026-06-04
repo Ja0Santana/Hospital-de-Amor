@@ -4,7 +4,8 @@ import { Checkbox } from '../../../components/ui/checkbox';
 import { Button } from '../../../components/ui/button';
 import { Card, CardContent } from '../../../components/ui/card';
 import type { FileAttachment } from '../../../types';
-import { AlertCircle, Upload, FileText, Eye, Trash2, Edit2 } from 'lucide-react';
+import { AlertCircle, Upload, FileText, Eye, Trash2, Edit2, HelpCircle } from 'lucide-react';
+import Tooltip from '../../../components/ui/Tooltip';
 
 interface StepUploadReviewProps {
   formData: {
@@ -104,6 +105,9 @@ export default function StepUploadReview({ formData, onChange, onEditStep, error
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
           Anexar Encaminhamento Médico *
+          <Tooltip id="tooltip-attachment" content="Envie fotos nítidas do seu encaminhamento em JPG, PNG ou PDF (máx. 5MB).">
+            <HelpCircle className="w-4 h-4 text-zinc-400 hover:text-zinc-650 transition-colors" />
+          </Tooltip>
         </h3>
         <p className="text-zinc-500 text-sm">
           Selecione a foto ou PDF do seu encaminhamento ou pedido de exame emitido pelo médico. O arquivo é obrigatório para validação da triagem.
@@ -222,8 +226,11 @@ export default function StepUploadReview({ formData, onChange, onEditStep, error
             className="mt-1 focus-visible:ring-primary border-zinc-300"
           />
           <div className="space-y-1">
-            <Label htmlFor="consentLgpd" className="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300 leading-normal cursor-pointer">
+            <Label htmlFor="consentLgpd" className="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300 leading-normal cursor-pointer flex items-center gap-1.5">
               Declaração de Consentimento de Dados (LGPD) *
+              <Tooltip id="tooltip-lgpd" content="Seus dados de saúde são tratados estritamente para fins de triagem de agendamento.">
+                <HelpCircle className="w-3.5 h-3.5 text-zinc-400 hover:text-zinc-650 transition-colors" />
+              </Tooltip>
             </Label>
             <p className="text-[11px] sm:text-xs text-zinc-500 leading-normal">
               Estou ciente e dou consentimento explícito para que o Hospital de Amor realize o tratamento dos meus dados pessoais e dados de saúde contidos neste formulário e nos documentos anexados, estritamente para a finalidade de realizar a triagem e o agendamento do exame solicitado.

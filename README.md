@@ -49,12 +49,14 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **RF50 – Central de Lembretes Automáticos (Must Have)**: Exibição dinâmica de alertas de alta prioridade no topo da Dashboard, notificando o paciente sobre o preparo obrigatório de exames confirmados (ex: jejum) e lembrando do preenchimento pendente do diário de sintomas do dia atual.
 *   **RF88 – Substituição de Documentos Pendentes (Must Have)**: Permite que o paciente realize a substituição de documentos com pendências ou marcados como ilegíveis diretamente a partir da tela de acompanhamento de status de agendamentos cujo status seja "Cancelado", alterando o status da solicitação de volta para "Em análise" após o upload corretivo.
 
-### Módulo de Histórico Clínico
+### Módulo de Histórico Clínico e Localização
 *   **RF51 – Importação de Histórico Clínico Externo (Must Have)**: Carteira de exames e laudos externos digitalizada. Permite o upload de arquivos de outras clínicas (PDF, JPG, PNG de até 5MB) com metadados obrigatórios (título, tipo do documento, data e especialidade médica), com pesquisa em tempo real, contadores de arquivos, filtros de visualização por tipo e exclusão com diálogo de confirmação de segurança.
+*   **RF57 – Localização de Unidades (Must Have)**: Sistema buscador de filiais que detecta a geolocalização do usuário, calcula a distância em km para as 16 unidades de atendimento, tratamento e reabilitação oficiais do Hospital de Amor (Fórmula de Haversine), e coloca a unidade mais próxima em destaque no topo. Inclui links rápidos para abrir direções e rotas no Google Maps e Waze.
 
 ### Identidade Visual, Tipografia e Acessos
 *   **Seletor de Portal no Login**: Adicionado um seletor visual por abas no cabeçalho do login que divide o acesso entre "Portal do Paciente" (fluxo principal) e "Portal do Doador" (exibindo uma tela informativa de "Em Breve" detalhando os futuros recursos).
 *   **Tipografia Institucional Comfortaa**: Importada e configurada a fonte geométrica **Comfortaa** para todos os textos nominativos de marca (`HOSPITAL DE AM♥R`), aplicando o coração rosa choque no lugar da letra "O", perfeitamente alinhada à identidade visual e logotipo oficial.
+*   **RNF84 – Ajuda Contextual com Tooltips (Must Have)**: Dicas flutuantes acessíveis (ativadas por hover ou foco do teclado/touch) nos principais campos de formulário de agendamento, orientando o usuário e conectando com o link de "Saiba mais" para a Central de Ajuda.
 
 ### Segurança, Privacidade e LGPD
 *   **RNF45 – Garantir Conformidade LGPD (Must Have)**: Checkboxes destacados de consentimento de dados de saúde no cadastro e no envio de exames.
