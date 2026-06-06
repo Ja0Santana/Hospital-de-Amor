@@ -31,6 +31,7 @@ function App() {
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem('portal-theme') || 'light';
   });
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
 
   useEffect(() => {
     let sizePercent = '106.25%';
@@ -255,7 +256,7 @@ function App() {
                 <div className="bg-white p-1 rounded-lg flex items-center justify-center border border-zinc-100 shadow-sm w-9 h-9">
                   <img src={logoHospitalDeAmor} alt="Hospital de Amor" className="w-full h-full object-contain" aria-hidden="true" />
                 </div>
-                <div className="font-comfortaa font-bold text-xs tracking-wide text-primary flex items-center select-none uppercase">
+                <div className="font-comfortaa font-bold text-xs tracking-wide text-primary select-none uppercase hidden sm:flex items-center">
                   <span>Hospital de Am</span>
                   <Heart className="w-3 h-3 fill-brand-pink text-brand-pink inline mx-0.5 -mt-0.5" aria-hidden="true" />
                   <span>r</span>
@@ -310,37 +311,51 @@ function App() {
 
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider hidden sm:inline select-none">Tema:</span>
-                <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200/40 dark:border-zinc-800 shadow-sm">
+                <div className="relative">
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setTheme('light')}
-                    className={`h-7 w-7 rounded-md transition-colors ${theme === 'light' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-                    aria-label="Modo Claro"
-                    title="Modo Claro"
+                    onClick={() => setShowThemeMenu(!showThemeMenu)}
+                    className="h-8 w-8 bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/40 dark:border-zinc-800 shadow-sm rounded-lg text-zinc-650 dark:text-zinc-350 hover:bg-zinc-200 dark:hover:bg-zinc-850 flex items-center justify-center"
+                    aria-label="Opções de tema"
+                    title="Opções de tema"
                   >
-                    <Sun className="w-3.5 h-3.5" />
+                    {theme === 'light' && <Sun className="w-4 h-4 text-amber-500" />}
+                    {theme === 'dark' && <Moon className="w-4 h-4 text-blue-400" />}
+                    {theme === 'contrast' && <Eye className="w-4 h-4 text-white" />}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setTheme('dark')}
-                    className={`h-7 w-7 rounded-md transition-colors ${theme === 'dark' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-                    aria-label="Modo Escuro"
-                    title="Modo Escuro"
-                  >
-                    <Moon className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setTheme('contrast')}
-                    className={`h-7 w-7 rounded-md transition-colors ${theme === 'contrast' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
-                    aria-label="Alto Contraste"
-                    title="Alto Contraste"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                  </Button>
+
+                  {showThemeMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)} />
+                      <div className="absolute right-0 mt-1.5 w-32 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-lg z-50 p-1 flex flex-col gap-0.5">
+                        <Button
+                          variant="ghost"
+                          onClick={() => { setTheme('light'); setShowThemeMenu(false); }}
+                          className={`h-8 px-2.5 text-xs font-bold justify-start gap-2 rounded-lg transition-colors w-full ${theme === 'light' ? 'bg-zinc-100 dark:bg-zinc-800 text-primary font-extrabold' : 'text-zinc-650 dark:text-zinc-350 hover:bg-zinc-50 dark:hover:bg-zinc-850'}`}
+                        >
+                          <Sun className="w-3.5 h-3.5" />
+                          Claro
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => { setTheme('dark'); setShowThemeMenu(false); }}
+                          className={`h-8 px-2.5 text-xs font-bold justify-start gap-2 rounded-lg transition-colors w-full ${theme === 'dark' ? 'bg-zinc-100 dark:bg-zinc-800 text-primary font-extrabold' : 'text-zinc-650 dark:text-zinc-350 hover:bg-zinc-50 dark:hover:bg-zinc-850'}`}
+                        >
+                          <Moon className="w-3.5 h-3.5" />
+                          Escuro
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          onClick={() => { setTheme('contrast'); setShowThemeMenu(false); }}
+                          className={`h-8 px-2.5 text-xs font-bold justify-start gap-2 rounded-lg transition-colors w-full ${theme === 'contrast' ? 'bg-zinc-100 dark:bg-zinc-800 text-primary font-extrabold' : 'text-zinc-650 dark:text-zinc-350 hover:bg-zinc-50 dark:hover:bg-zinc-850'}`}
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                          Contraste
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
