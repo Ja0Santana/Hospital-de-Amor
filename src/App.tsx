@@ -57,6 +57,24 @@ function App() {
     localStorage.setItem('portal-theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    const handleScrollLock = () => {
+      const hasOverlay = document.querySelector('.fixed.inset-0[class*="bg-black/"]');
+      if (hasOverlay) {
+        document.body.classList.add('overflow-hidden');
+      } else {
+        document.body.classList.remove('overflow-hidden');
+      }
+    };
+    handleScrollLock();
+    const observer = new MutationObserver(handleScrollLock);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      observer.disconnect();
+      document.body.classList.remove('overflow-hidden');
+    };
+  }, []);
+
   const handleLoginSuccess = async (cpf: string) => {
     setPatientCpf(cpf);
     try {
