@@ -101,7 +101,7 @@ export default function RoboFaqWidget({ currentPage }: RoboFaqWidgetProps) {
   }
 
   return (
-    <div className="fixed left-6 md:left-72 bottom-6 z-40 font-sans">
+    <div className="fixed right-6 bottom-6 z-40 font-sans">
       {isOpen ? (
         <Card className="w-[310px] sm:w-[330px] h-[440px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 duration-300">
           <CardHeader className="bg-primary p-3.5 text-white flex flex-row items-center justify-between shrink-0">

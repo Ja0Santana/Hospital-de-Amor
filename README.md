@@ -34,9 +34,10 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 
 
 ### Módulo de Acompanhamento de Status e Feedback
-*   **RF06 – Acompanhar Status (Must Have)**: Busca por protocolo ou CPF exibindo linha do tempo de status (Pendente, Em análise, Confirmado, Cancelado).
-    *   **Confirmado**: Exibe data, hora, profissional, sala e emite a credencial com QR Code dinâmico.
-    *   **Cancelado**: Apresenta justificativa do cancelamento inserida pela regulação.
+*   **RF06 – Acompanhar Status (Must Have)**: Acompanhamento automático das solicitações vinculadas ao CPF do paciente logado, organizadas em um layout de accordion (cards expansíveis) com limpeza de estados ao alternar.
+    *   **Filtros e Busca**: Barra de busca textual case-insensitive (busca por nome do exame ou código de protocolo) combinada com botões seletores (chips) de status com contadores numéricos em tempo real.
+    *   **Confirmado**: Exibe data, hora, profissional, sala, ações de confirmação de presença (RF40), reagendamento (RF53) e emite a credencial com QR Code dinâmico.
+    *   **Cancelado**: Apresenta justificativa do cancelamento inserida pela regulação e fluxo corretivo de substituição de anexos (RF88).
     *   **Em análise**: Mostra estimativa de tempo de resposta baseada nas triagens do mês.
 *   **RF20 – Cancelar Solicitação (Must Have)**: Permite que o paciente cancele solicitações ativas diretamente no Portal, registrando o motivo e gerando os devidos logs.
 *   **RF39 – Visualizar Detalhes e Instruções (Must Have)**: Detalhes de consultas confirmadas e instruções específicas disponíveis para visualização ou impressão.
