@@ -352,7 +352,7 @@ function App() {
             {currentPage === 'clinical-history' && <ClinicalHistory patientCpf={patientCpf} onNavigate={navigateTo} />}
             {currentPage === 'new-request' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
             {currentPage === 'status-check' && (
-              <StatusCheck initialProtocol={selectedProtocol} onNavigate={navigateTo} />
+              <StatusCheck initialProtocol={selectedProtocol} onNavigate={navigateTo} patientCpf={patientCpf} />
             )}
             {currentPage === 'profile' && (
               <Profile 

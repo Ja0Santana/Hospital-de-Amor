@@ -202,31 +202,45 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
                     <p className="font-semibold text-zinc-600 dark:text-zinc-400">Nenhum agendamento encontrado.</p>
                   </div>
                 ) : (
-                  <ul className="space-y-3 list-none">
-                    {appointments.map((app) => (
-                      <li
-                        key={app.id}
-                        className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900/30 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-xs hover:border-primary/30 transition-all gap-4"
-                      >
-                        <div className="space-y-1">
-                          <h3 className="text-sm font-bold text-zinc-950 dark:text-zinc-50">{app.examName}</h3>
-                          <span className="text-[10px] text-zinc-400 block">Solicitado em <time dateTime={app.createdAt.split('T')[0]}>{new Date(app.createdAt).toLocaleDateString('pt-BR')}</time> • Protocolo: {app.protocol}</span>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          {getStatusBadge(app.status)}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={`Ver detalhes do agendamento ${app.protocol}`}
-                            onClick={() => onNavigate(`status-${app.protocol}`)}
-                            className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
-                          >
-                            <ChevronRight className="w-4 h-4 text-zinc-400" aria-hidden="true" />
-                          </Button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="space-y-4">
+                    <ul className="space-y-3 list-none">
+                      {appointments.slice(0, 3).map((app) => (
+                        <li
+                          key={app.id}
+                          className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900/30 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-xs hover:border-primary/30 transition-all gap-4"
+                        >
+                          <div className="space-y-1">
+                            <h3 className="text-sm font-bold text-zinc-950 dark:text-zinc-50">{app.examName}</h3>
+                            <span className="text-[10px] text-zinc-400 block">Solicitado em <time dateTime={app.createdAt.split('T')[0]}>{new Date(app.createdAt).toLocaleDateString('pt-BR')}</time> • Protocolo: {app.protocol}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {getStatusBadge(app.status)}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label={`Ver detalhes do agendamento ${app.protocol}`}
+                              onClick={() => onNavigate(`status-${app.protocol}`)}
+                              className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
+                            >
+                              <ChevronRight className="w-4 h-4 text-zinc-400" aria-hidden="true" />
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                    {appointments.length > 3 && (
+                      <div className="flex justify-end pt-1">
+                        <Button
+                          variant="ghost"
+                          onClick={() => onNavigate('status-check')}
+                          className="text-xs font-bold text-primary hover:text-primary/95 flex items-center gap-1 p-0 h-auto hover:bg-transparent"
+                        >
+                          Ver todos os agendamentos ({appointments.length})
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
             </div>
           </CardContent>
