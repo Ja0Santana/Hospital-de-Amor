@@ -15,6 +15,7 @@ import HelpCenter from './pages/patient/HelpCenter';
 import RoboFaqWidget from './components/RoboFaqWidget';
 import ClinicalHistory from './pages/patient/ClinicalHistory';
 import Units from './pages/patient/Units';
+import DigitalCard from './components/DigitalCard';
 
 
 function App() {
@@ -32,6 +33,7 @@ function App() {
     return localStorage.getItem('portal-theme') || 'light';
   });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const [isCardOpen, setIsCardOpen] = useState(false);
 
   useEffect(() => {
     let sizePercent = '106.25%';
@@ -362,7 +364,14 @@ function App() {
           </header>
 
           <div className="p-4 md:p-8 pt-20 md:pt-24">
-            {currentPage === 'dashboard' && <Dashboard onNavigate={navigateTo} patientCpf={patientCpf} patientName={patientName} />}
+            {currentPage === 'dashboard' && (
+              <Dashboard 
+                onNavigate={navigateTo} 
+                patientCpf={patientCpf} 
+                patientName={patientName} 
+                onOpenCard={() => setIsCardOpen(true)} 
+              />
+            )}
             {currentPage === 'symptoms' && <SymptomsDiary patientCpf={patientCpf} />}
             {currentPage === 'clinical-history' && <ClinicalHistory patientCpf={patientCpf} onNavigate={navigateTo} />}
             {currentPage === 'new-request' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
@@ -386,6 +395,7 @@ function App() {
         </main>
         <SymptomFloatingWidget patientCpf={patientCpf} currentPage={currentPage} />
         <RoboFaqWidget currentPage={currentPage} />
+        <DigitalCard patientCpf={patientCpf} isOpen={isCardOpen} onClose={() => setIsCardOpen(false)} />
       </div>
     </InactivityTimeout>
   );
