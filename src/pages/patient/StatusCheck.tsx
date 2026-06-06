@@ -6,7 +6,7 @@ import { Badge } from '../../components/ui/badge';
 import { getAppointmentByCpf, getSpecialties, updateAppointment } from '../../services/db';
 import type { Appointment, Specialty } from '../../types';
 import { formatCpf } from '../../lib/sanitizer';
-import { Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare, X, Upload, FileText, Eye, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare, X, Upload, FileText, Eye, Trash2, ChevronDown, ChevronUp, Search } from 'lucide-react';
 
 interface StatusCheckProps {
   initialProtocol?: string;
@@ -19,6 +19,8 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const [selectedProtocol, setSelectedProtocol] = useState(initialProtocol);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [loading, setLoading] = useState(false);
+  const [filterText, setFilterText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | Appointment['status']>('Todos');
   
   const [npsScore, setNpsScore] = useState<number | null>(null);
   const [npsComment, setNpsComment] = useState('');
@@ -76,6 +78,28 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
       setLoading(false);
     }
   };
+
+  const totalCount = appointments.length;
+  const pendingCount = appointments.filter((a) => a.status === 'Pendente').length;
+  const analysisCount = appointments.filter((a) => a.status === 'Em análise').length;
+  const confirmedCount = appointments.filter((a) => a.status === 'Confirmado').length;
+  const cancelledCount = appointments.filter((a) => a.status === 'Cancelado').length;
+
+  const filteredAppointments = appointments.filter((app) => {
+    const matchesText = app.examName.toLowerCase().includes(filterText.toLowerCase()) ||
+                        app.protocol.toLowerCase().includes(filterText.toLowerCase());
+    const matchesStatus = statusFilter === 'Todos' || app.status === statusFilter;
+    return matchesText && matchesStatus;
+  });
+
+  useEffect(() => {
+    if (selectedProtocol) {
+      const isStillVisible = filteredAppointments.some((app) => app.protocol === selectedProtocol);
+      if (!isStillVisible) {
+        setSelectedProtocol('');
+      }
+    }
+  }, [filteredAppointments, selectedProtocol]);
 
   const appointment = appointments.find((app) => app.protocol === selectedProtocol) || null;
 
@@ -271,8 +295,78 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
           </Button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {appointments.map((app) => {
+        <div className="space-y-6">
+          <div className="space-y-4 bg-zinc-50/30 dark:bg-zinc-900/20 p-4 rounded-3xl border border-zinc-200/60 dark:border-zinc-800/80">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nome do exame ou protocolo..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-primary focus:outline-none dark:text-zinc-100 transition-all shadow-xs"
+              />
+            </div>
+            
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Todos')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Todos' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Todos ({totalCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Pendente')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Pendente' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Pendente ({pendingCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Em análise')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Em análise' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Em análise ({analysisCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Confirmado')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Confirmado' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Confirmado ({confirmedCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Cancelado')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Cancelado' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Cancelado ({cancelledCount})
+              </button>
+            </div>
+          </div>
+
+          {filteredAppointments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center bg-zinc-50/50 dark:bg-zinc-900/10 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 p-6 animate-in fade-in">
+              <AlertCircle className="w-12 h-12 text-zinc-400 mb-3" />
+              <h3 className="font-extrabold text-zinc-900 dark:text-zinc-50 text-lg">Nenhum resultado encontrado</h3>
+              <p className="text-xs text-zinc-500 max-w-sm mt-1">
+                Não encontramos agendamentos correspondentes aos filtros selecionados.
+              </p>
+              <Button 
+                onClick={() => {
+                  setFilterText('');
+                  setStatusFilter('Todos');
+                }}
+                className="mt-6 bg-primary hover:bg-primary/95 text-white font-bold h-10 px-5 rounded-xl text-xs transition-transform active:scale-95 shadow-sm"
+              >
+                Limpar Filtros
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredAppointments.map((app) => {
             const isExpanded = selectedProtocol === app.protocol;
             return (
               <Card key={app.id} className={`border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 transition-all ${isExpanded ? 'ring-1 ring-primary/20 shadow-md' : 'hover:border-primary/20'}`}>
@@ -654,6 +748,8 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
               </Card>
             );
           })}
+            </div>
+          )}
         </div>
       )}
 
