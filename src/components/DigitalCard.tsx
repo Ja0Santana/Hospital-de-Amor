@@ -188,18 +188,18 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleCall}
-                      className="flex-1 h-10 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition-transform"
+                      className="flex-1 h-11 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-extrabold text-sm rounded-xl flex items-center justify-center gap-2 transition-transform"
                     >
                       <Phone className="w-4 h-4" />
                       {isCalling ? 'Ligando...' : 'Ligar para Contato'}
                     </button>
                     <button
                       onClick={handlePrint}
-                      className="h-10 w-12 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl flex items-center justify-center transition-colors"
+                      className="h-11 w-14 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl flex items-center justify-center transition-colors"
                       title="Imprimir Carteira"
                       aria-label="Imprimir Carteira"
                     >
-                      <Printer className="w-4.5 h-4.5" />
+                      <Printer className="w-5 h-5" />
                     </button>
                   </div>
                 )}
@@ -211,14 +211,14 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <button
             onClick={() => setIsFlipped(!isFlipped)}
-            className="flex-1 h-12 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-xl text-sm font-bold text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
+            className="flex-1 h-14 border-2 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-xl text-base font-black text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
           >
-            <RotateCw className="w-4 h-4" />
+            <RotateCw className="w-5 h-5" />
             Girar Carteira
           </button>
           <button
             onClick={onClose}
-            className="flex-1 h-12 bg-primary hover:bg-primary/95 text-white rounded-xl text-sm font-bold shadow-md transition-transform active:scale-[0.98]"
+            className="flex-1 h-14 bg-primary hover:bg-primary/95 text-white rounded-xl text-base font-black shadow-md transition-transform active:scale-[0.98]"
           >
             Fechar Carteira
           </button>
