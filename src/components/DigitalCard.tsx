@@ -14,6 +14,7 @@ interface DigitalCardProps {
 export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCardProps) {
   const [user, setUser] = useState<PatientUser | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [angle, setAngle] = useState(0);
   const [isCalling, setIsCalling] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
@@ -42,6 +43,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
     setIsDragging(false);
     if (Math.abs(currentDeltaX) > 80) {
       setIsFlipped((prev) => !prev);
+      setAngle((prev) => (currentDeltaX < 0 ? prev - 180 : prev + 180));
     }
     setCurrentDeltaX(0);
     if (hasDraggedRef.current) {
@@ -84,6 +86,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
     if (isOpen) {
       fetchUser();
       setIsFlipped(false);
+      setAngle(0);
       setIsCalling(false);
     }
   }, [patientCpf, isOpen]);
@@ -113,11 +116,11 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
 
   const dragRatio = currentDeltaX / 400;
   const angleOffset = dragRatio * 180;
-  const currentAngle = isFlipped ? 180 + angleOffset : angleOffset;
+  const currentAngle = angle + angleOffset;
 
   const cardStyle: React.CSSProperties = {
-    transform: isDragging ? `rotateY(${currentAngle}deg)` : undefined,
-    transition: isDragging ? 'none' : undefined,
+    transform: `rotateY(${isDragging ? currentAngle : angle}deg)`,
+    transition: isDragging ? 'none' : 'transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1)',
   };
 
   return (
@@ -161,11 +164,12 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
             onClick={() => {
               if (hasDraggedRef.current) return;
               setIsFlipped(!isFlipped);
+              setAngle((prev) => prev + 180);
             }}
           >
             <div 
               style={cardStyle}
-              className={`relative w-full h-full preserve-3d transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}
+              className="relative w-full h-full preserve-3d"
             >
               
               <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-4 text-white flex flex-col justify-between shadow-xl border border-white/10">
@@ -292,7 +296,10 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
 
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <button
-            onClick={() => setIsFlipped(!isFlipped)}
+            onClick={() => {
+              setIsFlipped(!isFlipped);
+              setAngle((prev) => prev + 180);
+            }}
             className="flex-1 h-14 border-2 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-xl text-base font-black text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
           >
             <RotateCw className="w-5 h-5" />
