@@ -134,7 +134,13 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
           email: 'anna.beatriz@email.com',
           phone: '(79) 99999-9999',
           passwordHash: '123456',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          bloodType: 'A+',
+          allergies: 'Penicilina e Corante Amarelo Tartrazina',
+          clinicalDiagnosis: 'Neoplasia Lobular da Mama - Estágio Inicial',
+          emergencyContactName: 'Carlos Alberto de Souza',
+          emergencyContactPhone: '(79) 98888-8888',
+          emergencyContactRelation: 'Cônjuge'
         });
       }
     };

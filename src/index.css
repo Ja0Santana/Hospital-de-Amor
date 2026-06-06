@@ -157,3 +157,57 @@
   fill: currentColor !important;
 }
 
+.perspective-1000 {
+  perspective: 1000px;
+}
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+.backface-hidden {
+  backface-visibility: hidden;
+}
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  #printable-digital-card, #printable-digital-card * {
+    visibility: visible !important;
+  }
+  #printable-digital-card {
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    width: 350px !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px !important;
+  }
+  #printable-digital-card .perspective-1000 {
+    perspective: none !important;
+  }
+  #printable-digital-card .preserve-3d {
+    transform-style: flat !important;
+    transform: none !important;
+  }
+  #printable-digital-card .backface-hidden {
+    backface-visibility: visible !important;
+    position: relative !important;
+    width: 100% !important;
+    height: auto !important;
+    transform: none !important;
+  }
+  #printable-digital-card .digital-card-back {
+    display: block !important;
+  }
+}
+

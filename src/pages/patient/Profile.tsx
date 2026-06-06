@@ -10,7 +10,7 @@ import type { PatientUser, Appointment } from '../../types';
 import { 
   User, Lock, Mail, Phone, Calendar, MapPin, Download, Trash2, 
   Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck,
-  Type
+  Type, Activity
 } from 'lucide-react';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 
@@ -36,6 +36,12 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
   const [phone, setPhone] = useState('');
   const [state, setState] = useState('');
   const [city, setCity] = useState('');
+  const [bloodType, setBloodType] = useState('');
+  const [allergies, setAllergies] = useState('');
+  const [clinicalDiagnosis, setClinicalDiagnosis] = useState('');
+  const [emergencyContactName, setEmergencyContactName] = useState('');
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
+  const [emergencyContactRelation, setEmergencyContactRelation] = useState('');
 
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -72,6 +78,12 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
           setPhone(patient.phone);
           setState('SE');
           setCity('Lagarto');
+          setBloodType(patient.bloodType || '');
+          setAllergies(patient.allergies || '');
+          setClinicalDiagnosis(patient.clinicalDiagnosis || '');
+          setEmergencyContactName(patient.emergencyContactName || '');
+          setEmergencyContactPhone(patient.emergencyContactPhone || '');
+          setEmergencyContactRelation(patient.emergencyContactRelation || '');
         }
       } catch (err) {
         console.error(err);
@@ -95,7 +107,26 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
       await updatePatientUser(patientCpf, {
         email,
         phone,
+        bloodType,
+        allergies,
+        clinicalDiagnosis,
+        emergencyContactName,
+        emergencyContactPhone,
+        emergencyContactRelation
       });
+      if (user) {
+        setUser({
+          ...user,
+          email,
+          phone,
+          bloodType,
+          allergies,
+          clinicalDiagnosis,
+          emergencyContactName,
+          emergencyContactPhone,
+          emergencyContactRelation
+        });
+      }
       setSuccessMessage('Dados atualizados com sucesso no banco de dados local.');
     } catch (err: any) {
       setErrorMessage('Erro ao atualizar os dados.');
@@ -299,7 +330,99 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                   </div>
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="border-t border-zinc-200 dark:border-zinc-800 my-6" />
+
+                <div className="flex items-center gap-2 mb-4">
+                  <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
+                  <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Ficha de Saúde e Emergência (F.I.C.E.)</h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="bloodType" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grupo Sanguíneo</Label>
+                    <select
+                      id="bloodType"
+                      value={bloodType}
+                      onChange={(e) => setBloodType(e.target.value)}
+                      className="w-full h-11 px-3 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary rounded-xl bg-white dark:bg-zinc-950 text-sm focus-visible:outline-none"
+                    >
+                      <option value="">Selecione...</option>
+                      <option value="A+">A+</option>
+                      <option value="A-">A-</option>
+                      <option value="B+">B+</option>
+                      <option value="B-">B-</option>
+                      <option value="AB+">AB+</option>
+                      <option value="AB-">AB-</option>
+                      <option value="O+">O+</option>
+                      <option value="O-">O-</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="allergies" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Alergias Conhecidas</Label>
+                    <Input
+                      id="allergies"
+                      type="text"
+                      value={allergies}
+                      onChange={(e) => setAllergies(e.target.value)}
+                      placeholder="Ex: Medicamentos, alimentos, etc."
+                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label htmlFor="clinicalDiagnosis" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico Clínico Principal</Label>
+                    <Input
+                      id="clinicalDiagnosis"
+                      type="text"
+                      value={clinicalDiagnosis}
+                      onChange={(e) => setClinicalDiagnosis(e.target.value)}
+                      placeholder="Ex: Neoplasia de mama sob acompanhamento."
+                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="emergencyContactName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Nome do Contato de Emergência</Label>
+                    <Input
+                      id="emergencyContactName"
+                      type="text"
+                      value={emergencyContactName}
+                      onChange={(e) => setEmergencyContactName(e.target.value)}
+                      placeholder="Ex: Carlos Alberto"
+                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="emergencyContactPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Telefone do Contato</Label>
+                      <Input
+                        id="emergencyContactPhone"
+                        type="text"
+                        value={formatPhone(emergencyContactPhone)}
+                        onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                        maxLength={15}
+                        placeholder="(00) 00000-0000"
+                        className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="emergencyContactRelation" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grau de Parentesco</Label>
+                      <Input
+                        id="emergencyContactRelation"
+                        type="text"
+                        value={emergencyContactRelation}
+                        onChange={(e) => setEmergencyContactRelation(e.target.value)}
+                        placeholder="Ex: Cônjuge, Filho(a)"
+                        className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-6">
                   <Button type="submit" disabled={loading} className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-6 rounded-xl shadow-md transition-transform active:scale-[0.98]">
                     {loading ? 'Salvando...' : 'Salvar Alterações'}
                   </Button>
