@@ -150,6 +150,25 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
     }
   };
 
+  const handleRegCpfBlur = async () => {
+    setError('');
+    const cleanCpf = regCpf.replace(/\D/g, "");
+    if (!cleanCpf) return;
+
+    if (!validateCpf(cleanCpf)) {
+      setError('O CPF informado é inválido. Por favor, verifique os dígitos.');
+      return;
+    }
+
+    try {
+      const existing = await getUserByCpf(cleanCpf);
+      if (existing) {
+        setError('Este CPF já está cadastrado no sistema.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -569,6 +588,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                         placeholder="000.000.000-00"
                         value={formatCpf(regCpf)}
                         onChange={(e) => setRegCpf(e.target.value)}
+                        onBlur={handleRegCpfBlur}
                         maxLength={14}
                         className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
