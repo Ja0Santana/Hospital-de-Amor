@@ -61,7 +61,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-xs">
-      <div className="bg-zinc-50 dark:bg-zinc-900 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-6 relative">
+      <div className="bg-zinc-50 dark:bg-zinc-900 rounded-3xl pt-5 pb-6 px-6 max-w-lg w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5 relative">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-150 dark:hover:bg-zinc-800 transition-colors"
@@ -70,12 +70,16 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
           <X className="w-5 h-5" />
         </button>
 
-        <div className="text-center space-y-1 pr-8">
-          <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-sans flex items-center justify-center gap-1.5">
-            <HeartHandshake className="w-5 h-5 text-primary" />
+        <div className="text-center space-y-2">
+          <div className="flex justify-center">
+            <div className="w-10 h-10 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary">
+              <HeartHandshake className="w-5 h-5" />
+            </div>
+          </div>
+          <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-50 font-sans leading-tight">
             Carteira Digital do Paciente
           </h2>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-500 max-w-xs mx-auto">
             Clique no cartão para girar e ver os dados de emergência (F.I.C.E.).
           </p>
         </div>        <div className="flex justify-center py-4">
