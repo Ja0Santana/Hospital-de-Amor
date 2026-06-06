@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Phone, Printer, RotateCw, X, ShieldAlert, HeartHandshake } from 'lucide-react';
 import { getUserByCpf } from '../services/db';
 import type { PatientUser } from '../types';
@@ -15,6 +15,58 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
   const [user, setUser] = useState<PatientUser | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isCalling, setIsCalling] = useState(false);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [currentDeltaX, setCurrentDeltaX] = useState(0);
+  const hasDraggedRef = useRef(false);
+
+  const handleDragStart = (clientX: number) => {
+    setIsDragging(true);
+    setStartX(clientX);
+    setCurrentDeltaX(0);
+    hasDraggedRef.current = false;
+  };
+
+  const handleDragMove = (clientX: number) => {
+    if (!isDragging) return;
+    const deltaX = clientX - startX;
+    setCurrentDeltaX(deltaX);
+    if (Math.abs(deltaX) > 10) {
+      hasDraggedRef.current = true;
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (Math.abs(currentDeltaX) > 80) {
+      setIsFlipped((prev) => !prev);
+    }
+    setCurrentDeltaX(0);
+    if (hasDraggedRef.current) {
+      setTimeout(() => {
+        hasDraggedRef.current = false;
+      }, 50);
+    }
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      const handleGlobalMouseMove = (e: MouseEvent) => {
+        handleDragMove(e.clientX);
+      };
+      const handleGlobalMouseUp = () => {
+        handleDragEnd();
+      };
+      window.addEventListener('mousemove', handleGlobalMouseMove);
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleGlobalMouseMove);
+        window.removeEventListener('mouseup', handleGlobalMouseUp);
+      };
+    }
+  }, [isDragging, startX]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -59,6 +111,15 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
     return `HA-${digits.slice(0, 6)}-${user.name.charAt(0).toUpperCase()}`;
   };
 
+  const dragRatio = currentDeltaX / 400;
+  const angleOffset = dragRatio * 180;
+  const currentAngle = isFlipped ? 180 + angleOffset : angleOffset;
+
+  const cardStyle: React.CSSProperties = {
+    transform: isDragging ? `rotateY(${currentAngle}deg)` : undefined,
+    transition: isDragging ? 'none' : undefined,
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-xs">
       <div className="bg-zinc-50 dark:bg-zinc-900 rounded-3xl pt-5 pb-6 px-6 max-w-lg w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5 relative">
@@ -85,10 +146,27 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
         </div>        <div className="flex justify-center py-4">
           <div 
             id="printable-digital-card"
-            className="w-full max-w-[430px] h-[270px] perspective-1000 cursor-pointer group select-none"
-            onClick={() => setIsFlipped(!isFlipped)}
+            className="w-full max-w-[430px] h-[270px] perspective-1000 cursor-grab active:cursor-grabbing group select-none"
+            onMouseDown={(e) => {
+              if (e.button !== 0) return;
+              handleDragStart(e.clientX);
+            }}
+            onTouchStart={(e) => {
+              handleDragStart(e.touches[0].clientX);
+            }}
+            onTouchMove={(e) => {
+              handleDragMove(e.touches[0].clientX);
+            }}
+            onTouchEnd={handleDragEnd}
+            onClick={() => {
+              if (hasDraggedRef.current) return;
+              setIsFlipped(!isFlipped);
+            }}
           >
-            <div className={`relative w-full h-full preserve-3d transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}>
+            <div 
+              style={cardStyle}
+              className={`relative w-full h-full preserve-3d transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}
+            >
               
               <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-4 text-white flex flex-col justify-between shadow-xl border border-white/10">
                 <div className="flex justify-between items-start">
