@@ -3,7 +3,6 @@ import { Heart, Phone, Printer, RotateCw, X, ShieldAlert, HeartHandshake } from 
 import { getUserByCpf } from '../services/db';
 import type { PatientUser } from '../types';
 import { formatCpf, formatPhone } from '../lib/sanitizer';
-import logoHospitalDeAmor from '../assets/logoHospitalDeAmor.png';
 
 interface DigitalCardProps {
   patientCpf: string;
@@ -102,7 +101,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
 
                 <div className="flex-1 flex items-center justify-start pl-1 py-1">
                   <div className="bg-white/95 p-1 rounded-xl flex items-center justify-center border border-white/10 shadow-lg w-14 h-14">
-                    <img src={logoHospitalDeAmor} alt="Logo" className="w-full h-full object-contain" />
+                    <img src="/logoHospitalDeAmor.png" alt="Logo" className="w-full h-full object-contain" />
                   </div>
                 </div>
 
