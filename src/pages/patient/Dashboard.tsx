@@ -5,6 +5,7 @@ import { Badge } from '../../components/ui/badge';
 import { getAppointmentByCpf, getSymptomLogs, getSpecialties } from '../../services/db';
 import type { Appointment } from '../../types';
 import { Search, AlertCircle, CheckCircle2, Clock, XCircle, Info, ChevronRight, FileText } from 'lucide-react';
+import DigitalCard from '../../components/DigitalCard';
 
 
 interface DashboardProps {
@@ -29,6 +30,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [showDiaryAlert, setShowDiaryAlert] = useState(false);
   const [prepAlerts, setPrepAlerts] = useState<{ id: string; title: string; desc: string }[]>([]);
+  const [isCardOpen, setIsCardOpen] = useState(false);
 
   useEffect(() => {
     loadAppointmentsAndAlerts();
@@ -89,9 +91,21 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Olá, {patientName}</h1>
-        <p className="text-zinc-500 mt-1">Aqui está o resumo do seu cuidado hoje.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans font-sans">Olá, {patientName}</h1>
+          <p className="text-zinc-500 mt-1">Aqui está o resumo do seu cuidado hoje.</p>
+        </div>
+        <Button
+          onClick={() => setIsCardOpen(true)}
+          className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-5 rounded-xl shadow-md flex items-center gap-2 self-start sm:self-auto transition-transform active:scale-[0.98]"
+        >
+          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <rect width={18} height={12} x={3} y={6} rx={2} />
+            <path d="M3 10h18M8 14h.01M12 14h.01" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Ver Carteira Digital
+        </Button>
       </div>
 
       {(showDiaryAlert || prepAlerts.length > 0) && (
@@ -281,6 +295,8 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
           </CardContent>
         </Card>
       </div>
+
+      <DigitalCard patientCpf={patientCpf} isOpen={isCardOpen} onClose={() => setIsCardOpen(false)} />
     </div>
   );
 }

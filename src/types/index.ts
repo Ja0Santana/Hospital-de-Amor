@@ -60,6 +60,12 @@ export interface PatientUser {
   phone: string;
   passwordHash: string;
   createdAt: string;
+  bloodType?: string;
+  allergies?: string;
+  clinicalDiagnosis?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
 }
 
 export interface SymptomLog {

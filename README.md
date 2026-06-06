@@ -53,6 +53,10 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 ### Módulo de Histórico Clínico e Localização
 *   **RF51 – Importação de Histórico Clínico Externo (Must Have)**: Carteira de exames e laudos externos digitalizada. Permite o upload de arquivos de outras clínicas (PDF, JPG, PNG de até 5MB) com metadados obrigatórios (título, tipo do documento, data e especialidade médica), com pesquisa em tempo real, contadores de arquivos, filtros de visualização por tipo e exclusão com diálogo de confirmação de segurança.
 *   **RF57 – Localização de Unidades (Must Have)**: Sistema buscador de filiais que detecta a geolocalização do usuário, calcula a distância em km para as 16 unidades de atendimento, tratamento e reabilitação oficiais do Hospital de Amor (Fórmula de Haversine), e coloca a unidade mais próxima em destaque no topo. Inclui links rápidos para abrir direções e rotas no Google Maps e Waze.
+*   **RF90 – Carteira Digital do Paciente (ICE)**: Desenvolvido um passaporte clínico digital interativo com efeito 3D (flip card) ao clique:
+    *   **Frente**: Exibe o logotipo oficial do Hospital de Amor (transparente), dados de identificação do paciente (Nome, CPF formatado sem quebra de linha, ID do Cartão) e QR Code dinâmico gerado em SVG vetorial.
+    *   **Verso**: Apresenta a Ficha de Informações Clínicas de Emergência (F.I.C.E.) contendo Tipo Sanguíneo destacado, Alergias catalogadas, Diagnósticos clínicos ativos, Contato de emergência e ações integradas para chamada telefônica rápida e impressão da carteira.
+    *   **Dashboard e Configurações**: Integrado um botão de atalho direto na Dashboard para exibição da carteira, e uma seção no perfil para preenchimento e edição das informações de saúde persistidas localmente no IndexedDB.
 
 ### Identidade Visual, Tipografia e Acessos
 *   **Seletor de Portal no Login**: Adicionado um seletor visual por abas no cabeçalho do login que divide o acesso entre "Portal do Paciente" (fluxo principal) e "Portal do Doador" (exibindo uma tela informativa de "Em Breve" detalhando os futuros recursos).
