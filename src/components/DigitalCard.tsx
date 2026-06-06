@@ -77,17 +77,15 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
           <p className="text-xs text-zinc-500">
             Clique no cartão para girar e ver os dados de emergência (F.I.C.E.).
           </p>
-        </div>
-
-        <div className="flex justify-center py-4">
+        </div>        <div className="flex justify-center py-4">
           <div 
             id="printable-digital-card"
-            className="w-full max-w-[370px] h-[230px] perspective-1000 cursor-pointer group select-none"
+            className="w-full max-w-[370px] h-[245px] perspective-1000 cursor-pointer group select-none"
             onClick={() => setIsFlipped(!isFlipped)}
           >
             <div className={`relative w-full h-full preserve-3d transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}>
               
-              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-5 text-white flex flex-col justify-between shadow-xl border border-white/10">
+              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-4 text-white flex flex-col justify-between shadow-xl border border-white/10">
                 <div className="flex justify-between items-start">
                   <div className="font-comfortaa font-bold text-xs tracking-wider flex items-center uppercase">
                     <span>Hospital de Am</span>
@@ -138,21 +136,21 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                 </div>
               </div>
 
-              <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-2xl bg-zinc-950 text-white p-5 flex flex-col justify-between shadow-xl border border-zinc-800 digital-card-back">
-                <div className="flex justify-between items-center pb-2 border-b border-zinc-800">
-                  <span className="text-[9px] font-black tracking-widest text-red-500 uppercase flex items-center gap-1">
+              <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-2xl bg-zinc-950 text-white p-4 flex flex-col justify-between shadow-xl border border-zinc-800 digital-card-back">
+                <div className="flex justify-between items-center pb-1.5 border-b border-zinc-900">
+                  <span className="text-[8px] font-black tracking-widest text-red-500 uppercase flex items-center gap-1">
                     <ShieldAlert className="w-3.5 h-3.5" />
-                    Ficha Clínica de Emergência
+                    Ficha de Emergência
                   </span>
                   {user?.bloodType && (
-                    <span className="bg-red-600/90 text-white font-extrabold text-xs px-2.5 py-0.5 rounded-full border border-red-500/30">
-                      TIPO SANGUÍNEO: {user.bloodType}
+                    <span className="bg-red-650 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full border border-red-500/30">
+                      SANGUE: {user.bloodType}
                     </span>
                   )}
                 </div>
 
-                <div className="flex-1 py-2 space-y-2 text-left min-w-0">
-                  <div className="grid grid-cols-1 gap-1.5">
+                <div className="flex-1 py-1.5 flex flex-col justify-between text-left min-w-0">
+                  <div className="grid grid-cols-2 gap-2">
                     <div className="min-w-0">
                       <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-widest block">Alergias</span>
                       <p className="text-[10px] font-semibold text-zinc-150 truncate leading-none">
@@ -161,28 +159,28 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                     </div>
 
                     <div className="min-w-0">
-                      <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-widest block">Diagnóstico Clínico</span>
+                      <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-widest block">Diagnóstico</span>
                       <p className="text-[10px] font-semibold text-zinc-150 truncate leading-none">
-                        {user?.clinicalDiagnosis || 'Sem diagnóstico informado'}
+                        {user?.clinicalDiagnosis || 'Sem diagnóstico'}
                       </p>
                     </div>
+                  </div>
 
-                    <div className="min-w-0 border-t border-zinc-800/60 pt-1.5">
-                      <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-widest block">Contato de Emergência</span>
-                      <p className="text-[10px] font-bold text-zinc-100 truncate leading-none">
-                        {user?.emergencyContactName ? `${user.emergencyContactName} (${user.emergencyContactRelation})` : 'Não informado'}
+                  <div className="min-w-0 border-t border-zinc-900 pt-1.5">
+                    <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-widest block">Contato de Emergência</span>
+                    <p className="text-[10px] font-bold text-zinc-100 truncate leading-none">
+                      {user?.emergencyContactName ? `${user.emergencyContactName} (${user.emergencyContactRelation})` : 'Não informado'}
+                    </p>
+                    {user?.emergencyContactPhone && (
+                      <p className="text-[9px] text-zinc-400 tracking-wider mt-0.5">
+                        Tel: {formatPhone(user.emergencyContactPhone)}
                       </p>
-                      {user?.emergencyContactPhone && (
-                        <p className="text-[9px] text-zinc-400 tracking-wider mt-0.5">
-                          Telefone: {formatPhone(user.emergencyContactPhone)}
-                        </p>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
 
                 {user?.emergencyContactPhone && (
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleCall}
                       className="flex-1 h-8 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-bold text-[10px] rounded-lg flex items-center justify-center gap-1.5 transition-transform"
@@ -201,7 +199,6 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         </div>
