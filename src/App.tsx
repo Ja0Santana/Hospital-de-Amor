@@ -7,7 +7,7 @@ import Login from './pages/Login';
 import SymptomsDiary from './pages/patient/SymptomsDiary';
 import SymptomFloatingWidget from './components/SymptomFloatingWidget';
 import { Button } from './components/ui/button';
-import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin } from 'lucide-react';
+import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin, Sun, Moon, Eye } from 'lucide-react';
 import { getUserByCpf } from './services/db';
 import logoHospitalDeAmor from './assets/logoHospitalDeAmor.png';
 import { InactivityTimeout } from './components/InactivityTimeout';
@@ -28,6 +28,9 @@ function App() {
   const [fontSize, setFontSize] = useState(() => {
     return localStorage.getItem('font-size-level') || 'default';
   });
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('portal-theme') || 'light';
+  });
 
   useEffect(() => {
     let sizePercent = '106.25%';
@@ -39,6 +42,17 @@ function App() {
     document.documentElement.style.fontSize = sizePercent;
     localStorage.setItem('font-size-level', fontSize);
   }, [fontSize]);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('dark', 'high-contrast');
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else if (theme === 'contrast') {
+      root.classList.add('high-contrast');
+    }
+    localStorage.setItem('portal-theme', theme);
+  }, [theme]);
 
   const handleLoginSuccess = async (cpf: string) => {
     setPatientCpf(cpf);
@@ -99,7 +113,7 @@ function App() {
   };
 
   if (!isAuthenticated) {
-    return <Login onLoginSuccess={handleLoginSuccess} />;
+    return <Login onLoginSuccess={handleLoginSuccess} theme={theme} setTheme={setTheme} />;
   }
 
   return (
@@ -225,8 +239,8 @@ function App() {
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0 bg-white dark:bg-zinc-950 min-h-screen overflow-y-auto md:ml-64">
-          <header className="h-16 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 bg-white/95 dark:bg-zinc-950/75 sticky top-0 z-10 backdrop-blur">
+        <main className="flex-1 min-w-0 bg-white dark:bg-zinc-950 min-h-screen md:ml-64">
+          <header className="h-16 border-b border-zinc-200/50 dark:border-zinc-800 flex items-center justify-between px-4 md:px-8 bg-white/95 dark:bg-zinc-950/75 fixed top-0 left-0 md:left-64 right-0 z-30 backdrop-blur">
             <div className="flex items-center gap-2.5">
               <Button 
                 variant="ghost" 
@@ -249,58 +263,96 @@ function App() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider hidden sm:inline select-none">Fonte:</span>
-              <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200/40 dark:border-zinc-800 shadow-sm">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (fontSize === 'medium') setFontSize('default');
-                    else if (fontSize === 'large') setFontSize('medium');
-                    else if (fontSize === 'xlarge') setFontSize('large');
-                    else if (fontSize === 'default') setFontSize('small');
-                  }}
-                  disabled={fontSize === 'small'}
-                  className="h-7 w-7 text-[10px] font-extrabold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 disabled:opacity-35"
-                  aria-label="Diminuir tamanho da fonte"
-                >
-                  A-
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setFontSize('default')}
-                  className={`h-7 px-2.5 text-[10px] font-bold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 ${fontSize === 'default' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : ''}`}
-                  aria-label="Tamanho de fonte padrão"
-                >
-                  A
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    if (fontSize === 'small') setFontSize('default');
-                    else if (fontSize === 'default') setFontSize('medium');
-                    else if (fontSize === 'medium') setFontSize('large');
-                    else if (fontSize === 'large') setFontSize('xlarge');
-                  }}
-                  disabled={fontSize === 'xlarge'}
-                  className="h-7 w-7 text-xs font-bold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 disabled:opacity-35"
-                  aria-label="Aumentar tamanho da fonte"
-                >
-                  A+
-                </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider hidden sm:inline select-none">Fonte:</span>
+                <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200/40 dark:border-zinc-800 shadow-sm">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (fontSize === 'medium') setFontSize('default');
+                      else if (fontSize === 'large') setFontSize('medium');
+                      else if (fontSize === 'xlarge') setFontSize('large');
+                      else if (fontSize === 'default') setFontSize('small');
+                    }}
+                    disabled={fontSize === 'small'}
+                    className="h-7 w-7 text-[10px] font-extrabold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 disabled:opacity-35"
+                    aria-label="Diminuir tamanho da fonte"
+                  >
+                    A-
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setFontSize('default')}
+                    className={`h-7 px-2.5 text-[10px] font-bold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 ${fontSize === 'default' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : ''}`}
+                    aria-label="Tamanho de fonte padrão"
+                  >
+                    A
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (fontSize === 'small') setFontSize('default');
+                      else if (fontSize === 'default') setFontSize('medium');
+                      else if (fontSize === 'medium') setFontSize('large');
+                      else if (fontSize === 'large') setFontSize('xlarge');
+                    }}
+                    disabled={fontSize === 'xlarge'}
+                    className="h-7 w-7 text-xs font-bold hover:bg-white dark:hover:bg-zinc-800 rounded-md transition-colors text-zinc-650 dark:text-zinc-350 disabled:opacity-35"
+                    aria-label="Aumentar tamanho da fonte"
+                  >
+                    A+
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider hidden sm:inline select-none">Tema:</span>
+                <div className="flex items-center bg-zinc-100 dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200/40 dark:border-zinc-800 shadow-sm">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setTheme('light')}
+                    className={`h-7 w-7 rounded-md transition-colors ${theme === 'light' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                    aria-label="Modo Claro"
+                    title="Modo Claro"
+                  >
+                    <Sun className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setTheme('dark')}
+                    className={`h-7 w-7 rounded-md transition-colors ${theme === 'dark' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                    aria-label="Modo Escuro"
+                    title="Modo Escuro"
+                  >
+                    <Moon className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setTheme('contrast')}
+                    className={`h-7 w-7 rounded-md transition-colors ${theme === 'contrast' ? 'bg-white dark:bg-zinc-850 shadow-sm text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200'}`}
+                    aria-label="Alto Contraste"
+                    title="Alto Contraste"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
               </div>
             </div>
           </header>
 
-          <div className="p-4 md:p-8">
+          <div className="p-4 md:p-8 pt-20 md:pt-24">
             {currentPage === 'dashboard' && <Dashboard onNavigate={navigateTo} patientCpf={patientCpf} patientName={patientName} />}
             {currentPage === 'symptoms' && <SymptomsDiary patientCpf={patientCpf} />}
             {currentPage === 'clinical-history' && <ClinicalHistory patientCpf={patientCpf} onNavigate={navigateTo} />}
             {currentPage === 'new-request' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
             {currentPage === 'status-check' && (
-              <StatusCheck initialProtocol={selectedProtocol} onNavigate={navigateTo} />
+              <StatusCheck initialProtocol={selectedProtocol} onNavigate={navigateTo} patientCpf={patientCpf} />
             )}
             {currentPage === 'profile' && (
               <Profile 
@@ -309,6 +361,8 @@ function App() {
                 onNavigate={navigateTo} 
                 fontSize={fontSize}
                 setFontSize={setFontSize}
+                theme={theme}
+                setTheme={setTheme}
               />
             )}
             {currentPage === 'help-center' && <HelpCenter />}

@@ -2,24 +2,25 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { getAppointmentByProtocol, getSpecialties, updateAppointment } from '../../services/db';
+import { getAppointmentByCpf, getSpecialties, updateAppointment } from '../../services/db';
 import type { Appointment, Specialty } from '../../types';
 import { formatCpf } from '../../lib/sanitizer';
-import { Search, Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare, X, Upload, FileText, Eye, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare, X, Upload, FileText, Eye, Trash2, ChevronDown, ChevronUp, Search } from 'lucide-react';
 
 interface StatusCheckProps {
   initialProtocol?: string;
   onNavigate: (page: string) => void;
+  patientCpf: string;
 }
 
-export default function StatusCheck({ initialProtocol = '', onNavigate }: StatusCheckProps) {
-  const [protocolQuery, setProtocolQuery] = useState(initialProtocol);
-  const [appointment, setAppointment] = useState<Appointment | null>(null);
+export default function StatusCheck({ initialProtocol = '', onNavigate, patientCpf }: StatusCheckProps) {
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [selectedProtocol, setSelectedProtocol] = useState(initialProtocol);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
-  const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [filterText, setFilterText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'Todos' | Appointment['status']>('Todos');
   
   const [npsScore, setNpsScore] = useState<number | null>(null);
   const [npsComment, setNpsComment] = useState('');
@@ -36,34 +37,77 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
   const [submittingFile, setSubmittingFile] = useState(false);
   const [fileError, setFileError] = useState('');
   const [substituteSuccess, setSubstituteSuccess] = useState(false);
+  const [isCancelOpen, setIsCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelSuccess, setCancelSuccess] = useState(false);
 
   useEffect(() => {
     getSpecialties().then(setSpecialties).catch(console.error);
+    loadAppointments();
+  }, [patientCpf]);
+
+  useEffect(() => {
     if (initialProtocol) {
-      handleSearch(null, initialProtocol);
+      setSelectedProtocol(initialProtocol);
     }
   }, [initialProtocol]);
 
-  const handleSearch = async (e: React.FormEvent | null, directProtocol?: string) => {
-    if (e) e.preventDefault();
-    const query = directProtocol || protocolQuery;
-    if (!query.trim()) return;
-
-    setLoading(true);
+  useEffect(() => {
     setFeedbackSuccess(false);
+    setFeedbackError('');
     setNpsScore(null);
     setNpsComment('');
-    
+    setPresenceSuccess(false);
+    setRescheduleSuccess(false);
+    setSubstituteSuccess(false);
+    setSelectedFile(null);
+    setFileError('');
+    setIsCancelOpen(false);
+    setCancelReason('');
+    setCancelSuccess(false);
+  }, [selectedProtocol]);
+
+  const loadAppointments = async () => {
+    setLoading(true);
     try {
-      const result = await getAppointmentByProtocol(query);
-      setAppointment(result);
-      setSearched(true);
+      const results = await getAppointmentByCpf(patientCpf);
+      const sorted = results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setAppointments(sorted);
+      if (initialProtocol) {
+        setSelectedProtocol(initialProtocol);
+      } else if (!selectedProtocol && sorted.length > 0) {
+        setSelectedProtocol(sorted[0].protocol);
+      }
     } catch (error) {
       console.error(error);
     } finally {
       setLoading(false);
     }
   };
+
+  const totalCount = appointments.length;
+  const pendingCount = appointments.filter((a) => a.status === 'Pendente').length;
+  const analysisCount = appointments.filter((a) => a.status === 'Em análise').length;
+  const confirmedCount = appointments.filter((a) => a.status === 'Confirmado').length;
+  const cancelledCount = appointments.filter((a) => a.status === 'Cancelado').length;
+
+  const filteredAppointments = appointments.filter((app) => {
+    const matchesText = app.examName.toLowerCase().includes(filterText.toLowerCase()) ||
+                        app.protocol.toLowerCase().includes(filterText.toLowerCase());
+    const matchesStatus = statusFilter === 'Todos' || app.status === statusFilter;
+    return matchesText && matchesStatus;
+  });
+
+  useEffect(() => {
+    if (selectedProtocol) {
+      const isStillVisible = filteredAppointments.some((app) => app.protocol === selectedProtocol);
+      if (!isStillVisible) {
+        setSelectedProtocol('');
+      }
+    }
+  }, [filteredAppointments, selectedProtocol]);
+
+  const appointment = appointments.find((app) => app.protocol === selectedProtocol) || null;
 
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +125,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
       appointment.feedbackNps = npsScore;
       appointment.feedbackComment = npsComment;
       await updateAppointment(appointment);
+      await loadAppointments();
       setFeedbackSuccess(true);
       setFeedbackError('');
     } catch (error) {
@@ -97,7 +142,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
         presenceConfirmed: true
       };
       await updateAppointment(updatedApp);
-      setAppointment(updatedApp);
+      await loadAppointments();
       setPresenceSuccess(true);
       setTimeout(() => setPresenceSuccess(false), 5000);
       window.dispatchEvent(new CustomEvent('appointment-updated'));
@@ -116,7 +161,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
         rescheduledTime: selectedTime
       };
       await updateAppointment(updatedApp);
-      setAppointment(updatedApp);
+      await loadAppointments();
       setIsRescheduleOpen(false);
       setRescheduleSuccess(true);
       setTimeout(() => setRescheduleSuccess(false), 5000);
@@ -182,7 +227,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
       };
 
       await updateAppointment(updatedApp);
-      setAppointment(updatedApp);
+      await loadAppointments();
       setSubstituteSuccess(true);
       setSelectedFile(null);
       window.dispatchEvent(new CustomEvent('appointment-updated'));
@@ -191,6 +236,26 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
       setFileError('Erro ao atualizar o documento. Tente novamente.');
     } finally {
       setSubmittingFile(false);
+    }
+  };
+
+  const handleCancelSubmit = async () => {
+    if (!appointment) return;
+    try {
+      const updatedApp: Appointment = {
+        ...appointment,
+        status: 'Cancelado',
+        observations: cancelReason.trim() ? `Cancelado pelo paciente: ${cancelReason.trim()}` : 'Cancelado pelo paciente.'
+      };
+      await updateAppointment(updatedApp);
+      await loadAppointments();
+      setIsCancelOpen(false);
+      setCancelReason('');
+      setCancelSuccess(true);
+      setTimeout(() => setCancelSuccess(false), 5000);
+      window.dispatchEvent(new CustomEvent('appointment-updated'));
+    } catch (error) {
+      console.error(error);
     }
   };
 
@@ -212,7 +277,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
   const getStatusConfig = (status: Appointment['status']) => {
     const config = {
       'Pendente': { color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400', icon: Clock, desc: 'Sua solicitação está na fila de espera e será revisada por nossa equipe médica em até 48 horas úteis.' },
-      'Em análise': { color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400', icon: Search, desc: 'Nossos recepcionistas estão revisando o documento e o encaminhamento enviado. Estimativa de resposta: 24 horas úteis.' },
+      'Em análise': { color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400', icon: Clock, desc: 'Nossos recepcionistas estão revisando o documento e o encaminhamento enviado. Estimativa de resposta: 24 horas úteis.' },
       'Confirmado': { color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle2, desc: 'Parabéns! Sua triagem foi concluída e sua consulta/exame está agendado e confirmado.' },
       'Cancelado': { color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400', icon: XCircle, desc: 'Sua solicitação de agendamento foi cancelada pela triagem administrativa.' }
     };
@@ -232,413 +297,545 @@ export default function StatusCheck({ initialProtocol = '', onNavigate }: Status
         <Button variant="link" onClick={() => onNavigate('dashboard')} className="text-primary p-0 h-auto font-semibold mb-2">
           ← Voltar ao Início
         </Button>
-        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Acompanhar Agendamento</h1>
-        <p className="text-zinc-500 mt-1">Busque sua solicitação pelo código do protocolo para verificar o andamento e o preparo.</p>
+        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Meus Agendamentos</h1>
+        <p className="text-zinc-500 mt-1">Acompanhe e gerencie as suas solicitações de consultas e exames.</p>
       </div>
 
-      <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
-        <CardContent className="p-6">
-          <form onSubmit={(e) => handleSearch(e)} className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Input
+      {loading && appointments.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center bg-zinc-50/50 dark:bg-zinc-900/10 rounded-3xl border border-zinc-150 dark:border-zinc-800">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <p className="text-zinc-500 mt-4 font-semibold text-sm">Carregando seus agendamentos...</p>
+        </div>
+      ) : appointments.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 text-center bg-zinc-50/50 dark:bg-zinc-900/10 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 p-6 animate-in fade-in">
+          <AlertCircle className="w-12 h-12 text-zinc-400 mb-3" />
+          <h3 className="font-extrabold text-zinc-900 dark:text-zinc-50 text-lg">Nenhum agendamento encontrado</h3>
+          <p className="text-xs text-zinc-500 max-w-sm mt-1">
+            Você não possui nenhuma solicitação de agendamento realizada até o momento.
+          </p>
+          <Button 
+            onClick={() => onNavigate('new-request')}
+            className="mt-6 bg-primary hover:bg-primary/95 text-white font-bold h-10 px-5 rounded-xl text-xs transition-transform active:scale-95 shadow-sm"
+          >
+            Solicitar Novo Agendamento
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <div className="space-y-4 bg-zinc-50/30 dark:bg-zinc-900/20 p-4 rounded-3xl border border-zinc-200/60 dark:border-zinc-800/80">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <input
                 type="text"
-                placeholder="Ex: HA-2026-0001"
-                value={protocolQuery}
-                onChange={(e) => setProtocolQuery(e.target.value)}
-                className="pl-10 h-11 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 font-mono text-zinc-800 dark:text-zinc-100"
+                placeholder="Buscar por nome do exame ou protocolo..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-primary focus:outline-none dark:text-zinc-100 transition-all shadow-xs"
               />
-              <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" />
             </div>
-            <Button type="submit" disabled={loading} className="h-11 px-6 font-semibold bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-50 dark:hover:bg-zinc-200 dark:text-zinc-900 transition-colors">
-              {loading ? 'Buscando...' : 'Buscar'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+            
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Todos')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Todos' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Todos ({totalCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Pendente')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Pendente' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Pendente ({pendingCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Em análise')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Em análise' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Em análise ({analysisCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Confirmado')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Confirmado' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Confirmado ({confirmedCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStatusFilter('Cancelado')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Cancelado' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+              >
+                Cancelado ({cancelledCount})
+              </button>
+            </div>
+          </div>
 
-      {searched && (
-        <>
-          {!appointment ? (
-            <Card className="border border-red-200 bg-red-50/10 rounded-2xl shadow-sm">
-              <CardContent className="p-6 flex gap-3 items-start">
-                <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-bold text-red-800 dark:text-red-400">Protocolo não encontrado</h3>
-                  <p className="text-xs text-red-700 dark:text-red-400/80 mt-1">
-                    Não encontramos nenhuma solicitação cadastrada com o código informado. Certifique-se de que digitou o código exatamente como gerado (ex: HA-2026-0001).
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          {filteredAppointments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center bg-zinc-50/50 dark:bg-zinc-900/10 rounded-3xl border border-dashed border-zinc-200 dark:border-zinc-800 p-6 animate-in fade-in">
+              <AlertCircle className="w-12 h-12 text-zinc-400 mb-3" />
+              <h3 className="font-extrabold text-zinc-900 dark:text-zinc-50 text-lg">Nenhum resultado encontrado</h3>
+              <p className="text-xs text-zinc-500 max-w-sm mt-1">
+                Não encontramos agendamentos correspondentes aos filtros selecionados.
+              </p>
+              <Button 
+                onClick={() => {
+                  setFilterText('');
+                  setStatusFilter('Todos');
+                }}
+                className="mt-6 bg-primary hover:bg-primary/95 text-white font-bold h-10 px-5 rounded-xl text-xs transition-transform active:scale-95 shadow-sm"
+              >
+                Limpar Filtros
+              </Button>
+            </div>
           ) : (
-            <div className="space-y-6">
-              <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-lg rounded-3xl overflow-hidden bg-white dark:bg-zinc-950">
-                <CardHeader className="bg-zinc-50/50 dark:bg-zinc-900/30 border-b border-zinc-100 dark:border-zinc-800/80 p-6">
-                  <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Status do Agendamento</span>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h2 className="text-xl font-extrabold text-zinc-900 dark:text-zinc-50">{appointment.examName}</h2>
-                        <Badge variant="outline" className={`w-fit font-mono font-bold py-0.5 px-2 text-[10px] ${getStatusConfig(appointment.status).color}`}>
-                          {appointment.protocol}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 self-start sm:self-center">
-                      <span className="text-xs font-semibold text-zinc-500">Status:</span>
-                      <Badge className={`${getStatusConfig(appointment.status).color} px-2.5 py-0.5 border`}>
-                        {appointment.status}
+            <div className="space-y-4">
+              {filteredAppointments.map((app) => {
+            const isExpanded = selectedProtocol === app.protocol;
+            return (
+              <Card key={app.id} className={`border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 transition-all ${isExpanded ? 'ring-1 ring-primary/20 shadow-md' : 'hover:border-primary/20'}`}>
+                <button 
+                  type="button"
+                  onClick={() => setSelectedProtocol(isExpanded ? '' : app.protocol)}
+                  className="w-full text-left p-5 flex items-center justify-between gap-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10 transition-colors focus:outline-none"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-bold text-zinc-950 dark:text-zinc-50 truncate">{app.examName}</h3>
+                      <Badge variant="outline" className="font-mono text-[9px] font-semibold text-zinc-400 border-zinc-200 dark:border-zinc-800 py-0 px-1.5 shrink-0 select-none">
+                        {app.protocol}
                       </Badge>
                     </div>
+                    <span className="text-[10px] text-zinc-400 block select-none">
+                      Solicitado em {new Date(app.createdAt).toLocaleDateString('pt-BR')}
+                    </span>
                   </div>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="p-4 bg-zinc-50/80 dark:bg-zinc-900/30 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex gap-3 items-start">
-                    <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-xs text-zinc-700 dark:text-zinc-300">Resumo da Triagem</h4>
-                      <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                        {getStatusConfig(appointment.status).desc}
-                      </p>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <Badge className={`${getStatusConfig(app.status).color} px-2 py-0.5 border text-[10px] font-semibold`}>
+                      {app.status}
+                    </Badge>
+                    {isExpanded ? (
+                      <ChevronUp className="w-5 h-5 text-zinc-400" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-zinc-400" />
+                    )}
+                  </div>
+                </button>
+
+                {isExpanded && appointment && (
+                  <div className="border-t border-zinc-100 dark:border-zinc-800 p-6 space-y-6 bg-zinc-50/20 dark:bg-zinc-900/10 animate-in slide-in-from-top-2 duration-200">
+                    <div className="p-4 bg-white dark:bg-zinc-950 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex gap-3 items-start shadow-xs">
+                      <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        <h4 className="font-bold text-xs text-zinc-700 dark:text-zinc-300">Resumo da Triagem</h4>
+                        <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+                          {getStatusConfig(appointment.status).desc}
+                        </p>
+                      </div>
                     </div>
-                  </div>
 
-                  {appointment.status === 'Confirmado' && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
-                      <div className="md:col-span-2 space-y-5">
-                        <div className="bg-green-50/20 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 p-5 rounded-2xl space-y-4">
-                          <h3 className="font-extrabold text-sm text-green-800 dark:text-green-400 flex items-center gap-1.5">
-                            <CheckCircle2 className="w-4 h-4" />
-                            Dados da Agenda Confirmada
-                          </h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-zinc-600 dark:text-zinc-400">
-                            <div className="space-y-1">
-                              <span className="text-[10px] uppercase font-bold text-zinc-400 block">Data e Horário</span>
-                              <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
-                                <Calendar className="w-4 h-4 text-primary" />
-                                {appointment.rescheduledDate && appointment.rescheduledTime ? (
-                                  <span>
-                                    {new Date(appointment.rescheduledDate + 'T12:00:00').toLocaleDateString('pt-BR')} às {appointment.rescheduledTime}h <span className="text-[10px] text-primary font-bold ml-1">(Reagendado)</span>
-                                  </span>
-                                ) : (
-                                  <span>15/06/2026 às 08:30h</span>
-                                )}
-                              </p>
-                            </div>
-                            <div className="space-y-1">
-                              <span className="text-[10px] uppercase font-bold text-zinc-400 block">Profissional Responsável</span>
-                              <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
-                                <User className="w-4 h-4 text-primary" />
-                                Dra. Patrícia Arantes (Mastologista)
-                              </p>
-                            </div>
-                            <div className="space-y-1 sm:col-span-2">
-                              <span className="text-[10px] uppercase font-bold text-zinc-400 block">Local do Atendimento</span>
-                              <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
-                                <MapPin className="w-4 h-4 text-primary" />
-                                Unidade Principal - Bloco B, Sala de Exames 03 (Mamógrafo 01)
-                              </p>
-                            </div>
-                          </div>
-
-                          {presenceSuccess && (
-                            <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 animate-in fade-in duration-200">
+                    {appointment.status === 'Confirmado' && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                        <div className="md:col-span-2 space-y-5">
+                          <div className="bg-green-50/20 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 p-5 rounded-2xl space-y-4">
+                            <h3 className="font-extrabold text-sm text-green-800 dark:text-green-400 flex items-center gap-1.5">
                               <CheckCircle2 className="w-4 h-4" />
-                              Presença confirmada com sucesso!
-                            </div>
-                          )}
-                          {rescheduleSuccess && (
-                            <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 text-blue-800 dark:text-blue-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 animate-in fade-in duration-200">
-                              <Info className="w-4 h-4" />
-                              Atendimento reagendado com sucesso!
-                            </div>
-                          )}
-
-                          <div className="flex flex-wrap gap-2.5 pt-3 border-t border-zinc-150 dark:border-zinc-800/50">
-                            {appointment.presenceConfirmed ? (
-                              <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-800/40 font-bold px-3 py-1.5 text-[11px] rounded-xl flex items-center gap-1.5">
-                                <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
-                                Presença Confirmada
+                              Dados da Agenda Confirmada
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-zinc-600 dark:text-zinc-400">
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Data e Horário</span>
+                                <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                                  <Calendar className="w-4 h-4 text-primary" />
+                                  {appointment.rescheduledDate && appointment.rescheduledTime ? (
+                                    <span>
+                                      {new Date(appointment.rescheduledDate + 'T12:00:00').toLocaleDateString('pt-BR')} às {appointment.rescheduledTime}h <span className="text-[10px] text-primary font-bold ml-1">(Reagendado)</span>
+                                    </span>
+                                  ) : (
+                                    <span>15/06/2026 às 08:30h</span>
+                                  )}
+                                </p>
                               </div>
-                            ) : (
+                              <div className="space-y-1">
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Profissional Responsável</span>
+                                <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                                  <User className="w-4 h-4 text-primary" />
+                                  Dra. Patrícia Arantes (Mastologista)
+                                </p>
+                              </div>
+                              <div className="space-y-1 sm:col-span-2">
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Local do Atendimento</span>
+                                <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                                  <MapPin className="w-4 h-4 text-primary" />
+                                  Unidade Principal - Bloco B, Sala de Exames 03 (Mamógrafo 01)
+                                </p>
+                              </div>
+                            </div>
+
+                            {presenceSuccess && (
+                              <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 animate-in fade-in duration-200">
+                                <CheckCircle2 className="w-4 h-4" />
+                                Presença confirmada com sucesso!
+                              </div>
+                            )}
+                            {rescheduleSuccess && (
+                              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 text-blue-800 dark:text-blue-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 animate-in fade-in duration-200">
+                                <Info className="w-4 h-4" />
+                                Atendimento reagendado com sucesso!
+                              </div>
+                            )}
+
+                            <div className="flex flex-wrap gap-2.5 pt-3 border-t border-zinc-150 dark:border-zinc-800/50">
+                              {appointment.presenceConfirmed ? (
+                                <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-800/40 font-bold px-3 py-1.5 text-[11px] rounded-xl flex items-center gap-1.5">
+                                  <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
+                                  Presença Confirmada
+                                </div>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  onClick={handleConfirmPresence}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                                >
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  Confirmar Presença
+                                </Button>
+                              )}
                               <Button
                                 type="button"
-                                onClick={handleConfirmPresence}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all shadow-sm active:scale-95"
+                                variant="outline"
+                                onClick={() => {
+                                  setSelectedDate(getNext5BusinessDays()[0]);
+                                  setSelectedTime('08:30');
+                                  setIsRescheduleOpen(true);
+                                }}
+                                className="border-zinc-200/80 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all active:scale-95 bg-white dark:bg-zinc-950"
                               >
-                                <CheckCircle2 className="w-4 h-4" />
-                                Confirmar Presença
+                                <Calendar className="w-4 h-4 text-primary" />
+                                Reagendar Atendimento
                               </Button>
-                            )}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() => {
-                                setSelectedDate(getNext5BusinessDays()[0]);
-                                setSelectedTime('08:30');
-                                setIsRescheduleOpen(true);
-                              }}
-                              className="border-zinc-200/80 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all active:scale-95"
-                            >
-                              <Calendar className="w-4 h-4 text-primary" />
-                              Reagendar Atendimento
-                            </Button>
+                            </div>
                           </div>
+
+                          {getExamInstructions() && (
+                            <div className="space-y-2">
+                              <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-400">Instruções de Preparo para o Dia</h4>
+                              <div className="bg-white dark:bg-zinc-950 border border-zinc-200/60 dark:border-zinc-800/80 p-4 rounded-xl text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed shadow-xs">
+                                {getExamInstructions()}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
-                        {getExamInstructions() && (
+                        <div className="flex flex-col items-center justify-center p-5 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 text-center space-y-4 shadow-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Credencial de Acesso</span>
+                          <div className="bg-white p-3 rounded-2xl shadow-md border border-zinc-100">
+                            <svg className="w-32 h-32 text-zinc-900" viewBox="0 0 100 100">
+                              <rect width="100" height="100" fill="white" />
+                              <path d="M10,10 h25 v10 h-15 v15 h-10 z" fill="currentColor" />
+                              <path d="M90,10 h-25 v10 h-15 v15 h-10" fill="none" stroke="currentColor" strokeWidth="6" />
+                              <path d="M10,90 h25 v-10 h-15 v-15 h-10 z" fill="currentColor" />
+                              <path d="M90,90 h-25 v-10 h15 v-15 h10 z" fill="currentColor" />
+                              <rect x="25" y="25" width="12" height="12" fill="currentColor" />
+                              <rect x="63" y="25" width="12" height="12" fill="currentColor" />
+                              <rect x="25" y="63" width="12" height="12" fill="currentColor" />
+                              <rect x="44" y="44" width="12" height="12" fill="currentColor" />
+                              <rect x="63" y="63" width="6" height="6" fill="currentColor" />
+                              <rect x="53" y="69" width="6" height="6" fill="currentColor" />
+                              <rect x="69" y="53" width="6" height="6" fill="currentColor" />
+                            </svg>
+                          </div>
+                          <div className="space-y-1">
+                            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-50 block">QR Code para Recepção</span>
+                            <span className="text-[10px] text-zinc-400 block">Apresente na entrada da recepção para confirmar sua presença.</span>
+                          </div>
+                          <Button type="button" variant="outline" onClick={() => window.print()} className="w-full text-xs font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                            Imprimir Credencial
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {(appointment.status === 'Pendente' || appointment.status === 'Em análise') && (
+                      <div className="pt-4 border-t border-zinc-150 dark:border-zinc-800/50 space-y-4">
+                        <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-400">Ações da Solicitação</h4>
+                        {cancelSuccess ? (
+                          <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 text-red-800 dark:text-red-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 animate-in fade-in duration-200">
+                            <Info className="w-4 h-4" />
+                            Solicitação cancelada com sucesso!
+                          </div>
+                        ) : isCancelOpen ? (
+                          <div className="bg-red-50/10 dark:bg-red-950/5 border border-red-200/30 dark:border-red-800/20 p-4 rounded-2xl space-y-3 animate-in slide-in-from-top-2 duration-200">
+                            <Label htmlFor="cancelReason" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                              Por favor, informe o motivo do cancelamento:
+                            </Label>
+                            <textarea
+                              id="cancelReason"
+                              rows={2}
+                              value={cancelReason}
+                              onChange={(e) => setCancelReason(e.target.value)}
+                              placeholder="Digite o motivo..."
+                              className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-primary focus:outline-none dark:text-zinc-100"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setIsCancelOpen(false);
+                                  setCancelReason('');
+                                }}
+                                className="text-xs h-8 px-3 rounded-lg"
+                              >
+                                Desistir
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={handleCancelSubmit}
+                                className="text-xs h-8 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold"
+                              >
+                                Confirmar Cancelamento
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            onClick={() => setIsCancelOpen(true)}
+                            className="bg-red-600 hover:bg-red-700 text-white font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all active:scale-95 shadow-sm"
+                          >
+                            <XCircle className="w-4 h-4" />
+                            Cancelar Solicitação
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {appointment.status === 'Cancelado' && (
+                      <div className="space-y-4">
+                        <div className="bg-red-50/20 dark:bg-red-950/10 border border-red-200/30 dark:border-red-800/20 p-5 rounded-2xl space-y-2">
+                          <h4 className="font-extrabold text-sm text-red-800 dark:text-red-400 flex items-center gap-1.5">
+                            <AlertCircle className="w-4 h-4" />
+                            Motivo do Cancelamento
+                          </h4>
+                          <p className="text-xs text-red-900 dark:text-red-400 font-medium">
+                            {appointment.observations || 'Documentação Ilegível: A foto do encaminhamento médico anexada está borrada e impossibilita a leitura do carimbo do profissional de saúde.'}
+                          </p>
+                          <p className="text-[11px] text-zinc-500 pt-2 border-t border-red-200/50 dark:border-red-800/20 mt-2">
+                            <strong>O que fazer agora?</strong> Você pode anexar um novo documento legível abaixo para reabrir sua solicitação para análise.
+                          </p>
+                        </div>
+
+                        {appointment.fileAttachment && (
                           <div className="space-y-2">
-                            <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-400">Instruções de Preparo para o Dia</h4>
-                            <div className="bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800/80 p-4 rounded-xl text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                              {getExamInstructions()}
+                            <span className="text-[10px] uppercase font-bold text-zinc-400 block tracking-wider">Documento Atual Recusado</span>
+                            <div className="flex items-center justify-between p-3 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl shadow-xs">
+                              <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 truncate max-w-[250px]">
+                                {appointment.fileAttachment.name}
+                              </span>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const newWindow = window.open();
+                                  if (newWindow && appointment.fileAttachment) {
+                                    newWindow.document.write(
+                                      `<iframe src="${appointment.fileAttachment.base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+                                    );
+                                  }
+                                }}
+                                className="h-8 text-xs font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"
+                              >
+                                Ver Documento
+                              </Button>
                             </div>
                           </div>
                         )}
-                      </div>
 
-                      <div className="flex flex-col items-center justify-center p-5 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl bg-zinc-50/50 dark:bg-zinc-900/10 text-center space-y-4">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Credencial de Acesso</span>
-                        <div className="bg-white p-3 rounded-2xl shadow-md border border-zinc-100">
-                          <svg className="w-32 h-32 text-zinc-900" viewBox="0 0 100 100">
-                            <rect width="100" height="100" fill="white" />
-                            <path d="M10,10 h25 v10 h-15 v15 h-10 z" fill="currentColor" />
-                            <path d="M90,10 h-25 v10 h-15 v15 h-10" fill="none" stroke="currentColor" strokeWidth="6" />
-                            <path d="M10,90 h25 v-10 h-15 v-15 h-10 z" fill="currentColor" />
-                            <path d="M90,90 h-25 v-10 h15 v-15 h10 z" fill="currentColor" />
-                            <rect x="25" y="25" width="12" height="12" fill="currentColor" />
-                            <rect x="63" y="25" width="12" height="12" fill="currentColor" />
-                            <rect x="25" y="63" width="12" height="12" fill="currentColor" />
-                            <rect x="44" y="44" width="12" height="12" fill="currentColor" />
-                            <rect x="63" y="63" width="6" height="6" fill="currentColor" />
-                            <rect x="53" y="69" width="6" height="6" fill="currentColor" />
-                            <rect x="69" y="53" width="6" height="6" fill="currentColor" />
-                          </svg>
-                        </div>
-                        <div className="space-y-1">
-                          <span className="text-xs font-bold text-zinc-900 dark:text-zinc-50 block">QR Code para Recepção</span>
-                          <span className="text-[10px] text-zinc-400 block">Apresente na entrada da recepção para confirmar sua presença.</span>
-                        </div>
-                        <Button type="button" variant="outline" onClick={() => window.print()} className="w-full text-xs font-semibold border-zinc-200 dark:border-zinc-800">
-                          Imprimir Credencial
-                        </Button>
+                        {substituteSuccess ? (
+                          <div className="p-4 bg-green-50 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 rounded-2xl flex gap-2.5 items-center">
+                            <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            <span className="text-sm font-semibold text-green-800 dark:text-green-400">
+                              Documento substituído com sucesso! O agendamento foi reaberto e está em análise.
+                            </span>
+                          </div>
+                        ) : (
+                          <form onSubmit={handleFileSubmit} className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
+                            <div className="space-y-2">
+                              <span className="text-[10px] uppercase font-bold text-zinc-400 block tracking-wider">Enviar Novo Documento Legível</span>
+                              {!selectedFile ? (
+                                <div className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary/50 transition-colors bg-white dark:bg-zinc-950 ${fileError ? 'border-red-400 bg-red-50/10' : 'border-zinc-200 dark:border-zinc-800'}`}>
+                                  <input
+                                    type="file"
+                                    id="substitute-file-upload"
+                                    className="hidden"
+                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    onChange={handleFileChange}
+                                  />
+                                  <Label htmlFor="substitute-file-upload" className="cursor-pointer flex flex-col items-center gap-2">
+                                    <div className="p-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-full shadow-xs">
+                                      <Upload className="w-5 h-5 text-zinc-500" />
+                                    </div>
+                                    <div>
+                                      <span className="font-semibold text-primary hover:text-primary/95 text-xs block">Clique para selecionar novo arquivo</span>
+                                      <span className="text-[10px] text-zinc-400 mt-0.5 block">PDF, JPG ou PNG de até 5MB</span>
+                                    </div>
+                                  </Label>
+                                </div>
+                              ) : (
+                                <div className="flex items-center justify-between p-3 bg-green-50/20 dark:bg-green-950/10 border border-green-200/60 dark:border-green-800/20 rounded-xl shadow-xs gap-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-700 dark:text-green-400 shrink-0">
+                                      <FileText className="w-4 h-4" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs truncate block">{selectedFile.name}</span>
+                                      <span className="text-[10px] text-zinc-400 block">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1.5">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="icon"
+                                      onClick={() => {
+                                        const newWindow = window.open();
+                                        if (newWindow && selectedFile) {
+                                          newWindow.document.write(
+                                            `<iframe src="${selectedFile.base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+                                          );
+                                        }
+                                      }}
+                                      className="h-8 w-8 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 bg-white dark:bg-zinc-950"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
+                                    </Button>
+                                    <Button type="button" variant="outline" size="icon" onClick={() => setSelectedFile(null)} className="h-8 w-8 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-900/50 dark:hover:bg-red-950/20 bg-white dark:bg-zinc-950">
+                                      <Trash2 className="w-3.5 h-3.5 text-red-500" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                              {fileError && (
+                                <p className="text-red-500 text-[10px] flex items-center gap-1 font-medium mt-1">
+                                  <AlertCircle className="w-3 h-3" />
+                                  {fileError}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              type="submit"
+                              disabled={submittingFile || !selectedFile}
+                              className="w-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-50 dark:hover:bg-zinc-200 dark:text-zinc-900 font-bold h-10 text-xs rounded-xl transition-all shadow-xs"
+                            >
+                              {submittingFile ? 'Substituindo...' : 'Substituir Documento'}
+                            </Button>
+                          </form>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="pt-4 border-t border-zinc-150 dark:border-zinc-850 space-y-4">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-400">Dados Gerais da Solicitação</h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-zinc-600 dark:text-zinc-400">
+                        <p><strong className="text-zinc-800 dark:text-zinc-300 font-medium">Paciente:</strong> {appointment.patientName}</p>
+                        <p><strong className="text-zinc-800 dark:text-zinc-300 font-medium">CPF:</strong> {formatCpf(appointment.patientCpf)}</p>
+                        <p><strong className="text-zinc-800 dark:text-zinc-300 font-medium">Especialidade:</strong> {appointment.specialtyName}</p>
+                        <p><strong className="text-zinc-800 dark:text-zinc-300 font-medium">Exame Solicitado:</strong> {appointment.examName}</p>
+                        <p className="sm:col-span-2">
+                          <strong className="text-zinc-800 dark:text-zinc-300 font-medium">Localidade:</strong> {appointment.city} ({appointment.state})
+                        </p>
                       </div>
                     </div>
-                  )}
 
-                  {appointment.status === 'Cancelado' && (
-                    <div className="space-y-4">
-                      <div className="bg-red-50/20 dark:bg-red-950/10 border border-red-200/30 dark:border-red-800/20 p-5 rounded-2xl space-y-2">
-                        <h4 className="font-extrabold text-sm text-red-800 dark:text-red-400 flex items-center gap-1.5">
-                          <AlertCircle className="w-4 h-4" />
-                          Motivo do Cancelamento
-                        </h4>
-                        <p className="text-xs text-red-900 dark:text-red-400 font-medium">
-                          {appointment.observations || 'Documentação Ilegível: A foto do encaminhamento médico anexada está borrada e impossibilita a leitura do carimbo do profissional de saúde.'}
-                        </p>
-                        <p className="text-[11px] text-zinc-500 pt-2 border-t border-red-200/50 dark:border-red-800/20 mt-2">
-                          <strong>O que fazer agora?</strong> Você pode anexar um novo documento legível abaixo para reabrir sua solicitação para análise.
-                        </p>
-                      </div>
-
-                      {appointment.fileAttachment && (
-                        <div className="space-y-2">
-                          <span className="text-[10px] uppercase font-bold text-zinc-400 block tracking-wider">Documento Atual Recusado</span>
-                          <div className="flex items-center justify-between p-3 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl">
-                            <span className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 truncate max-w-[250px]">
-                              {appointment.fileAttachment.name}
-                            </span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                const newWindow = window.open();
-                                if (newWindow && appointment.fileAttachment) {
-                                  newWindow.document.write(
-                                    `<iframe src="${appointment.fileAttachment.base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
-                                  );
-                                }
-                              }}
-                              className="h-8 text-xs font-semibold border-zinc-200 dark:border-zinc-800"
-                            >
-                              Ver Documento
-                            </Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {substituteSuccess ? (
-                        <div className="p-4 bg-green-50 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 rounded-2xl flex gap-2.5 items-center">
-                          <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                          <span className="text-sm font-semibold text-green-800 dark:text-green-400">
-                            Documento substituído com sucesso! O agendamento foi reaberto e está em análise.
-                          </span>
-                        </div>
-                      ) : (
-                        <form onSubmit={handleFileSubmit} className="space-y-4 pt-4 border-t border-zinc-100 dark:border-zinc-800/80">
-                          <div className="space-y-2">
-                            <span className="text-[10px] uppercase font-bold text-zinc-400 block tracking-wider">Enviar Novo Documento Legível</span>
-                            {!selectedFile ? (
-                              <div className={`border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:border-primary/50 transition-colors bg-zinc-50/50 dark:bg-zinc-900/10 ${fileError ? 'border-red-400 bg-red-50/10' : 'border-zinc-200 dark:border-zinc-800'}`}>
-                                <input
-                                  type="file"
-                                  id="substitute-file-upload"
-                                  className="hidden"
-                                  accept=".pdf,.jpg,.jpeg,.png"
-                                  onChange={handleFileChange}
-                                />
-                                <Label htmlFor="substitute-file-upload" className="cursor-pointer flex flex-col items-center gap-2">
-                                  <div className="p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-full shadow-sm">
-                                    <Upload className="w-5 h-5 text-zinc-500" />
-                                  </div>
-                                  <div>
-                                    <span className="font-semibold text-primary hover:text-primary/90 text-xs block">Clique para selecionar novo arquivo</span>
-                                    <span className="text-[10px] text-zinc-400 mt-0.5 block">PDF, JPG ou PNG de até 5MB</span>
-                                  </div>
-                                </Label>
+                    {appointment.status === 'Confirmado' && (
+                      <div className="pt-4 border-t border-zinc-150 dark:border-zinc-850">
+                        <Card className="border-zinc-200 dark:border-zinc-800 shadow-xs rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
+                              <Star className="w-5 h-5 text-yellow-500" />
+                              Sua opinião é muito importante!
+                            </CardTitle>
+                            <CardDescription className="text-xs">
+                              Por favor, reserve 30 segundos para avaliar o nosso fluxo de agendamento online.
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            {feedbackSuccess ? (
+                              <div className="p-4 bg-green-50 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 rounded-2xl flex gap-2.5 items-center">
+                                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                                <span className="text-sm font-semibold text-green-800 dark:text-green-400">Obrigado! Seu feedback (NPS) foi registrado com sucesso.</span>
                               </div>
                             ) : (
-                              <div className="flex items-center justify-between p-3 bg-green-50/20 dark:bg-green-950/10 border border-green-200/60 dark:border-green-800/20 rounded-xl shadow-sm gap-4">
-                                <div className="flex items-center gap-3">
-                                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-700 dark:text-green-400 shrink-0">
-                                    <FileText className="w-4 h-4" />
+                              <form onSubmit={handleFeedbackSubmit} className="space-y-5">
+                                {feedbackError && (
+                                  <div className="p-3 bg-red-50/10 border border-red-200 rounded-xl text-red-500 text-xs font-semibold flex items-center gap-1.5">
+                                    <AlertCircle className="w-4 h-4" />
+                                    {feedbackError}
                                   </div>
-                                  <div className="min-w-0">
-                                    <span className="font-semibold text-zinc-800 dark:text-zinc-200 text-xs truncate block">{selectedFile.name}</span>
-                                    <span className="text-[10px] text-zinc-400 block">{(selectedFile.size / (1024 * 1024)).toFixed(2)} MB</span>
+                                )}
+                                
+                                <div className="space-y-3">
+                                  <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 leading-normal block">
+                                    Em uma escala de 0 a 10, qual a probabilidade de você recomendar o nosso sistema de agendamento para um amigo ou familiar?
+                                  </Label>
+                                  <div className="flex flex-wrap gap-1 pt-1 justify-between">
+                                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
+                                      <button
+                                        key={score}
+                                        type="button"
+                                        onClick={() => setNpsScore(score)}
+                                        className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-bold transition-all border ${npsScore === score ? 'bg-primary border-primary text-white scale-105' : 'bg-white border-zinc-250 text-zinc-600 hover:border-primary/50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400'}`}
+                                      >
+                                        {score}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="flex justify-between text-[10px] text-zinc-400 px-1">
+                                    <span>0 - Muito Improvável</span>
+                                    <span>10 - Extremamente Provável</span>
                                   </div>
                                 </div>
-                                <div className="flex gap-1.5">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    onClick={() => {
-                                      const newWindow = window.open();
-                                      if (newWindow && selectedFile) {
-                                        newWindow.document.write(
-                                          `<iframe src="${selectedFile.base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
-                                        );
-                                      }
-                                    }}
-                                    className="h-8 w-8 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900"
-                                  >
-                                    <Eye className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
-                                  </Button>
-                                  <Button type="button" variant="outline" size="icon" onClick={() => setSelectedFile(null)} className="h-8 w-8 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-900/50 dark:hover:bg-red-950/20">
-                                    <Trash2 className="w-3.5 h-3.5 text-red-500" />
-                                  </Button>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor="npsComment" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                    Deixe um comentário explicando sua nota: *
+                                  </Label>
+                                  <textarea
+                                    id="npsComment"
+                                    rows={3}
+                                    value={npsComment}
+                                    onChange={(e) => setNpsComment(e.target.value)}
+                                    placeholder="Escreva sua sugestão ou elogio..."
+                                    className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-primary focus:outline-none dark:text-zinc-100"
+                                  />
                                 </div>
-                              </div>
-                            )}
-                            {fileError && (
-                              <p className="text-red-500 text-[10px] flex items-center gap-1 font-medium mt-1">
-                                <AlertCircle className="w-3 h-3" />
-                                {fileError}
-                              </p>
-                            )}
-                          </div>
-                          <Button
-                            type="submit"
-                            disabled={submittingFile || !selectedFile}
-                            className="w-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-50 dark:hover:bg-zinc-200 dark:text-zinc-900 font-bold h-10 text-xs rounded-xl transition-all shadow-sm"
-                          >
-                            {submittingFile ? 'Substituindo...' : 'Substituir Documento'}
-                          </Button>
-                        </form>
-                      )}
-                    </div>
-                  )}
 
-                  <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800/80 space-y-4">
-                    <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-400">Dados Gerais da Solicitação</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-zinc-600 dark:text-zinc-400">
-                      <p><strong className="text-zinc-800 dark:text-zinc-300 font-medium">Paciente:</strong> {appointment.patientName}</p>
-                      <p><strong className="text-zinc-800 dark:text-zinc-300 font-medium">CPF:</strong> {formatCpf(appointment.patientCpf)}</p>
-                      <p><strong className="text-zinc-800 dark:text-zinc-300 font-medium">Especialidade:</strong> {appointment.specialtyName}</p>
-                      <p><strong className="text-zinc-800 dark:text-zinc-300 font-medium">Exame Solicitado:</strong> {appointment.examName}</p>
-                      <p className="sm:col-span-2">
-                        <strong className="text-zinc-800 dark:text-zinc-300 font-medium">Localidade:</strong> {appointment.city} ({appointment.state})
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              {appointment.status === 'Confirmado' && (
-                <Card className="border-zinc-200/80 dark:border-zinc-800 shadow-md rounded-3xl overflow-hidden bg-white dark:bg-zinc-950">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-lg font-bold text-zinc-800 dark:text-zinc-100 flex items-center gap-2">
-                      <Star className="w-5 h-5 text-yellow-500" />
-                      Sua opinião é muito importante!
-                    </CardTitle>
-                    <CardDescription>
-                      Por favor, reserve 30 segundos para avaliar o nosso fluxo de agendamento online.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {feedbackSuccess ? (
-                      <div className="p-4 bg-green-50 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 rounded-2xl flex gap-2.5 items-center">
-                        <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                        <span className="text-sm font-semibold text-green-800 dark:text-green-400">Obrigado! Seu feedback (NPS) foi registrado com sucesso.</span>
+                                <Button type="submit" className="bg-primary hover:bg-primary/95 text-white font-semibold h-10 px-5 shadow-sm text-xs rounded-xl">
+                                  <MessageSquare className="w-4 h-4 mr-1.5" />
+                                  Enviar Avaliação
+                                </Button>
+                              </form>
+                            )}
+                          </CardContent>
+                        </Card>
                       </div>
-                    ) : (
-                      <form onSubmit={handleFeedbackSubmit} className="space-y-5">
-                        {feedbackError && (
-                          <div className="p-3 bg-red-50/10 border border-red-200 rounded-xl text-red-500 text-xs font-semibold flex items-center gap-1.5">
-                            <AlertCircle className="w-4 h-4" />
-                            {feedbackError}
-                          </div>
-                        )}
-                        
-                        <div className="space-y-3">
-                          <Label className="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                            Em uma escala de 0 a 10, qual a probabilidade de você recomendar o nosso sistema de agendamento para um amigo ou familiar?
-                          </Label>
-                          <div className="flex flex-wrap justify-between gap-1.5 pt-1">
-                            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((score) => (
-                              <button
-                                key={score}
-                                type="button"
-                                onClick={() => setNpsScore(score)}
-                                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all border ${npsScore === score ? 'bg-primary border-primary text-white scale-105' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/50 dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400'}`}
-                              >
-                                {score}
-                              </button>
-                            ))}
-                          </div>
-                          <div className="flex justify-between text-[10px] text-zinc-400 px-1">
-                            <span>0 - Muito Improvável</span>
-                            <span>10 - Extremamente Provável</span>
-                          </div>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="npsComment" className="text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300">
-                            Deixe um comentário explicando sua nota: *
-                          </Label>
-                          <textarea
-                            id="npsComment"
-                            rows={3}
-                            value={npsComment}
-                            onChange={(e) => setNpsComment(e.target.value)}
-                            placeholder="Escreva sua sugestão ou elogio..."
-                            className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-primary focus:outline-none dark:text-zinc-100"
-                          />
-                        </div>
-
-                        <Button type="submit" className="bg-primary hover:bg-primary/95 text-white font-semibold h-10 px-5 shadow-sm text-xs rounded-xl">
-                          <MessageSquare className="w-4 h-4 mr-1.5" />
-                          Enviar Avaliação
-                        </Button>
-                      </form>
                     )}
-                  </CardContent>
-                </Card>
-              )}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
             </div>
           )}
-        </>
+        </div>
       )}
 
       {isRescheduleOpen && (
