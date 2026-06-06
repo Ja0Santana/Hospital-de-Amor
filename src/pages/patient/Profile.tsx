@@ -195,6 +195,16 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
             email: user.email,
             telefone: user.phone
           },
+          fichaClinicaEmergencia: {
+            grupoSanguineo: user.bloodType || 'Não informado',
+            alergias: user.allergies || 'Nenhuma alergia relatada',
+            diagnosticoClinico: user.clinicalDiagnosis || 'Sem diagnóstico informado',
+            contatoEmergencia: {
+              nome: user.emergencyContactName || 'Não informado',
+              telefone: user.emergencyContactPhone ? formatPhone(user.emergencyContactPhone) : 'Não informado',
+              parentesco: user.emergencyContactRelation || 'Não informado'
+            }
+          },
           contaCriadaEm: user.createdAt
         },
         historicoAgendamentos: appointments.map(app => ({

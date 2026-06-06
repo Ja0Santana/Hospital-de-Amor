@@ -5,13 +5,11 @@ import { Badge } from '../../components/ui/badge';
 import { getAppointmentByCpf, getSymptomLogs, getSpecialties } from '../../services/db';
 import type { Appointment } from '../../types';
 import { Search, AlertCircle, CheckCircle2, Clock, XCircle, Info, ChevronRight, FileText } from 'lucide-react';
-import DigitalCard from '../../components/DigitalCard';
-
-
 interface DashboardProps {
   onNavigate: (page: string) => void;
   patientCpf: string;
   patientName: string;
+  onOpenCard: () => void;
 }
 
 function formatNextEventDate(): string {
@@ -26,11 +24,10 @@ function getNextEventIsoDate(): string {
   return date.toISOString().split('T')[0];
 }
 
-export default function Dashboard({ onNavigate, patientCpf, patientName }: DashboardProps) {
+export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenCard }: DashboardProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [showDiaryAlert, setShowDiaryAlert] = useState(false);
   const [prepAlerts, setPrepAlerts] = useState<{ id: string; title: string; desc: string }[]>([]);
-  const [isCardOpen, setIsCardOpen] = useState(false);
 
   useEffect(() => {
     loadAppointmentsAndAlerts();
@@ -97,7 +94,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
           <p className="text-zinc-500 mt-1">Aqui está o resumo do seu cuidado hoje.</p>
         </div>
         <Button
-          onClick={() => setIsCardOpen(true)}
+          onClick={onOpenCard}
           className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-5 rounded-xl shadow-md flex items-center gap-2 self-start sm:self-auto transition-transform active:scale-[0.98]"
         >
           <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -295,8 +292,6 @@ export default function Dashboard({ onNavigate, patientCpf, patientName }: Dashb
           </CardContent>
         </Card>
       </div>
-
-      <DigitalCard patientCpf={patientCpf} isOpen={isCardOpen} onClose={() => setIsCardOpen(false)} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Phone, Printer, RotateCw, X, ShieldAlert, HeartHandshake } from 'lucide-react';
 import { getUserByCpf } from '../services/db';
 import type { PatientUser } from '../types';
@@ -14,7 +14,61 @@ interface DigitalCardProps {
 export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCardProps) {
   const [user, setUser] = useState<PatientUser | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [angle, setAngle] = useState(0);
   const [isCalling, setIsCalling] = useState(false);
+
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [currentDeltaX, setCurrentDeltaX] = useState(0);
+  const hasDraggedRef = useRef(false);
+
+  const handleDragStart = (clientX: number) => {
+    setIsDragging(true);
+    setStartX(clientX);
+    setCurrentDeltaX(0);
+    hasDraggedRef.current = false;
+  };
+
+  const handleDragMove = (clientX: number) => {
+    if (!isDragging) return;
+    const deltaX = clientX - startX;
+    setCurrentDeltaX(deltaX);
+    if (Math.abs(deltaX) > 10) {
+      hasDraggedRef.current = true;
+    }
+  };
+
+  const handleDragEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    if (Math.abs(currentDeltaX) > 80) {
+      setIsFlipped((prev) => !prev);
+      setAngle((prev) => (currentDeltaX < 0 ? prev - 180 : prev + 180));
+    }
+    setCurrentDeltaX(0);
+    if (hasDraggedRef.current) {
+      setTimeout(() => {
+        hasDraggedRef.current = false;
+      }, 50);
+    }
+  };
+
+  useEffect(() => {
+    if (isDragging) {
+      const handleGlobalMouseMove = (e: MouseEvent) => {
+        handleDragMove(e.clientX);
+      };
+      const handleGlobalMouseUp = () => {
+        handleDragEnd();
+      };
+      window.addEventListener('mousemove', handleGlobalMouseMove);
+      window.addEventListener('mouseup', handleGlobalMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleGlobalMouseMove);
+        window.removeEventListener('mouseup', handleGlobalMouseUp);
+      };
+    }
+  }, [isDragging, startX]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -32,6 +86,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
     if (isOpen) {
       fetchUser();
       setIsFlipped(false);
+      setAngle(0);
       setIsCalling(false);
     }
   }, [patientCpf, isOpen]);
@@ -59,9 +114,18 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
     return `HA-${digits.slice(0, 6)}-${user.name.charAt(0).toUpperCase()}`;
   };
 
+  const dragRatio = currentDeltaX / 400;
+  const angleOffset = dragRatio * 180;
+  const currentAngle = angle + angleOffset;
+
+  const cardStyle: React.CSSProperties = {
+    transform: `rotateY(${isDragging ? currentAngle : angle}deg)`,
+    transition: isDragging ? 'none' : 'transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1)',
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-xs">
-      <div className="bg-zinc-50 dark:bg-zinc-900 rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-6 relative">
+      <div className="bg-zinc-50 dark:bg-zinc-900 rounded-3xl pt-5 pb-6 px-6 max-w-lg w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5 relative">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-150 dark:hover:bg-zinc-800 transition-colors"
@@ -70,21 +134,43 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
           <X className="w-5 h-5" />
         </button>
 
-        <div className="text-center space-y-1 pr-8">
-          <h2 className="text-xl font-black text-zinc-900 dark:text-zinc-50 font-sans flex items-center justify-center gap-1.5">
-            <HeartHandshake className="w-5 h-5 text-primary" />
+        <div className="text-center space-y-2">
+          <div className="flex justify-center">
+            <div className="w-10 h-10 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center text-primary">
+              <HeartHandshake className="w-5 h-5" />
+            </div>
+          </div>
+          <h2 className="text-lg font-black text-zinc-900 dark:text-zinc-50 font-sans leading-tight">
             Carteira Digital do Paciente
           </h2>
-          <p className="text-xs text-zinc-500">
+          <p className="text-xs text-zinc-500 max-w-xs mx-auto">
             Clique no cartão para girar e ver os dados de emergência (F.I.C.E.).
           </p>
         </div>        <div className="flex justify-center py-4">
           <div 
             id="printable-digital-card"
-            className="w-full max-w-[430px] h-[270px] perspective-1000 cursor-pointer group select-none"
-            onClick={() => setIsFlipped(!isFlipped)}
+            className="w-full max-w-[430px] h-[270px] perspective-1000 cursor-grab active:cursor-grabbing group select-none"
+            onMouseDown={(e) => {
+              if (e.button !== 0) return;
+              handleDragStart(e.clientX);
+            }}
+            onTouchStart={(e) => {
+              handleDragStart(e.touches[0].clientX);
+            }}
+            onTouchMove={(e) => {
+              handleDragMove(e.touches[0].clientX);
+            }}
+            onTouchEnd={handleDragEnd}
+            onClick={() => {
+              if (hasDraggedRef.current) return;
+              setIsFlipped(!isFlipped);
+              setAngle((prev) => prev + 180);
+            }}
           >
-            <div className={`relative w-full h-full preserve-3d transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}>
+            <div 
+              style={cardStyle}
+              className="relative w-full h-full preserve-3d"
+            >
               
               <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-4 text-white flex flex-col justify-between shadow-xl border border-white/10">
                 <div className="flex justify-between items-start">
@@ -188,18 +274,18 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleCall}
-                      className="flex-1 h-8 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-bold text-[10px] rounded-lg flex items-center justify-center gap-1.5 transition-transform"
+                      className="flex-1 h-11 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-extrabold text-sm rounded-xl flex items-center justify-center gap-2 transition-transform"
                     >
-                      <Phone className="w-3.5 h-3.5" />
+                      <Phone className="w-4 h-4" />
                       {isCalling ? 'Ligando...' : 'Ligar para Contato'}
                     </button>
                     <button
                       onClick={handlePrint}
-                      className="h-8 w-10 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-lg flex items-center justify-center transition-colors"
+                      className="h-11 w-14 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl flex items-center justify-center transition-colors"
                       title="Imprimir Carteira"
                       aria-label="Imprimir Carteira"
                     >
-                      <Printer className="w-4 h-4" />
+                      <Printer className="w-5 h-5" />
                     </button>
                   </div>
                 )}
@@ -210,15 +296,18 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
 
         <div className="flex flex-col sm:flex-row gap-3 pt-2">
           <button
-            onClick={() => setIsFlipped(!isFlipped)}
-            className="flex-1 h-11 border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-xl text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-2"
+            onClick={() => {
+              setIsFlipped(!isFlipped);
+              setAngle((prev) => prev + 180);
+            }}
+            className="flex-1 h-14 border-2 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-850 rounded-xl text-base font-black text-zinc-700 dark:text-zinc-300 flex items-center justify-center gap-2 transition-transform active:scale-[0.98]"
           >
-            <RotateCw className="w-4 h-4" />
+            <RotateCw className="w-5 h-5" />
             Girar Carteira
           </button>
           <button
             onClick={onClose}
-            className="flex-1 h-11 bg-primary hover:bg-primary/95 text-white rounded-xl text-xs font-bold shadow-md"
+            className="flex-1 h-14 bg-primary hover:bg-primary/95 text-white rounded-xl text-base font-black shadow-md transition-transform active:scale-[0.98]"
           >
             Fechar Carteira
           </button>
