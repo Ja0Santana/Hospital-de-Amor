@@ -5,7 +5,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { formatCpf, validateCpf, formatPhone, sanitizeString } from '../lib/sanitizer';
-import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart } from 'lucide-react';
+import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart, Sun, Moon, Eye } from 'lucide-react';
 import { authenticateUser, createUser, getUserByCpf, updateUserPassword, getLoginAttempts, recordLoginAttempt, clearLoginAttempts } from '../services/db';
 
 import type { PatientUser } from '../types';
@@ -15,11 +15,13 @@ import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
 
 interface LoginProps {
   onLoginSuccess: (cpf: string) => void;
+  theme: string;
+  setTheme: (theme: string) => void;
 }
 
 type LoginView = 'login' | 'register' | 'forgot-password' | 'recovery-success' | 'simulated-inbox' | 'reset-password' | 'reset-success' | 'donor-coming-soon';
 
-export default function Login({ onLoginSuccess }: LoginProps) {
+export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
   const [view, setView] = useState<LoginView>('login');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -307,7 +309,40 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center p-4 relative">
+      <div className="absolute top-4 right-4 z-50 flex items-center bg-white dark:bg-zinc-900 p-0.5 rounded-lg border border-zinc-200/50 dark:border-zinc-800 shadow-sm">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme('light')}
+          className={`h-7 w-7 rounded-md transition-colors ${theme === 'light' ? 'bg-zinc-100 dark:bg-zinc-800 text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'}`}
+          aria-label="Modo Claro"
+          title="Modo Claro"
+        >
+          <Sun className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme('dark')}
+          className={`h-7 w-7 rounded-md transition-colors ${theme === 'dark' ? 'bg-zinc-100 dark:bg-zinc-800 text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'}`}
+          aria-label="Modo Escuro"
+          title="Modo Escuro"
+        >
+          <Moon className="w-3.5 h-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme('contrast')}
+          className={`h-7 w-7 rounded-md transition-colors ${theme === 'contrast' ? 'bg-zinc-100 dark:bg-zinc-800 text-primary dark:text-white font-extrabold' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400'}`}
+          aria-label="Alto Contraste"
+          title="Alto Contraste"
+        >
+          <Eye className="w-3.5 h-3.5" />
+        </Button>
+      </div>
+
       <Card className="w-full max-w-4xl border-none shadow-2xl rounded-3xl overflow-hidden bg-white dark:bg-zinc-900 grid grid-cols-1 md:grid-cols-12 min-h-[520px] max-h-screen md:max-h-none overflow-y-auto md:overflow-visible">
         <div className="hidden md:flex md:col-span-5 bg-primary p-8 text-white flex-col justify-between items-center text-center relative overflow-hidden md:rounded-l-3xl">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent" aria-hidden="true"></div>

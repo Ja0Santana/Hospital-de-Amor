@@ -99,7 +99,7 @@ export default function SymptomFloatingWidget({ patientCpf, currentPage }: Sympt
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 z-40 max-w-sm w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 shadow-2xl p-4 rounded-3xl animate-in slide-in-from-bottom-5 duration-300">
+    <Card className="fixed left-6 md:left-72 bottom-6 z-40 max-w-sm w-[320px] bg-white dark:bg-zinc-900 border border-zinc-200/60 dark:border-zinc-800 shadow-2xl p-4 rounded-3xl animate-in slide-in-from-bottom-5 duration-300">
       {saveSuccess ? (
         <div className="flex flex-col items-center justify-center text-center py-6 space-y-2 animate-in zoom-in-95 duration-200">
           <CheckCircle className="w-10 h-10 text-emerald-500 fill-emerald-100" />

@@ -66,3 +66,94 @@
     @apply bg-background text-foreground;
   }
 }
+
+.high-contrast {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 0%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 0%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 60 100% 50%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 0 0% 0%;
+  --muted-foreground: 0 0% 100%;
+  --accent: 0 0% 100%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 100%;
+  --input: 0 0% 100%;
+  --ring: 0 0% 100%;
+  --brand-pink: 60 100% 50%;
+  --brand-blue: 0 0% 100%;
+}
+
+.high-contrast,
+.high-contrast * {
+  background-color: #000000 !important;
+  color: #ffffff !important;
+  border-color: #ffffff !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+  background-image: none !important;
+}
+
+.high-contrast button, 
+.high-contrast a, 
+.high-contrast [role="button"],
+.high-contrast select,
+.high-contrast input {
+  border: 1px solid #ffffff !important;
+}
+
+.high-contrast button[type="submit"],
+.high-contrast button.bg-brand-pink,
+.high-contrast button.bg-brand-blue,
+.high-contrast button.bg-primary,
+.high-contrast button.bg-secondary {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.high-contrast button[type="submit"] *,
+.high-contrast button.bg-brand-pink *,
+.high-contrast button.bg-brand-blue *,
+.high-contrast button.bg-primary *,
+.high-contrast button.bg-secondary * {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.high-contrast .text-red-500,
+.high-contrast .text-red-650,
+.high-contrast .text-red-600,
+.high-contrast .border-red-500,
+.high-contrast .bg-red-500 {
+  color: #ff3333 !important;
+  border-color: #ff3333 !important;
+}
+
+.high-contrast .text-green-500,
+.high-contrast .text-green-600,
+.high-contrast .border-green-500 {
+  color: #33ff33 !important;
+}
+
+.high-contrast .text-yellow-500,
+.high-contrast .text-yellow-600,
+.high-contrast .border-yellow-500 {
+  color: #ffff33 !important;
+}
+
+.high-contrast svg {
+  stroke: currentColor !important;
+  fill: none !important;
+}
+
+.high-contrast svg.fill-brand-pink {
+  fill: currentColor !important;
+}
+
