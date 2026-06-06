@@ -80,7 +80,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
         </div>        <div className="flex justify-center py-4">
           <div 
             id="printable-digital-card"
-            className="w-full max-w-[370px] h-[245px] perspective-1000 cursor-pointer group select-none"
+            className="w-full max-w-[430px] h-[270px] perspective-1000 cursor-pointer group select-none"
             onClick={() => setIsFlipped(!isFlipped)}
           >
             <div className={`relative w-full h-full preserve-3d transition-transform duration-700 ${isFlipped ? 'rotate-y-180' : ''}`}>
@@ -109,11 +109,11 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <div className="space-y-0.5">
                         <span className="text-[8px] font-bold text-blue-200/80 uppercase tracking-widest block">CPF</span>
-                        <p className="text-xs font-bold tracking-wider">{user ? formatCpf(user.cpf) : '***.***.***-**'}</p>
+                        <p className="text-xs font-bold tracking-wider whitespace-nowrap">{user ? formatCpf(user.cpf) : '***.***.***-**'}</p>
                       </div>
                       <div className="space-y-0.5">
                         <span className="text-[8px] font-bold text-blue-200/80 uppercase tracking-widest block">ID Carteira</span>
-                        <p className="text-xs font-bold tracking-wider">{getPatientId()}</p>
+                        <p className="text-xs font-bold tracking-wider whitespace-nowrap">{getPatientId()}</p>
                       </div>
                     </div>
                   </div>
