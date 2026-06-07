@@ -838,7 +838,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                 <div className="bg-zinc-50 dark:bg-zinc-900/80 px-4 py-3 border-b border-zinc-200/60 dark:border-zinc-800 flex flex-col gap-1 text-[11px] text-zinc-500">
                   <div><strong className="text-zinc-700 dark:text-zinc-300">De:</strong> suporte@hospitalamor.org (Hospital de Amor)</div>
                   <div><strong className="text-zinc-700 dark:text-zinc-300">Para:</strong> {recoveryUser?.email}</div>
-                  <div><strong className="text-zinc-700 dark:text-zinc-300">Assunto:</strong> Redefinição de Senha - Portal do Paciente</div>
+                  <div><strong className="text-zinc-700 dark:text-zinc-300">Assunto:</strong> Redefinição de Senha - {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}</div>
                 </div>
                 <div className="p-6 bg-white dark:bg-zinc-950 flex flex-col items-center text-center space-y-4 text-xs">
                   <div className="bg-white p-1.5 rounded-xl flex items-center justify-center shadow-sm border border-zinc-100 w-12 h-12">
@@ -846,7 +846,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                   </div>
                   <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Recuperação de Senha</h2>
                   <p className="text-zinc-500 leading-relaxed max-w-sm">
-                    Olá, <strong>{recoveryUser?.name}</strong>. Recebemos uma solicitação para redefinir a senha do seu Portal do Paciente (Hospital de Amor). Clique no botão abaixo para criar uma nova senha:
+                    Olá, <strong>{recoveryUser?.name}</strong>. Recebemos uma solicitação para redefinir a senha do seu {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'} (Hospital de Amor). Clique no botão abaixo para criar uma nova senha:
                   </p>
                   <Button
                     type="button"
@@ -867,7 +867,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
             <div className="space-y-6">
               <div className="space-y-2">
                 <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Definir Nova Senha</h1>
-                <p className="text-zinc-500 text-xs">Crie uma nova senha de acesso forte para o paciente com o CPF {formatCpf(recoveryUser?.cpf || '')}.</p>
+                <p className="text-zinc-500 text-xs">Crie uma nova senha de acesso forte para o {activeRole === 'donor' ? 'doador' : 'paciente'} com o CPF {formatCpf(recoveryUser?.cpf || '')}.</p>
               </div>
 
               <form onSubmit={handleResetSubmit} className="space-y-4">
@@ -951,7 +951,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
               <div className="space-y-2">
                 <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Senha Alterada!</h1>
                 <p className="text-zinc-500 text-xs max-w-sm mx-auto leading-relaxed">
-                  Sua nova senha foi salva no banco de dados local com sucesso. Agora você já pode retornar à tela de login e acessar o Portal do Paciente.
+                  Sua nova senha foi salva no banco de dados local com sucesso. Agora você já pode retornar à tela de login e acessar o {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}.
                 </p>
               </div>
 
