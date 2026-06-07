@@ -14,7 +14,7 @@ import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
 
 
 interface LoginProps {
-  onLoginSuccess: (cpf: string) => void;
+  onLoginSuccess: (cpf: string, role: 'patient' | 'donor') => void;
   theme: string;
   setTheme: (theme: string) => void;
 }
@@ -131,9 +131,16 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
     try {
       const authenticatedUser = await authenticateUser(cleanCpf, password);
       if (authenticatedUser) {
+        const userRole = authenticatedUser.role || 'patient';
+        if (userRole !== activeRole && userRole !== 'both') {
+          setLoading(false);
+          setError(`Este CPF está cadastrado como ${userRole === 'donor' ? 'Doador' : 'Paciente'}. Por favor, selecione a aba correta acima para entrar.`);
+          return;
+        }
+
         await recordLoginAttempt(cleanCpf, true);
         setLoading(false);
-        onLoginSuccess(authenticatedUser.cpf === '12345678900' ? '123.456.789-00' : formatCpf(authenticatedUser.cpf));
+        onLoginSuccess(authenticatedUser.cpf === '12345678900' ? '123.456.789-00' : formatCpf(authenticatedUser.cpf), activeRole);
       } else {
         const attempt = await recordLoginAttempt(cleanCpf, false);
         setLoading(false);
@@ -164,7 +171,10 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
     try {
       const existing = await getUserByCpf(cleanCpf);
       if (existing) {
-        setError('Este CPF já está cadastrado no sistema.');
+        const existingRole = existing.role || 'patient';
+        if (existingRole === activeRole || existingRole === 'both') {
+          setError(`Este CPF já está cadastrado como ${activeRole === 'donor' ? 'Doador' : 'Paciente'} no sistema.`);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -240,7 +250,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
         role: activeRole
       });
       setLoading(false);
-      onLoginSuccess(formatCpf(cleanCpf));
+      onLoginSuccess(formatCpf(cleanCpf), activeRole);
     } catch (err: any) {
       setLoading(false);
       setError(err.message || 'Erro ao realizar cadastro.');

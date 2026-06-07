@@ -551,8 +551,36 @@ export async function createUser(user: Omit<PatientUser, 'createdAt'>): Promise<
   const db = await initDb();
   const cleanCpf = user.cpf.replace(/\D/g, "");
   const existing = await getUserByCpf(cleanCpf);
+
   if (existing) {
-    throw new Error('CPF já cadastrado no sistema.');
+    const existingRole = existing.role || 'patient';
+    const newRole = user.role || 'patient';
+
+    if (existingRole === newRole || existingRole === 'both') {
+      throw new Error('CPF já cadastrado com este perfil no sistema.');
+    }
+
+    existing.role = 'both';
+
+    return new Promise((resolve, reject) => {
+      const stores = newRole === 'donor' ? ['users', 'donor_points'] : ['users'];
+      const tx = db.transaction(stores, 'readwrite');
+      
+      const userStore = tx.objectStore('users');
+      userStore.put(existing);
+
+      if (newRole === 'donor') {
+        const donorPointsStore = tx.objectStore('donor_points');
+        donorPointsStore.put({
+          donorCpf: cleanCpf,
+          balance: 0,
+          level: 'Bronze'
+        });
+      }
+
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
   }
 
   const newUser: PatientUser = {

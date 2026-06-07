@@ -88,7 +88,7 @@ export interface ClinicalRecord {
   fileAttachment: FileAttachment;
   createdAt: string;
 }
-export type UserRole = 'patient' | 'donor';
+export type UserRole = 'patient' | 'donor' | 'both';
 
 export interface DonorUser {
   cpf: string;

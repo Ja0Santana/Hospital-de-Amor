@@ -81,7 +81,7 @@ function App() {
     };
   }, []);
 
-  const handleLoginSuccess = async (cpf: string) => {
+  const handleLoginSuccess = async (cpf: string, loggedRole: 'patient' | 'donor') => {
     setPatientCpf(cpf);
     try {
       const cleanCpf = cpf.replace(/\D/g, "");
@@ -90,16 +90,16 @@ function App() {
         setPatientName(user.name);
         const digits = user.cpf.replace(/\D/g, "");
         setPatientId(`${digits.slice(0, 3)}.${digits.slice(3, 6)}-${user.name.charAt(0).toUpperCase()}`);
-        setUserRole(user.role || 'patient');
+        setUserRole(loggedRole);
       } else {
         setPatientName('Anna Beatriz');
         setPatientId('294.102-A');
-        setUserRole('patient');
+        setUserRole(loggedRole);
       }
     } catch (err) {
       setPatientName('Anna Beatriz');
       setPatientId('294.102-A');
-      setUserRole('patient');
+      setUserRole(loggedRole);
     }
     setIsAuthenticated(true);
     setCurrentPage('dashboard');
