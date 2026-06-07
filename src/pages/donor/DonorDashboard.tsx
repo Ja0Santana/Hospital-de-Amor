@@ -3,8 +3,7 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { getDonationsByCpf, getDonorPoints } from '../../services/db';
 import type { Donation, DonorPoints } from '../../types';
-import { Trophy, CreditCard, QrCode, History, TrendingUp, Users, Award, FileText } from 'lucide-react';
-import DonationModal from '../../components/donor/DonationModal';
+import { Trophy, History, TrendingUp, Users, Award } from 'lucide-react';
 
 interface DonorDashboardProps {
   donorCpf: string;
@@ -17,7 +16,6 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
   const [points, setPoints] = useState<DonorPoints | null>(null);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -35,10 +33,6 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
     } finally {
       setLoading(false);
     }
-  };
-
-  const openDonation = () => {
-    setIsModalOpen(true);
   };
 
   const getPointsInfo = () => {
@@ -77,7 +71,7 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
-        <div className="md:col-span-4 flex flex-col">
+        <div className="md:col-span-6 flex flex-col">
           <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex-1 flex flex-col justify-between space-y-4">
             <div className="flex justify-between items-center">
               <div>
@@ -108,7 +102,7 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
           </Card>
         </div>
 
-        <div className="md:col-span-4 flex flex-col">
+        <div className="md:col-span-6 flex flex-col">
           <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex-1 flex flex-col justify-between space-y-4">
             <div className="flex justify-between items-start">
               <div>
@@ -130,40 +124,6 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
             >
               Ver Catálogo
             </Button>
-          </Card>
-        </div>
-
-        <div className="md:col-span-4 flex flex-col">
-          <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-brand-pink text-white rounded-2xl flex-1 flex flex-col justify-between space-y-4 shadow-lg shadow-brand-pink/10">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white/70">Faça uma Doação</h3>
-              <p className="text-lg font-black mt-1">Sua contribuição salva vidas.</p>
-              <p className="text-[10px] text-white/80 mt-1 leading-normal">Escolha a melhor forma de contribuição rápida:</p>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <Button
-                onClick={() => openDonation()}
-                className="bg-white hover:bg-white/95 text-brand-pink font-bold h-11 rounded-xl text-xs flex flex-col items-center justify-center p-0 gap-1 border-none shadow"
-              >
-                <QrCode className="w-4 h-4 shrink-0" />
-                <span>Pix</span>
-              </Button>
-              <Button
-                onClick={() => openDonation()}
-                className="bg-white hover:bg-white/95 text-brand-pink font-bold h-11 rounded-xl text-xs flex flex-col items-center justify-center p-0 gap-1 border-none shadow"
-              >
-                <CreditCard className="w-4 h-4 shrink-0" />
-                <span>Cartão</span>
-              </Button>
-              <Button
-                onClick={() => openDonation()}
-                className="bg-white hover:bg-white/95 text-brand-pink font-bold h-11 rounded-xl text-xs flex flex-col items-center justify-center p-0 gap-1 border-none shadow"
-              >
-                <FileText className="w-4 h-4 shrink-0" />
-                <span>Boleto</span>
-              </Button>
-            </div>
           </Card>
         </div>
       </div>
@@ -242,12 +202,6 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
         </div>
       </div>
 
-      <DonationModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
-        donorCpf={donorCpf} 
-        onDonationSuccess={loadData}
-      />
     </div>
   );
 }
