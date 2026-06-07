@@ -5,7 +5,7 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Checkbox } from '../../components/ui/checkbox';
 import { formatPhone, formatCpf } from '../../lib/sanitizer';
-import { getUserByCpf, updatePatientUser, deleteUserAndAppointments, getAppointmentByCpf, updateUserPassword } from '../../services/db';
+import { getUserByCpf, updatePatientUser, deleteUserAndAppointments, getAppointmentByCpf, updateUserPassword, getDonationsByCpf } from '../../services/db';
 import type { PatientUser, Appointment } from '../../types';
 import { 
   User, Lock, Mail, Phone, Calendar, MapPin, Download, Trash2, 
@@ -104,28 +104,38 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
 
     setLoading(true);
     try {
-      await updatePatientUser(patientCpf, {
+      const updateData: Partial<PatientUser> = {
         email,
         phone,
-        bloodType,
-        allergies,
-        clinicalDiagnosis,
-        emergencyContactName,
-        emergencyContactPhone,
-        emergencyContactRelation
-      });
-      if (user) {
-        setUser({
-          ...user,
-          email,
-          phone,
+      };
+      if (user?.role !== 'donor') {
+        Object.assign(updateData, {
           bloodType,
           allergies,
           clinicalDiagnosis,
           emergencyContactName,
           emergencyContactPhone,
-          emergencyContactRelation
+          emergencyContactRelation,
         });
+      }
+      await updatePatientUser(patientCpf, updateData);
+      if (user) {
+        const updated = {
+          ...user,
+          email,
+          phone,
+        };
+        if (user.role !== 'donor') {
+          Object.assign(updated, {
+            bloodType,
+            allergies,
+            clinicalDiagnosis,
+            emergencyContactName,
+            emergencyContactPhone,
+            emergencyContactRelation,
+          });
+        }
+        setUser(updated);
       }
       setSuccessMessage('Dados atualizados com sucesso no banco de dados local.');
     } catch (err: any) {
@@ -182,12 +192,35 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
     if (!user) return;
     try {
       const cleanCpf = patientCpf.replace(/\D/g, "");
-      const appointments = await getAppointmentByCpf(cleanCpf);
       
-      const report = {
+      let report: any = {
         emitidoEm: new Date().toISOString(),
         legislacao: "Lei Geral de Protecao de Dados Pessoais (LGPD) - Lei nº 13.709/2018",
-        dadosPaciente: {
+      };
+
+      if (user.role === 'donor') {
+        const donations = await getDonationsByCpf(cleanCpf);
+        report.dadosDoador = {
+          nome: user.name,
+          cpf: formatCpf(user.cpf),
+          contatos: {
+            email: user.email,
+            telefone: user.phone
+          },
+          contaCriadaEm: user.createdAt
+        };
+        report.historicoDoacoes = donations.map(d => ({
+          id: d.id,
+          valor: d.amount,
+          metodo: d.method,
+          status: d.status,
+          data: d.date,
+          tipo: d.type === 'recurring' ? 'Recorrente' : 'Única',
+          hash: d.hash
+        }));
+      } else {
+        const appointments = await getAppointmentByCpf(cleanCpf);
+        report.dadosPaciente = {
           nome: user.name,
           cpf: formatCpf(user.cpf),
           nascimento: user.birthDate,
@@ -197,7 +230,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
           },
           fichaClinicaEmergencia: {
             grupoSanguineo: user.bloodType || 'Não informado',
-            alergias: user.allergies || 'Nenhuma alergia relatada',
+            allergies: user.allergies || 'Nenhuma alergia relatada',
             diagnosticoClinico: user.clinicalDiagnosis || 'Sem diagnóstico informado',
             contatoEmergencia: {
               nome: user.emergencyContactName || 'Não informado',
@@ -206,21 +239,21 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
             }
           },
           contaCriadaEm: user.createdAt
-        },
-        historicoAgendamentos: appointments.map(app => ({
+        };
+        report.historicoAgendamentos = appointments.map(app => ({
           protocolo: app.protocol,
           especialidade: app.specialtyName,
           exame: app.examName,
           criadoEm: app.createdAt,
           status: app.status,
           observacoes: app.observations
-        }))
-      };
+        }));
+      }
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `dados_pessoais_${cleanCpf}.json`);
+      downloadAnchor.setAttribute("download", user.role === 'donor' ? `dados_doador_${cleanCpf}.json` : `dados_paciente_${cleanCpf}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -340,97 +373,101 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                   </div>
                 </div>
 
-                <div className="border-t border-zinc-200 dark:border-zinc-800 my-6" />
+                {user?.role !== 'donor' && (
+                  <>
+                    <div className="border-t border-zinc-200 dark:border-zinc-800 my-6" />
 
-                <div className="flex items-center gap-2 mb-4">
-                  <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
-                  <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Ficha de Saúde e Emergência (F.I.C.E.)</h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bloodType" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grupo Sanguíneo</Label>
-                    <select
-                      id="bloodType"
-                      value={bloodType}
-                      onChange={(e) => setBloodType(e.target.value)}
-                      className="w-full h-11 px-3 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary rounded-xl bg-white dark:bg-zinc-950 text-sm focus-visible:outline-none"
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="allergies" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Alergias Conhecidas</Label>
-                    <Input
-                      id="allergies"
-                      type="text"
-                      value={allergies}
-                      onChange={(e) => setAllergies(e.target.value)}
-                      placeholder="Ex: Medicamentos, alimentos, etc."
-                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="clinicalDiagnosis" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico Clínico Principal</Label>
-                    <Input
-                      id="clinicalDiagnosis"
-                      type="text"
-                      value={clinicalDiagnosis}
-                      onChange={(e) => setClinicalDiagnosis(e.target.value)}
-                      placeholder="Ex: Neoplasia de mama sob acompanhamento."
-                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="emergencyContactName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Nome do Contato de Emergência</Label>
-                    <Input
-                      id="emergencyContactName"
-                      type="text"
-                      value={emergencyContactName}
-                      onChange={(e) => setEmergencyContactName(e.target.value)}
-                      placeholder="Ex: Carlos Alberto"
-                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="emergencyContactPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Telefone do Contato</Label>
-                      <Input
-                        id="emergencyContactPhone"
-                        type="text"
-                        value={formatPhone(emergencyContactPhone)}
-                        onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                        maxLength={15}
-                        placeholder="(00) 00000-0000"
-                        className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                      />
+                    <div className="flex items-center gap-2 mb-4">
+                      <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
+                      <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Ficha de Saúde e Emergência (F.I.C.E.)</h3>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label htmlFor="emergencyContactRelation" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grau de Parentesco</Label>
-                      <Input
-                        id="emergencyContactRelation"
-                        type="text"
-                        value={emergencyContactRelation}
-                        onChange={(e) => setEmergencyContactRelation(e.target.value)}
-                        placeholder="Ex: Cônjuge, Filho(a)"
-                        className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="bloodType" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grupo Sanguíneo</Label>
+                        <select
+                          id="bloodType"
+                          value={bloodType}
+                          onChange={(e) => setBloodType(e.target.value)}
+                          className="w-full h-11 px-3 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary rounded-xl bg-white dark:bg-zinc-950 text-sm focus-visible:outline-none"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="A+">A+</option>
+                          <option value="A-">A-</option>
+                          <option value="B+">B+</option>
+                          <option value="B-">B-</option>
+                          <option value="AB+">AB+</option>
+                          <option value="AB-">AB-</option>
+                          <option value="O+">O+</option>
+                          <option value="O-">O-</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="allergies" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Alergias Conhecidas</Label>
+                        <Input
+                          id="allergies"
+                          type="text"
+                          value={allergies}
+                          onChange={(e) => setAllergies(e.target.value)}
+                          placeholder="Ex: Medicamentos, alimentos, etc."
+                          className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 md:col-span-2">
+                        <Label htmlFor="clinicalDiagnosis" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico Clínico Principal</Label>
+                        <Input
+                          id="clinicalDiagnosis"
+                          type="text"
+                          value={clinicalDiagnosis}
+                          onChange={(e) => setClinicalDiagnosis(e.target.value)}
+                          placeholder="Ex: Neoplasia de mama sob acompanhamento."
+                          className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="emergencyContactName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Nome do Contato de Emergência</Label>
+                        <Input
+                          id="emergencyContactName"
+                          type="text"
+                          value={emergencyContactName}
+                          onChange={(e) => setEmergencyContactName(e.target.value)}
+                          placeholder="Ex: Carlos Alberto"
+                          className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="emergencyContactPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Telefone do Contato</Label>
+                          <Input
+                            id="emergencyContactPhone"
+                            type="text"
+                            value={formatPhone(emergencyContactPhone)}
+                            onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                            maxLength={15}
+                            placeholder="(00) 00000-0000"
+                            className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="emergencyContactRelation" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grau de Parentesco</Label>
+                          <Input
+                            id="emergencyContactRelation"
+                            type="text"
+                            value={emergencyContactRelation}
+                            onChange={(e) => setEmergencyContactRelation(e.target.value)}
+                            placeholder="Ex: Cônjuge, Filho(a)"
+                            className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
 
                 <div className="flex justify-end pt-6">
                   <Button type="submit" disabled={loading} className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-6 rounded-xl shadow-md transition-transform active:scale-[0.98]">

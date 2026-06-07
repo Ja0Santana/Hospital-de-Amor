@@ -19,10 +19,11 @@ interface LoginProps {
   setTheme: (theme: string) => void;
 }
 
-type LoginView = 'login' | 'register' | 'forgot-password' | 'recovery-success' | 'simulated-inbox' | 'reset-password' | 'reset-success' | 'donor-coming-soon';
+type LoginView = 'login' | 'register' | 'forgot-password' | 'recovery-success' | 'simulated-inbox' | 'reset-password' | 'reset-success';
 
 export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
   const [view, setView] = useState<LoginView>('login');
+  const [activeRole, setActiveRole] = useState<'patient' | 'donor'>('patient');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -235,7 +236,8 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
         birthDate: regBirthDate,
         email: regEmail,
         phone: regPhone,
-        passwordHash: regPassword
+        passwordHash: regPassword,
+        role: activeRole
       });
       setLoading(false);
       onLoginSuccess(formatCpf(cleanCpf));
@@ -401,17 +403,20 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                 <Heart className="w-3 h-3 fill-brand-pink text-brand-pink inline mx-0.5 -mt-0.5" aria-hidden="true" />
                 <span>r</span>
               </div>
-              <p className="text-[10px] text-zinc-400">Portal do Paciente</p>
+              <p className="text-[10px] text-zinc-400">{activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}</p>
             </div>
           </div>
 
-          {['login', 'register', 'forgot-password', 'donor-coming-soon'].includes(view) && (
+          {['login', 'register', 'forgot-password'].includes(view) && (
             <div className="flex border-b border-zinc-100 dark:border-zinc-800 mb-6">
               <button
                 type="button"
-                onClick={() => navigateToView('login')}
+                onClick={() => {
+                  setActiveRole('patient');
+                  setError('');
+                }}
                 className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${
-                  view !== 'donor-coming-soon'
+                  activeRole === 'patient'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
                 }`}
@@ -420,9 +425,12 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
               </button>
               <button
                 type="button"
-                onClick={() => navigateToView('donor-coming-soon')}
+                onClick={() => {
+                  setActiveRole('donor');
+                  setError('');
+                }}
                 className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${
-                  view === 'donor-coming-soon'
+                  activeRole === 'donor'
                     ? 'border-secondary text-secondary'
                     : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
                 }`}
@@ -432,44 +440,17 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
             </div>
           )}
 
-          {view === 'donor-coming-soon' && (
-            <div className="space-y-6 py-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
-                  <Heart className="w-8 h-8 fill-secondary/20" aria-hidden="true" />
-                </div>
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-comfortaa font-bold tracking-tight text-zinc-900 dark:text-zinc-50 uppercase">
-                    Portal do Doador
-                  </h1>
-                  <p className="text-xs font-semibold text-secondary uppercase tracking-widest">
-                    Em Breve / Em Desenvolvimento
-                  </p>
-                </div>
-                <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed max-w-md">
-                  A ala exclusiva para doadores e parceiros do Hospital de Amor está sendo construída.
-                  Neste espaço, você poderá realizar doações de forma rápida via Pix, Cartão ou Criptomoedas,
-                  acompanhar seu nível de doador (Bronze, Prata e Ouro), acumular pontos de fidelidade e
-                  enviar mensagens de apoio que serão transmitidas diretamente no hospital.
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-center">
-                <Button
-                  onClick={() => navigateToView('login')}
-                  className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-6 rounded-2xl shadow-lg shadow-primary/20 text-xs transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  Voltar para o Portal do Paciente
-                </Button>
-              </div>
-            </div>
-          )}
-
           {view === 'login' && (
             <div className="space-y-6">
               <div className="space-y-2">
-                <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Portal do Paciente</h1>
-                <p className="text-zinc-500 text-sm">Insira suas credenciais de acesso para entrar no painel.</p>
+                <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
+                  {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}
+                </h1>
+                <p className="text-zinc-500 text-sm">
+                  {activeRole === 'donor' 
+                    ? 'Insira suas credenciais de doador para entrar.' 
+                    : 'Insira suas credenciais de acesso para entrar no painel.'}
+                </p>
               </div>
 
               <form onSubmit={handleLoginSubmit} className="space-y-5">
@@ -482,7 +463,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cpf" className="font-semibold text-zinc-700 dark:text-zinc-300">CPF do Paciente</Label>
+                    <Label htmlFor="cpf" className="font-semibold text-zinc-700 dark:text-zinc-300">{activeRole === 'donor' ? 'CPF do Doador' : 'CPF do Paciente'}</Label>
                     <div className="relative">
                       <Input
                         id="cpf"
@@ -551,8 +532,14 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
               </div>
 
               <div className="space-y-2">
-                <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Criar Cadastro</h1>
-                <p className="text-zinc-500 text-xs">Preencha com seus dados para liberar o primeiro acesso.</p>
+                <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
+                  {activeRole === 'donor' ? 'Cadastro de Doador' : 'Criar Cadastro'}
+                </h1>
+                <p className="text-zinc-500 text-xs">
+                  {activeRole === 'donor' 
+                    ? 'Preencha com seus dados para iniciar sua jornada de apoio.' 
+                    : 'Preencha com seus dados para liberar o primeiro acesso.'}
+                </p>
               </div>
 
               <form onSubmit={handleRegisterSubmit} className="space-y-4">
@@ -686,7 +673,9 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     className="mt-0.5 focus-visible:ring-primary border-zinc-300"
                   />
                   <Label htmlFor="regConsent" className="text-[10px] text-zinc-500 leading-normal cursor-pointer">
-                    Estou ciente e aceito que meus dados cadastrais e exames sejam tratados pelo hospital estritamente para fins de triagem de agendamento, conforme a LGPD.
+                    {activeRole === 'donor'
+                      ? 'Estou ciente e aceito que meus dados cadastrais sejam tratados pelo hospital estritamente para processamento de doações e relacionamento institucional, conforme a LGPD.'
+                      : 'Estou ciente e aceito que meus dados cadastrais e exames sejam tratados pelo hospital estritamente para fins de triagem de agendamento, conforme a LGPD.'}
                   </Label>
                 </div>
 

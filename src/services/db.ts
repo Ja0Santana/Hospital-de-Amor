@@ -1,7 +1,7 @@
-import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord } from '../types';
+import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -102,6 +102,18 @@ export function initDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('clinical_history')) {
         db.createObjectStore('clinical_history', { keyPath: 'id', autoIncrement: true });
       }
+
+      if (!db.objectStoreNames.contains('donations')) {
+        db.createObjectStore('donations', { keyPath: 'id' });
+      }
+
+      if (!db.objectStoreNames.contains('donor_points')) {
+        db.createObjectStore('donor_points', { keyPath: 'donorCpf' });
+      }
+
+      if (!db.objectStoreNames.contains('support_messages')) {
+        db.createObjectStore('support_messages', { keyPath: 'id' });
+      }
     };
   }).then((db) => {
     return seedData(db);
@@ -110,13 +122,16 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
     const userStore = tx.objectStore('users');
     const symptomStore = tx.objectStore('symptoms_diary');
     const clinicalStore = tx.objectStore('clinical_history');
+    const donationsStore = tx.objectStore('donations');
+    const donorPointsStore = tx.objectStore('donor_points');
+    const supportMessagesStore = tx.objectStore('support_messages');
 
     specStore.clear();
     cityStore.clear();
@@ -134,6 +149,7 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
           email: 'anna.beatriz@email.com',
           phone: '(79) 99999-9999',
           passwordHash: '123456',
+          role: 'patient',
           createdAt: new Date().toISOString(),
           bloodType: 'A+',
           allergies: 'Penicilina e Corante Amarelo Tartrazina',
@@ -141,6 +157,24 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
           emergencyContactName: 'Carlos Alberto de Souza',
           emergencyContactPhone: '(79) 98888-8888',
           emergencyContactRelation: 'Cônjuge'
+        });
+      } else if (!userReq.result.role) {
+        const updatedUser = { ...userReq.result, role: 'patient' };
+        userStore.put(updatedUser);
+      }
+    };
+
+    const donorReq = userStore.get('98765432100');
+    donorReq.onsuccess = () => {
+      if (!donorReq.result) {
+        userStore.put({
+          cpf: '98765432100',
+          name: 'Tiago Silva',
+          email: 'tiago.silva@email.com',
+          phone: '(79) 99911-0033',
+          passwordHash: '123456',
+          role: 'donor',
+          createdAt: '2026-05-12T10:00:00.000Z'
         });
       }
     };
@@ -308,6 +342,59 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
       }
     };
 
+    const pointsReq = donorPointsStore.get('98765432100');
+    pointsReq.onsuccess = () => {
+      if (!pointsReq.result) {
+        donorPointsStore.put({
+          donorCpf: '98765432100',
+          balance: 3450,
+          level: 'Prata'
+        });
+      }
+    };
+
+    const donReq = donationsStore.getAll();
+    donReq.onsuccess = () => {
+      if (donReq.result.length === 0) {
+        const mockDonations = [
+          {
+            id: 'don-mock-1',
+            donorCpf: '98765432100',
+            amount: 150.00,
+            method: 'Pix',
+            status: 'Confirmada',
+            date: '2026-05-12T11:00:00.000Z',
+            type: 'single',
+            hash: 'E2E-PIX-MOCK-1'
+          },
+          {
+            id: 'don-mock-2',
+            donorCpf: '98765432100',
+            amount: 50.00,
+            method: 'Cartão de Crédito',
+            status: 'Confirmada',
+            date: '2026-05-05T09:00:00.000Z',
+            type: 'recurring',
+            hash: 'TX-CARD-MOCK-2'
+          }
+        ];
+        mockDonations.forEach((d) => donationsStore.put(d));
+      }
+    };
+
+    const msgReq = supportMessagesStore.getAll();
+    msgReq.onsuccess = () => {
+      if (msgReq.result.length === 0) {
+        supportMessagesStore.put({
+          id: 'msg-mock-1',
+          donorName: 'Tiago',
+          message: 'Muita força e fé para todos! Vocês não estão sozinhos nessa caminhada.',
+          date: '2026-05-12T12:00:00.000Z',
+          isAuthorized: true
+        });
+      }
+    };
+
     tx.oncomplete = () => resolve(db);
     tx.onerror = () => reject(tx.error);
   });
@@ -468,11 +555,23 @@ export async function createUser(user: Omit<PatientUser, 'createdAt'>): Promise<
   };
 
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('users', 'readwrite');
-    const store = tx.objectStore('users');
-    const request = store.add(newUser);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    const stores = newUser.role === 'donor' ? ['users', 'donor_points'] : ['users'];
+    const tx = db.transaction(stores, 'readwrite');
+    
+    const userStore = tx.objectStore('users');
+    userStore.add(newUser);
+
+    if (newUser.role === 'donor') {
+      const donorPointsStore = tx.objectStore('donor_points');
+      donorPointsStore.put({
+        donorCpf: cleanCpf,
+        balance: 0,
+        level: 'Bronze'
+      });
+    }
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -737,4 +836,97 @@ export async function deleteClinicalRecord(id: number): Promise<void> {
     req.onerror = () => reject(req.error);
   });
 }
+export async function createDonation(donation: Donation): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('donations', 'readwrite');
+    const store = tx.objectStore('donations');
+    const request = store.add(donation);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
 
+export async function getDonationsByCpf(cpf: string): Promise<Donation[]> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise<Donation[]>((resolve, reject) => {
+    const tx = db.transaction('donations', 'readonly');
+    const store = tx.objectStore('donations');
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const results = (request.result || []) as Donation[];
+      const filtered = results
+        .filter((d) => d.donorCpf.replace(/\D/g, "") === cleanCpf)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      resolve(filtered);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getDonorPoints(cpf: string): Promise<DonorPoints | null> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise<DonorPoints | null>((resolve, reject) => {
+    const tx = db.transaction('donor_points', 'readonly');
+    const store = tx.objectStore('donor_points');
+    const request = store.get(cleanCpf);
+    request.onsuccess = () => resolve(request.result || null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function addDonorPoints(cpf: string, points: number): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  const currentPoints = await getDonorPoints(cleanCpf);
+  
+  const balance = (currentPoints?.balance || 0) + points;
+  let level: 'Bronze' | 'Prata' | 'Ouro' = 'Bronze';
+  if (balance > 5000) {
+    level = 'Ouro';
+  } else if (balance > 1000) {
+    level = 'Prata';
+  }
+
+  const updatedPoints: DonorPoints = {
+    donorCpf: cleanCpf,
+    balance,
+    level
+  };
+
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('donor_points', 'readwrite');
+    const store = tx.objectStore('donor_points');
+    const request = store.put(updatedPoints);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveSupportMessage(msg: SupportMessage): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('support_messages', 'readwrite');
+    const store = tx.objectStore('support_messages');
+    const request = store.add(msg);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getSupportMessages(): Promise<SupportMessage[]> {
+  const db = await initDb();
+  return new Promise<SupportMessage[]>((resolve, reject) => {
+    const tx = db.transaction('support_messages', 'readonly');
+    const store = tx.objectStore('support_messages');
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const results = (request.result || []) as SupportMessage[];
+      const sorted = results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      resolve(sorted);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}

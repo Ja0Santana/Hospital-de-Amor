@@ -60,6 +60,7 @@ export interface PatientUser {
   phone: string;
   passwordHash: string;
   createdAt: string;
+  role?: UserRole;
   bloodType?: string;
   allergies?: string;
   clinicalDiagnosis?: string;
@@ -87,4 +88,38 @@ export interface ClinicalRecord {
   fileAttachment: FileAttachment;
   createdAt: string;
 }
+export type UserRole = 'patient' | 'donor';
 
+export interface DonorUser {
+  cpf: string;
+  name: string;
+  email: string;
+  phone: string;
+  passwordHash: string;
+  createdAt: string;
+}
+
+export interface Donation {
+  id: string;
+  donorCpf: string;
+  amount: number;
+  method: 'Pix' | 'Cartão de Crédito' | 'Boleto' | 'Criptomoedas';
+  status: 'Confirmada' | 'Pendente' | 'Cancelada' | 'Aguardando Pagamento' | 'Expirado';
+  date: string;
+  type: 'single' | 'recurring';
+  hash: string;
+}
+
+export interface DonorPoints {
+  donorCpf: string;
+  balance: number;
+  level: 'Bronze' | 'Prata' | 'Ouro';
+}
+
+export interface SupportMessage {
+  id: string;
+  donorName: string;
+  message: string;
+  date: string;
+  isAuthorized: boolean;
+}
