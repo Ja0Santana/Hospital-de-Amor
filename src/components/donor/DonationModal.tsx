@@ -3,7 +3,8 @@ import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { createDonation, addDonorPoints } from '../../services/db';
+import { Checkbox } from '../ui/checkbox';
+import { createDonation, addDonorPoints, saveSupportMessage, getUserByCpf } from '../../services/db';
 import { X, CheckCircle2, AlertTriangle, CreditCard, QrCode, FileText, Copy, Check, Download, RefreshCw, AlertCircle } from 'lucide-react';
 import type { Donation } from '../../types';
 
@@ -38,6 +39,9 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
 
   const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
 
+  const [supportMessage, setSupportMessage] = useState('');
+  const [isAuthorized, setIsAuthorized] = useState(true);
+
   useEffect(() => {
     if (isOpen) {
       setMethod('pix');
@@ -54,6 +58,8 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
       setCardRecurrence('single');
       setCardError('');
       setDownloadProgress(null);
+      setSupportMessage('');
+      setIsAuthorized(true);
       
       startPixTimer();
     } else {
@@ -131,6 +137,19 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
 
       await createDonation(newDonation);
       await addDonorPoints(donorCpf, points);
+
+      if (supportMessage.trim()) {
+        const cleanCpf = donorCpf.replace(/\D/g, "");
+        const donor = await getUserByCpf(cleanCpf);
+        const donorName = donor ? donor.name.split(' ')[0] : 'Doador';
+        await saveSupportMessage({
+          id: crypto.randomUUID(),
+          donorName,
+          message: supportMessage.trim(),
+          date: new Date().toISOString(),
+          isAuthorized
+        });
+      }
       
       setSuccessData({
         amount: donationAmount,
@@ -302,6 +321,32 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                   />
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="supportMsg" className="text-xs font-bold text-zinc-650 dark:text-zinc-350 flex justify-between items-center">
+                <span>Mensagem de Apoio (Opcional)</span>
+                <span className="text-[10px] text-zinc-400 font-mono">{supportMessage.length}/300</span>
+              </Label>
+              <textarea
+                id="supportMsg"
+                placeholder="Deixe uma mensagem de incentivo para os pacientes em tratamento..."
+                value={supportMessage}
+                onChange={(e) => setSupportMessage(e.target.value.slice(0, 300))}
+                maxLength={300}
+                className="w-full min-h-[64px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink rounded-xl text-xs resize-none p-2.5 text-zinc-900 dark:text-zinc-50 leading-normal"
+              />
+              <div className="flex gap-2 items-start pt-0.5">
+                <Checkbox
+                  id="authMsg"
+                  checked={isAuthorized}
+                  onCheckedChange={(checked) => setIsAuthorized(checked === true)}
+                  className="mt-0.5 border-zinc-300 focus-visible:ring-brand-pink"
+                />
+                <Label htmlFor="authMsg" className="text-[10px] text-zinc-500 leading-normal cursor-pointer select-none">
+                  Autorizo a exibição do meu primeiro nome junto à mensagem no painel do hospital.
+                </Label>
+              </div>
             </div>
 
             <div className="space-y-3">

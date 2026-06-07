@@ -1,11 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Checkbox } from '../../components/ui/checkbox';
-import { Label } from '../../components/ui/label';
-import { getDonationsByCpf, getDonorPoints, saveSupportMessage } from '../../services/db';
+import { getDonationsByCpf, getDonorPoints } from '../../services/db';
 import type { Donation, DonorPoints } from '../../types';
-import { Trophy, CreditCard, QrCode, MessageSquare, Send, CheckCircle2, History, TrendingUp, Users, Award, FileText } from 'lucide-react';
+import { Trophy, CreditCard, QrCode, History, TrendingUp, Users, Award, FileText } from 'lucide-react';
 import DonationModal from '../../components/donor/DonationModal';
 
 interface DonorDashboardProps {
@@ -19,9 +17,6 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
   const [points, setPoints] = useState<DonorPoints | null>(null);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [messageText, setMessageText] = useState('');
-  const [isAuthorized, setIsAuthorized] = useState(true);
-  const [messageSuccess, setMessageSuccess] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
@@ -39,26 +34,6 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
       console.error(err);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!messageText.trim()) return;
-
-    try {
-      await saveSupportMessage({
-        id: crypto.randomUUID(),
-        donorName: donorName.split(' ')[0],
-        message: messageText.trim(),
-        date: new Date().toISOString(),
-        isAuthorized
-      });
-      setMessageText('');
-      setMessageSuccess(true);
-      setTimeout(() => setMessageSuccess(false), 3000);
-    } catch (err) {
-      console.error(err);
     }
   };
 
@@ -194,65 +169,7 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div className="lg:col-span-5 flex flex-col">
-          <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex-1 flex flex-col justify-between space-y-4">
-            <div className="flex items-center gap-2 pb-1 border-b border-zinc-100 dark:border-zinc-800">
-              <MessageSquare className="w-4 h-4 text-brand-pink" />
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Mensagem de Apoio</h3>
-            </div>
-
-            <form onSubmit={handleSendMessage} className="space-y-4 flex-1 flex flex-col justify-between">
-              <div className="space-y-3">
-                <p className="text-[10px] text-zinc-400 leading-normal">
-                  Escreva uma mensagem de incentivo de até 300 caracteres para os pacientes. Suas palavras trazem calor humano para o tratamento!
-                </p>
-                <textarea
-                  placeholder="Escreva sua mensagem aqui..."
-                  value={messageText}
-                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setMessageText(e.target.value.slice(0, 300))}
-                  maxLength={300}
-                  className="min-h-[100px] w-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink rounded-xl text-xs resize-none p-3 text-zinc-900 dark:text-zinc-50"
-                />
-                <div className="flex justify-between items-center text-[10px] text-zinc-400">
-                  <span>Máximo 300 caracteres</span>
-                  <span className="font-mono">{messageText.length}/300</span>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex gap-2 items-start">
-                  <Checkbox
-                    id="auth"
-                    checked={isAuthorized}
-                    onCheckedChange={(checked) => setIsAuthorized(checked === true)}
-                    className="mt-0.5 border-zinc-300 focus-visible:ring-brand-pink"
-                  />
-                  <Label htmlFor="auth" className="text-[10px] text-zinc-500 leading-normal cursor-pointer">
-                    Autorizo a exibição do meu primeiro nome ({donorName.split(' ')[0]}) junto à mensagem no painel do hospital.
-                  </Label>
-                </div>
-
-                {messageSuccess && (
-                  <div className="p-3 bg-green-50/10 border border-green-200/80 text-green-600 dark:text-green-400 text-xs font-semibold rounded-xl flex gap-2.5 items-center">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Mensagem de apoio enviada com sucesso!</span>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={!messageText.trim()}
-                  className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-11 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/25 disabled:opacity-50"
-                >
-                  <Send className="w-3.5 h-3.5" />
-                  Enviar Mensagem
-                </Button>
-              </div>
-            </form>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-7 flex flex-col">
+        <div className="lg:col-span-12 flex flex-col">
           <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex-1 flex flex-col space-y-4">
             <div className="flex items-center gap-2 pb-1 border-b border-zinc-100 dark:border-zinc-800">
               <History className="w-4 h-4 text-brand-pink" />
