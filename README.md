@@ -63,6 +63,8 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **RF93 – Painel de Fidelidade "Corações de Esperança" (Should Have)**: Sistema de gamificação e pontuação que converte doações em pontos, promovendo o engajamento e a recorrência.
 *   **RF94 – Simulador de Doações Multimeios (Must Have)**: Modal interativo com suporte a Pix (com cópia de chave e simulação de QR Code), Boleto (com geração de linha digitável simulada e botão de copiar) e Cartão de Crédito (com design animado responsivo e reconhecimento visual de bandeiras).
 *   **RF95 – Mural de Mensagens de Apoio (Should Have)**: Sistema integrado para envio de mensagens motivacionais por doadores que são exibidas dinamicamente em carrossel na Dashboard dos Pacientes.
+*   **RF96 – Gestão de Foto de Perfil (Should Have)**: Permite que o usuário faça upload de uma foto de perfil pessoal (JPG, PNG ou WEBP de até 2MB). A imagem é processada e persistida em Base64 no IndexedDB local e sincronizada automaticamente em tempo real com o avatar da Sidebar.
+
 
 
 ---

@@ -10,7 +10,7 @@ import type { PatientUser, Appointment } from '../../types';
 import { 
   User, Lock, Mail, Phone, Calendar, MapPin, Download, Trash2, 
   Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck,
-  Type, Activity, Eye, EyeOff
+  Type, Activity, Eye, EyeOff, Camera
 } from 'lucide-react';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 
@@ -23,9 +23,10 @@ interface ProfileProps {
   setFontSize: (size: string) => void;
   theme: string;
   setTheme: (theme: string) => void;
+  onPhotoUpdate?: (url: string) => void;
 }
 
-export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, setFontSize, theme, setTheme }: ProfileProps) {
+export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, setFontSize, theme, setTheme, onPhotoUpdate }: ProfileProps) {
   const [user, setUser] = useState<PatientUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -94,6 +95,59 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
     };
     loadUserData();
   }, [patientCpf]);
+
+  const handlePhotoUpload = (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMessage('A imagem deve ter no máximo 2MB.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Formato de arquivo inválido. Selecione uma imagem.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        try {
+          await updatePatientUser(patientCpf, { photoUrl: base64 });
+          if (user) {
+            setUser({ ...user, photoUrl: base64 });
+          }
+          if (onPhotoUpdate) {
+            onPhotoUpdate(base64);
+          }
+          setSuccessMessage('Foto de perfil atualizada com sucesso.');
+        } catch (err) {
+          setErrorMessage('Erro ao salvar a foto de perfil.');
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handlePhotoUpload(file);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    try {
+      await updatePatientUser(patientCpf, { photoUrl: '' });
+      if (user) {
+        setUser({ ...user, photoUrl: '' });
+      }
+      if (onPhotoUpdate) {
+        onPhotoUpdate('');
+      }
+      setSuccessMessage('Foto de perfil removida com sucesso.');
+    } catch (err) {
+      setErrorMessage('Erro ao remover a foto de perfil.');
+    }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -326,6 +380,62 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                     <span>{errorMessage}</span>
                   </div>
                 )}
+
+                <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-zinc-150 dark:border-zinc-800/50">
+                  <div className="relative group w-20 h-20 bg-zinc-100 dark:bg-zinc-900 rounded-full border-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
+                    {user?.photoUrl ? (
+                      <img src={user.photoUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xl font-black text-primary uppercase select-none">
+                        {name ? name.slice(0, 2) : 'HA'}
+                      </span>
+                    )}
+                    <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                      <Camera className="w-5 h-5 text-white" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handlePhotoChange} 
+                        className="hidden" 
+                      />
+                    </label>
+                  </div>
+                  <div className="text-center sm:text-left space-y-1.5">
+                    <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Foto de Perfil</p>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                      Formatos aceitos: JPG, PNG ou WEBP. Tamanho máximo: 2MB.
+                    </p>
+                    <div className="flex gap-2 justify-center sm:justify-start">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) handlePhotoUpload(file);
+                          };
+                          input.click();
+                        }}
+                        variant="outline"
+                        className="h-8 text-[10px] font-bold px-3 border-zinc-200 dark:border-zinc-800 rounded-lg animate-in"
+                      >
+                        Alterar Foto
+                      </Button>
+                      {user?.photoUrl && (
+                        <Button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          variant="ghost"
+                          className="h-8 text-[10px] font-bold px-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg animate-in"
+                        >
+                          Remover
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5 md:col-span-2">

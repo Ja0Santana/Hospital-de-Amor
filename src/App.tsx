@@ -26,6 +26,7 @@ function App() {
   const [patientCpf, setPatientCpf] = useState('');
   const [patientName, setPatientName] = useState('');
   const [patientId, setPatientId] = useState('');
+  const [patientPhotoUrl, setPatientPhotoUrl] = useState('');
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedProtocol, setSelectedProtocol] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -91,14 +92,17 @@ function App() {
         const digits = user.cpf.replace(/\D/g, "");
         setPatientId(`${digits.slice(0, 3)}.${digits.slice(3, 6)}-${user.name.charAt(0).toUpperCase()}`);
         setUserRole(loggedRole);
+        setPatientPhotoUrl(user.photoUrl || '');
       } else {
         setPatientName('Anna Beatriz');
         setPatientId('294.102-A');
+        setPatientPhotoUrl('');
         setUserRole(loggedRole);
       }
     } catch (err) {
       setPatientName('Anna Beatriz');
       setPatientId('294.102-A');
+      setPatientPhotoUrl('');
       setUserRole(loggedRole);
     }
     setIsAuthenticated(true);
@@ -111,6 +115,7 @@ function App() {
     setPatientCpf('');
     setPatientName('');
     setPatientId('');
+    setPatientPhotoUrl('');
     setSelectedProtocol('');
     setUserRole('patient');
     setCurrentPage('dashboard');
@@ -169,10 +174,14 @@ function App() {
             className="flex items-center gap-3 pb-6 border-b border-white/15 dark:border-zinc-800 cursor-pointer hover:opacity-85 transition-opacity"
           >
             <div className="w-11 h-11 bg-white rounded-full overflow-hidden flex items-center justify-center border-2 border-white/20 shrink-0">
-              <svg className="w-full h-full text-secondary" viewBox="0 0 32 32" aria-hidden="true">
-                <rect width="32" height="32" fill="#e31463" opacity="0.15" />
-                <path d="M16,16 A4,4 0 0 1 12,12 A4,4 0 0 1 16,8 A4,4 0 0 1 20,12 A4,4 0 0 1 16,16 Z M16,18 C11.5,18 8,21.5 8,26 L24,26 C24,21.5 20.5,18 16,18 Z" fill="#e31463" />
-              </svg>
+              {patientPhotoUrl ? (
+                <img src={patientPhotoUrl} alt="Foto de perfil" className="w-full h-full object-cover animate-in fade-in" />
+              ) : (
+                <svg className="w-full h-full text-secondary" viewBox="0 0 32 32" aria-hidden="true">
+                  <rect width="32" height="32" fill="#e31463" opacity="0.15" />
+                  <path d="M16,16 A4,4 0 0 1 12,12 A4,4 0 0 1 16,8 A4,4 0 0 1 20,12 A4,4 0 0 1 16,16 Z M16,18 C11.5,18 8,21.5 8,26 L24,26 C24,21.5 20.5,18 16,18 Z" fill="#e31463" />
+                </svg>
+              )}
             </div>
             <div className="min-w-0">
               <h3 className="font-extrabold text-sm text-white truncate">{patientName}</h3>
@@ -466,6 +475,7 @@ function App() {
                 setFontSize={setFontSize}
                 theme={theme}
                 setTheme={setTheme}
+                onPhotoUpdate={(url) => setPatientPhotoUrl(url)}
               />
             )}
             {currentPage === 'help-center' && <HelpCenter />}

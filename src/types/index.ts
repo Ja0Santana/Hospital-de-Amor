@@ -67,6 +67,7 @@ export interface PatientUser {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelation?: string;
+  photoUrl?: string;
 }
 
 export interface SymptomLog {
