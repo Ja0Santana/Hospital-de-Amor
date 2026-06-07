@@ -557,7 +557,7 @@ export async function createUser(user: Omit<PatientUser, 'createdAt'>): Promise<
     const newRole = user.role || 'patient';
 
     if (existingRole === newRole || existingRole === 'both') {
-      throw new Error('CPF já cadastrado com este perfil no sistema.');
+      throw new Error('Este CPF já está cadastrado');
     }
 
     existing.role = 'both';

@@ -179,7 +179,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
       if (existing) {
         const existingRole = existing.role || 'patient';
         if (existingRole === activeRole || existingRole === 'both') {
-          setError(`Este CPF já está cadastrado como ${activeRole === 'donor' ? 'Doador' : 'Paciente'} no sistema.`);
+          setError('Este CPF já está cadastrado');
         }
       }
     } catch (err) {
