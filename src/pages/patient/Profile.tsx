@@ -10,7 +10,7 @@ import type { PatientUser, Appointment } from '../../types';
 import { 
   User, Lock, Mail, Phone, Calendar, MapPin, Download, Trash2, 
   Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck,
-  Type, Activity
+  Type, Activity, Eye, EyeOff
 } from 'lucide-react';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 
@@ -49,6 +49,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isNewPasswordValid, setIsNewPasswordValid] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
 
   const [isEmailNotify, setIsEmailNotify] = useState(true);
@@ -181,6 +184,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmNewPassword(false);
     } catch (err: any) {
       setPasswordError('Erro ao atualizar a senha.');
     } finally {
@@ -501,17 +507,47 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="currPass" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Senha Atual</Label>
-                    <Input id="currPass" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10" />
+                    <div className="relative">
+                      <Input id="currPass" type={showCurrentPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10 pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showCurrentPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="newPass" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Nova Senha</Label>
-                    <Input id="newPass" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10" />
+                    <div className="relative">
+                      <Input id="newPass" type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10 pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showNewPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="confNewPass" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Confirmar Nova Senha</Label>
-                    <Input id="confNewPass" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10" />
+                    <div className="relative">
+                      <Input id="confNewPass" type={showConfirmNewPassword ? "text" : "password"} value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10 pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showConfirmNewPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 

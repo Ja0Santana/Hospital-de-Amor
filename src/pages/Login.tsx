@@ -5,7 +5,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { formatCpf, validateCpf, formatPhone, sanitizeString } from '../lib/sanitizer';
-import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart, Sun, Moon, Eye } from 'lucide-react';
+import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { authenticateUser, createUser, getUserByCpf, updateUserPassword, getLoginAttempts, recordLoginAttempt, clearLoginAttempts } from '../services/db';
 
 import type { PatientUser } from '../types';
@@ -47,6 +47,12 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
 
   const [isRegPasswordValid, setIsRegPasswordValid] = useState(false);
   const [isResetPasswordValid, setIsResetPasswordValid] = useState(false);
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
 
   const [blockedSecondsLeft, setBlockedSecondsLeft] = useState(0);
 
@@ -503,13 +509,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="password"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         placeholder="Digite sua senha"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10 h-11 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl"
+                        className="pl-10 pr-10 h-11 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl"
                       />
                       <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" aria-hidden="true" />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -643,13 +657,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="regPass"
-                        type="password"
+                        type={showRegPassword ? "text" : "password"}
                         placeholder="Crie sua senha"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
-                        className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
+                        className="pl-9 pr-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showRegPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -658,13 +680,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="regConfirm"
-                        type="password"
+                        type={showRegConfirmPassword ? "text" : "password"}
                         placeholder="Confirme sua senha"
                         value={regConfirmPassword}
                         onChange={(e) => setRegConfirmPassword(e.target.value)}
-                        className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
+                        className="pl-9 pr-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showRegConfirmPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showRegConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -854,13 +884,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="newPassword"
-                        type="password"
+                        type={showResetPassword ? "text" : "password"}
                         placeholder="Digite a nova senha"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
+                        className="pl-9 pr-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showResetPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showResetPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -869,13 +907,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="confirmNewPassword"
-                        type="password"
+                        type={showResetConfirmPassword ? "text" : "password"}
                         placeholder="Confirme a nova senha"
                         value={confirmNewPassword}
                         onChange={(e) => setConfirmNewPassword(e.target.value)}
-                        className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
+                        className="pl-9 pr-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetConfirmPassword(!showResetConfirmPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showResetConfirmPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showResetConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
