@@ -5,12 +5,12 @@ import { Input } from '../../components/ui/input';
 import { Label } from '../../components/ui/label';
 import { Checkbox } from '../../components/ui/checkbox';
 import { formatPhone, formatCpf } from '../../lib/sanitizer';
-import { getUserByCpf, updatePatientUser, deleteUserAndAppointments, getAppointmentByCpf, updateUserPassword } from '../../services/db';
+import { getUserByCpf, updatePatientUser, deleteUserAndAppointments, getAppointmentByCpf, updateUserPassword, getDonationsByCpf } from '../../services/db';
 import type { PatientUser, Appointment } from '../../types';
 import { 
   User, Lock, Mail, Phone, Calendar, MapPin, Download, Trash2, 
   Shield, Bell, AlertTriangle, CheckCircle2, History, ShieldCheck,
-  Type, Activity
+  Type, Activity, Eye, EyeOff, Camera
 } from 'lucide-react';
 import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
 
@@ -23,9 +23,10 @@ interface ProfileProps {
   setFontSize: (size: string) => void;
   theme: string;
   setTheme: (theme: string) => void;
+  onPhotoUpdate?: (url: string) => void;
 }
 
-export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, setFontSize, theme, setTheme }: ProfileProps) {
+export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, setFontSize, theme, setTheme, onPhotoUpdate }: ProfileProps) {
   const [user, setUser] = useState<PatientUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -49,6 +50,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [isNewPasswordValid, setIsNewPasswordValid] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
 
 
   const [isEmailNotify, setIsEmailNotify] = useState(true);
@@ -92,6 +96,59 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
     loadUserData();
   }, [patientCpf]);
 
+  const handlePhotoUpload = (file: File) => {
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMessage('A imagem deve ter no máximo 2MB.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Formato de arquivo inválido. Selecione uma imagem.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      if (base64) {
+        try {
+          await updatePatientUser(patientCpf, { photoUrl: base64 });
+          if (user) {
+            setUser({ ...user, photoUrl: base64 });
+          }
+          if (onPhotoUpdate) {
+            onPhotoUpdate(base64);
+          }
+          setSuccessMessage('Foto de perfil atualizada com sucesso.');
+        } catch (err) {
+          setErrorMessage('Erro ao salvar a foto de perfil.');
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handlePhotoUpload(file);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    try {
+      await updatePatientUser(patientCpf, { photoUrl: '' });
+      if (user) {
+        setUser({ ...user, photoUrl: '' });
+      }
+      if (onPhotoUpdate) {
+        onPhotoUpdate('');
+      }
+      setSuccessMessage('Foto de perfil removida com sucesso.');
+    } catch (err) {
+      setErrorMessage('Erro ao remover a foto de perfil.');
+    }
+  };
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccessMessage('');
@@ -104,28 +161,38 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
 
     setLoading(true);
     try {
-      await updatePatientUser(patientCpf, {
+      const updateData: Partial<PatientUser> = {
         email,
         phone,
-        bloodType,
-        allergies,
-        clinicalDiagnosis,
-        emergencyContactName,
-        emergencyContactPhone,
-        emergencyContactRelation
-      });
-      if (user) {
-        setUser({
-          ...user,
-          email,
-          phone,
+      };
+      if (user?.role !== 'donor') {
+        Object.assign(updateData, {
           bloodType,
           allergies,
           clinicalDiagnosis,
           emergencyContactName,
           emergencyContactPhone,
-          emergencyContactRelation
+          emergencyContactRelation,
         });
+      }
+      await updatePatientUser(patientCpf, updateData);
+      if (user) {
+        const updated = {
+          ...user,
+          email,
+          phone,
+        };
+        if (user.role !== 'donor') {
+          Object.assign(updated, {
+            bloodType,
+            allergies,
+            clinicalDiagnosis,
+            emergencyContactName,
+            emergencyContactPhone,
+            emergencyContactRelation,
+          });
+        }
+        setUser(updated);
       }
       setSuccessMessage('Dados atualizados com sucesso no banco de dados local.');
     } catch (err: any) {
@@ -171,6 +238,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
       setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmNewPassword(false);
     } catch (err: any) {
       setPasswordError('Erro ao atualizar a senha.');
     } finally {
@@ -182,12 +252,35 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
     if (!user) return;
     try {
       const cleanCpf = patientCpf.replace(/\D/g, "");
-      const appointments = await getAppointmentByCpf(cleanCpf);
       
-      const report = {
+      let report: any = {
         emitidoEm: new Date().toISOString(),
         legislacao: "Lei Geral de Protecao de Dados Pessoais (LGPD) - Lei nº 13.709/2018",
-        dadosPaciente: {
+      };
+
+      if (user.role === 'donor') {
+        const donations = await getDonationsByCpf(cleanCpf);
+        report.dadosDoador = {
+          nome: user.name,
+          cpf: formatCpf(user.cpf),
+          contatos: {
+            email: user.email,
+            telefone: user.phone
+          },
+          contaCriadaEm: user.createdAt
+        };
+        report.historicoDoacoes = donations.map(d => ({
+          id: d.id,
+          valor: d.amount,
+          metodo: d.method,
+          status: d.status,
+          data: d.date,
+          tipo: d.type === 'recurring' ? 'Recorrente' : 'Única',
+          hash: d.hash
+        }));
+      } else {
+        const appointments = await getAppointmentByCpf(cleanCpf);
+        report.dadosPaciente = {
           nome: user.name,
           cpf: formatCpf(user.cpf),
           nascimento: user.birthDate,
@@ -197,7 +290,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
           },
           fichaClinicaEmergencia: {
             grupoSanguineo: user.bloodType || 'Não informado',
-            alergias: user.allergies || 'Nenhuma alergia relatada',
+            allergies: user.allergies || 'Nenhuma alergia relatada',
             diagnosticoClinico: user.clinicalDiagnosis || 'Sem diagnóstico informado',
             contatoEmergencia: {
               nome: user.emergencyContactName || 'Não informado',
@@ -206,21 +299,21 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
             }
           },
           contaCriadaEm: user.createdAt
-        },
-        historicoAgendamentos: appointments.map(app => ({
+        };
+        report.historicoAgendamentos = appointments.map(app => ({
           protocolo: app.protocol,
           especialidade: app.specialtyName,
           exame: app.examName,
           criadoEm: app.createdAt,
           status: app.status,
           observacoes: app.observations
-        }))
-      };
+        }));
+      }
 
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", `dados_pessoais_${cleanCpf}.json`);
+      downloadAnchor.setAttribute("download", user.role === 'donor' ? `dados_doador_${cleanCpf}.json` : `dados_paciente_${cleanCpf}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -288,6 +381,62 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                   </div>
                 )}
 
+                <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-zinc-150 dark:border-zinc-800/50">
+                  <div className="relative group w-20 h-20 bg-zinc-100 dark:bg-zinc-900 rounded-full border-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
+                    {user?.photoUrl ? (
+                      <img src={user.photoUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xl font-black text-primary uppercase select-none">
+                        {name ? name.slice(0, 2) : 'HA'}
+                      </span>
+                    )}
+                    <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                      <Camera className="w-5 h-5 text-white" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handlePhotoChange} 
+                        className="hidden" 
+                      />
+                    </label>
+                  </div>
+                  <div className="text-center sm:text-left space-y-1.5">
+                    <p className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Foto de Perfil</p>
+                    <p className="text-[10px] text-zinc-400 dark:text-zinc-500">
+                      Formatos aceitos: JPG, PNG ou WEBP. Tamanho máximo: 2MB.
+                    </p>
+                    <div className="flex gap-2 justify-center sm:justify-start">
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) handlePhotoUpload(file);
+                          };
+                          input.click();
+                        }}
+                        variant="outline"
+                        className="h-8 text-[10px] font-bold px-3 border-zinc-200 dark:border-zinc-800 rounded-lg animate-in"
+                      >
+                        Alterar Foto
+                      </Button>
+                      {user?.photoUrl && (
+                        <Button
+                          type="button"
+                          onClick={handleRemovePhoto}
+                          variant="ghost"
+                          className="h-8 text-[10px] font-bold px-3 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg animate-in"
+                        >
+                          Remover
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5 md:col-span-2">
                     <Label className="text-xs font-semibold text-zinc-500">Nome Completo</Label>
@@ -340,97 +489,101 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                   </div>
                 </div>
 
-                <div className="border-t border-zinc-200 dark:border-zinc-800 my-6" />
+                {user?.role !== 'donor' && (
+                  <>
+                    <div className="border-t border-zinc-200 dark:border-zinc-800 my-6" />
 
-                <div className="flex items-center gap-2 mb-4">
-                  <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
-                  <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Ficha de Saúde e Emergência (F.I.C.E.)</h3>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="bloodType" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grupo Sanguíneo</Label>
-                    <select
-                      id="bloodType"
-                      value={bloodType}
-                      onChange={(e) => setBloodType(e.target.value)}
-                      className="w-full h-11 px-3 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary rounded-xl bg-white dark:bg-zinc-950 text-sm focus-visible:outline-none"
-                    >
-                      <option value="">Selecione...</option>
-                      <option value="A+">A+</option>
-                      <option value="A-">A-</option>
-                      <option value="B+">B+</option>
-                      <option value="B-">B-</option>
-                      <option value="AB+">AB+</option>
-                      <option value="AB-">AB-</option>
-                      <option value="O+">O+</option>
-                      <option value="O-">O-</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="allergies" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Alergias Conhecidas</Label>
-                    <Input
-                      id="allergies"
-                      type="text"
-                      value={allergies}
-                      onChange={(e) => setAllergies(e.target.value)}
-                      placeholder="Ex: Medicamentos, alimentos, etc."
-                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="clinicalDiagnosis" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico Clínico Principal</Label>
-                    <Input
-                      id="clinicalDiagnosis"
-                      type="text"
-                      value={clinicalDiagnosis}
-                      onChange={(e) => setClinicalDiagnosis(e.target.value)}
-                      placeholder="Ex: Neoplasia de mama sob acompanhamento."
-                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label htmlFor="emergencyContactName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Nome do Contato de Emergência</Label>
-                    <Input
-                      id="emergencyContactName"
-                      type="text"
-                      value={emergencyContactName}
-                      onChange={(e) => setEmergencyContactName(e.target.value)}
-                      placeholder="Ex: Carlos Alberto"
-                      className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="emergencyContactPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Telefone do Contato</Label>
-                      <Input
-                        id="emergencyContactPhone"
-                        type="text"
-                        value={formatPhone(emergencyContactPhone)}
-                        onChange={(e) => setEmergencyContactPhone(e.target.value)}
-                        maxLength={15}
-                        placeholder="(00) 00000-0000"
-                        className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                      />
+                    <div className="flex items-center gap-2 mb-4">
+                      <Activity className="w-5 h-5 text-primary" aria-hidden="true" />
+                      <h3 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Ficha de Saúde e Emergência (F.I.C.E.)</h3>
                     </div>
 
-                    <div className="space-y-1.5">
-                      <Label htmlFor="emergencyContactRelation" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grau de Parentesco</Label>
-                      <Input
-                        id="emergencyContactRelation"
-                        type="text"
-                        value={emergencyContactRelation}
-                        onChange={(e) => setEmergencyContactRelation(e.target.value)}
-                        placeholder="Ex: Cônjuge, Filho(a)"
-                        className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="bloodType" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grupo Sanguíneo</Label>
+                        <select
+                          id="bloodType"
+                          value={bloodType}
+                          onChange={(e) => setBloodType(e.target.value)}
+                          className="w-full h-11 px-3 border border-zinc-200 dark:border-zinc-800 focus:ring-2 focus:ring-primary rounded-xl bg-white dark:bg-zinc-950 text-sm focus-visible:outline-none"
+                        >
+                          <option value="">Selecione...</option>
+                          <option value="A+">A+</option>
+                          <option value="A-">A-</option>
+                          <option value="B+">B+</option>
+                          <option value="B-">B-</option>
+                          <option value="AB+">AB+</option>
+                          <option value="AB-">AB-</option>
+                          <option value="O+">O+</option>
+                          <option value="O-">O-</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="allergies" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Alergias Conhecidas</Label>
+                        <Input
+                          id="allergies"
+                          type="text"
+                          value={allergies}
+                          onChange={(e) => setAllergies(e.target.value)}
+                          placeholder="Ex: Medicamentos, alimentos, etc."
+                          className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5 md:col-span-2">
+                        <Label htmlFor="clinicalDiagnosis" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Diagnóstico Clínico Principal</Label>
+                        <Input
+                          id="clinicalDiagnosis"
+                          type="text"
+                          value={clinicalDiagnosis}
+                          onChange={(e) => setClinicalDiagnosis(e.target.value)}
+                          placeholder="Ex: Neoplasia de mama sob acompanhamento."
+                          className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="emergencyContactName" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Nome do Contato de Emergência</Label>
+                        <Input
+                          id="emergencyContactName"
+                          type="text"
+                          value={emergencyContactName}
+                          onChange={(e) => setEmergencyContactName(e.target.value)}
+                          placeholder="Ex: Carlos Alberto"
+                          className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="emergencyContactPhone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Telefone do Contato</Label>
+                          <Input
+                            id="emergencyContactPhone"
+                            type="text"
+                            value={formatPhone(emergencyContactPhone)}
+                            onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                            maxLength={15}
+                            placeholder="(00) 00000-0000"
+                            className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="emergencyContactRelation" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Grau de Parentesco</Label>
+                          <Input
+                            id="emergencyContactRelation"
+                            type="text"
+                            value={emergencyContactRelation}
+                            onChange={(e) => setEmergencyContactRelation(e.target.value)}
+                            placeholder="Ex: Cônjuge, Filho(a)"
+                            className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </>
+                )}
 
                 <div className="flex justify-end pt-6">
                   <Button type="submit" disabled={loading} className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-6 rounded-xl shadow-md transition-transform active:scale-[0.98]">
@@ -464,17 +617,47 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="currPass" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Senha Atual</Label>
-                    <Input id="currPass" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10" />
+                    <div className="relative">
+                      <Input id="currPass" type={showCurrentPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10 pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showCurrentPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="newPass" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Nova Senha</Label>
-                    <Input id="newPass" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10" />
+                    <div className="relative">
+                      <Input id="newPass" type={showNewPassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10 pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showNewPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
                     <Label htmlFor="confNewPass" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Confirmar Nova Senha</Label>
-                    <Input id="confNewPass" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10" />
+                    <div className="relative">
+                      <Input id="confNewPass" type={showConfirmNewPassword ? "text" : "password"} value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className="border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl text-xs h-10 pr-10" />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showConfirmNewPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showConfirmNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
                   </div>
                 </div>
 

@@ -17,6 +17,8 @@ import ClinicalHistory from './pages/patient/ClinicalHistory';
 import Units from './pages/patient/Units';
 import DigitalCard from './components/DigitalCard';
 import EmailSimulator from './pages/patient/EmailSimulator';
+import DonorDashboard from './pages/donor/DonorDashboard';
+import DonationModal from './components/donor/DonationModal';
 
 
 function App() {
@@ -24,6 +26,7 @@ function App() {
   const [patientCpf, setPatientCpf] = useState('');
   const [patientName, setPatientName] = useState('');
   const [patientId, setPatientId] = useState('');
+  const [patientPhotoUrl, setPatientPhotoUrl] = useState('');
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedProtocol, setSelectedProtocol] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -35,6 +38,9 @@ function App() {
   });
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [isCardOpen, setIsCardOpen] = useState(false);
+  const [userRole, setUserRole] = useState<'patient' | 'donor'>('patient');
+  const [donationsTrigger, setDonationsTrigger] = useState(0);
+  const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
 
   useEffect(() => {
     let sizePercent = '106.25%';
@@ -76,7 +82,7 @@ function App() {
     };
   }, []);
 
-  const handleLoginSuccess = async (cpf: string) => {
+  const handleLoginSuccess = async (cpf: string, loggedRole: 'patient' | 'donor') => {
     setPatientCpf(cpf);
     try {
       const cleanCpf = cpf.replace(/\D/g, "");
@@ -85,13 +91,19 @@ function App() {
         setPatientName(user.name);
         const digits = user.cpf.replace(/\D/g, "");
         setPatientId(`${digits.slice(0, 3)}.${digits.slice(3, 6)}-${user.name.charAt(0).toUpperCase()}`);
+        setUserRole(loggedRole);
+        setPatientPhotoUrl(user.photoUrl || '');
       } else {
         setPatientName('Anna Beatriz');
         setPatientId('294.102-A');
+        setPatientPhotoUrl('');
+        setUserRole(loggedRole);
       }
     } catch (err) {
       setPatientName('Anna Beatriz');
       setPatientId('294.102-A');
+      setPatientPhotoUrl('');
+      setUserRole(loggedRole);
     }
     setIsAuthenticated(true);
     setCurrentPage('dashboard');
@@ -103,7 +115,9 @@ function App() {
     setPatientCpf('');
     setPatientName('');
     setPatientId('');
+    setPatientPhotoUrl('');
     setSelectedProtocol('');
+    setUserRole('patient');
     setCurrentPage('dashboard');
   };
 
@@ -160,92 +174,130 @@ function App() {
             className="flex items-center gap-3 pb-6 border-b border-white/15 dark:border-zinc-800 cursor-pointer hover:opacity-85 transition-opacity"
           >
             <div className="w-11 h-11 bg-white rounded-full overflow-hidden flex items-center justify-center border-2 border-white/20 shrink-0">
-              <svg className="w-full h-full text-secondary" viewBox="0 0 32 32" aria-hidden="true">
-                <rect width="32" height="32" fill="#e31463" opacity="0.15" />
-                <path d="M16,16 A4,4 0 0 1 12,12 A4,4 0 0 1 16,8 A4,4 0 0 1 20,12 A4,4 0 0 1 16,16 Z M16,18 C11.5,18 8,21.5 8,26 L24,26 C24,21.5 20.5,18 16,18 Z" fill="#e31463" />
-              </svg>
+              {patientPhotoUrl ? (
+                <img src={patientPhotoUrl} alt="Foto de perfil" className="w-full h-full object-cover animate-in fade-in" />
+              ) : (
+                <svg className="w-full h-full text-secondary" viewBox="0 0 32 32" aria-hidden="true">
+                  <rect width="32" height="32" fill="#e31463" opacity="0.15" />
+                  <path d="M16,16 A4,4 0 0 1 12,12 A4,4 0 0 1 16,8 A4,4 0 0 1 20,12 A4,4 0 0 1 16,16 Z M16,18 C11.5,18 8,21.5 8,26 L24,26 C24,21.5 20.5,18 16,18 Z" fill="#e31463" />
+                </svg>
+              )}
             </div>
             <div className="min-w-0">
               <h3 className="font-extrabold text-sm text-white truncate">{patientName}</h3>
-              <span className="text-[10px] font-bold text-blue-200 block tracking-wider">ID: {patientId}</span>
+              <span className="text-[10px] font-bold text-blue-200 block tracking-wider">
+                {userRole === 'donor' ? 'Doador' : `ID: ${patientId}`}
+              </span>
             </div>
           </div>
 
           <div className="flex-1 py-6 flex flex-col justify-between">
             <nav className="space-y-1">
-              <Button
-                variant="ghost"
-                onClick={() => navigateTo('dashboard')}
-                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'dashboard' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-              >
-                <LayoutGrid className="w-4 h-4" />
-                Início
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigateTo('symptoms')}
-                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'symptoms' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-              >
-                <Activity className="w-4 h-4" />
-                Diário de Sintomas
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigateTo('clinical-history')}
-                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'clinical-history' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-              >
-                <FileText className="w-4 h-4" />
-                Histórico Clínico
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigateTo('new-request')}
-                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'new-request' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-              >
-                <PlusCircle className="w-4 h-4" />
-                Nova Solicitação
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigateTo('status-check')}
-                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'status-check' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-              >
-                <Calendar className="w-4 h-4" />
-                Meus Agendamentos
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigateTo('units')}
-                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'units' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-              >
-                <MapPin className="w-4 h-4" />
-                Nossas Unidades
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigateTo('profile')}
-                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'profile' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-              >
-                <Settings className="w-4 h-4" />
-                Configurações
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={() => navigateTo('email-simulator')}
-                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'email-simulator' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-              >
-                <Mail className="w-4 h-4" />
-                Simulador de E-mail
-              </Button>
+              {userRole === 'donor' ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('dashboard')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'dashboard' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                    Início
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('profile')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'profile' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <Settings className="w-4 h-4" />
+                    Configurações
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('dashboard')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'dashboard' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <LayoutGrid className="w-4 h-4" />
+                    Início
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('symptoms')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'symptoms' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <Activity className="w-4 h-4" />
+                    Diário de Sintomas
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('clinical-history')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'clinical-history' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    Histórico Clínico
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('new-request')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'new-request' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    Nova Solicitação
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('status-check')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'status-check' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Meus Agendamentos
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('units')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'units' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <MapPin className="w-4 h-4" />
+                    Nossas Unidades
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('profile')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'profile' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <Settings className="w-4 h-4" />
+                    Configurações
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('email-simulator')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'email-simulator' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <Mail className="w-4 h-4" />
+                    Simulador de E-mail
+                  </Button>
+                </>
+              )}
             </nav>
 
             <div className="space-y-4">
-              <Button
-                onClick={() => navigateTo('new-request')}
-                className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform hover:scale-[1.02] active:scale-[0.98]"
-              >
-                + Novo Agendamento
-              </Button>
+              {userRole === 'donor' ? (
+                <Button
+                  onClick={() => setIsDonationModalOpen(true)}
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  + Fazer uma Doação
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => navigateTo('new-request')}
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 rounded-2xl shadow-lg shadow-brand-pink/20 text-xs transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                >
+                  + Novo Agendamento
+                </Button>
+              )}
 
               <div className="pt-4 border-t border-white/15 dark:border-zinc-800 space-y-1">
                 <Button
@@ -392,17 +444,26 @@ function App() {
 
           <div className="p-4 md:p-8 pt-20 md:pt-24">
             {currentPage === 'dashboard' && (
-              <Dashboard 
-                onNavigate={navigateTo} 
-                patientCpf={patientCpf} 
-                patientName={patientName} 
-                onOpenCard={() => setIsCardOpen(true)} 
-              />
+              userRole === 'donor' ? (
+                <DonorDashboard
+                  donorCpf={patientCpf}
+                  donorName={patientName}
+                  onLogout={handleLogout}
+                  updateTrigger={donationsTrigger}
+                />
+              ) : (
+                <Dashboard 
+                  onNavigate={navigateTo} 
+                  patientCpf={patientCpf} 
+                  patientName={patientName} 
+                  onOpenCard={() => setIsCardOpen(true)} 
+                />
+              )
             )}
-            {currentPage === 'symptoms' && <SymptomsDiary patientCpf={patientCpf} />}
-            {currentPage === 'clinical-history' && <ClinicalHistory patientCpf={patientCpf} onNavigate={navigateTo} />}
-            {currentPage === 'new-request' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
-            {currentPage === 'status-check' && (
+            {currentPage === 'symptoms' && userRole === 'patient' && <SymptomsDiary patientCpf={patientCpf} />}
+            {currentPage === 'clinical-history' && userRole === 'patient' && <ClinicalHistory patientCpf={patientCpf} onNavigate={navigateTo} />}
+            {currentPage === 'new-request' && userRole === 'patient' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
+            {currentPage === 'status-check' && userRole === 'patient' && (
               <StatusCheck initialProtocol={selectedProtocol} onNavigate={navigateTo} patientCpf={patientCpf} />
             )}
             {currentPage === 'profile' && (
@@ -414,11 +475,12 @@ function App() {
                 setFontSize={setFontSize}
                 theme={theme}
                 setTheme={setTheme}
+                onPhotoUpdate={(url) => setPatientPhotoUrl(url)}
               />
             )}
             {currentPage === 'help-center' && <HelpCenter />}
-            {currentPage === 'units' && <Units onNavigate={navigateTo} />}
-            {currentPage === 'email-simulator' && (
+            {currentPage === 'units' && userRole === 'patient' && <Units onNavigate={navigateTo} />}
+            {currentPage === 'email-simulator' && userRole === 'patient' && (
               <EmailSimulator 
                 patientCpf={patientCpf} 
                 patientName={patientName} 
@@ -427,9 +489,15 @@ function App() {
             )}
           </div>
         </main>
-        <SymptomFloatingWidget patientCpf={patientCpf} currentPage={currentPage} />
-        <RoboFaqWidget currentPage={currentPage} />
-        <DigitalCard patientCpf={patientCpf} isOpen={isCardOpen} onClose={() => setIsCardOpen(false)} />
+        {userRole === 'patient' && <SymptomFloatingWidget patientCpf={patientCpf} currentPage={currentPage} />}
+        {userRole === 'patient' && <RoboFaqWidget currentPage={currentPage} />}
+        {userRole === 'patient' && <DigitalCard patientCpf={patientCpf} isOpen={isCardOpen} onClose={() => setIsCardOpen(false)} />}
+        <DonationModal
+          isOpen={isDonationModalOpen}
+          onClose={() => setIsDonationModalOpen(false)}
+          donorCpf={patientCpf}
+          onDonationSuccess={() => setDonationsTrigger((prev) => prev + 1)}
+        />
       </div>
     </InactivityTimeout>
   );

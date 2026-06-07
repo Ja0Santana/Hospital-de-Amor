@@ -5,7 +5,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Checkbox } from '../components/ui/checkbox';
 import { formatCpf, validateCpf, formatPhone, sanitizeString } from '../lib/sanitizer';
-import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart, Sun, Moon, Eye } from 'lucide-react';
+import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { authenticateUser, createUser, getUserByCpf, updateUserPassword, getLoginAttempts, recordLoginAttempt, clearLoginAttempts } from '../services/db';
 
 import type { PatientUser } from '../types';
@@ -14,15 +14,16 @@ import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
 
 
 interface LoginProps {
-  onLoginSuccess: (cpf: string) => void;
+  onLoginSuccess: (cpf: string, role: 'patient' | 'donor') => void;
   theme: string;
   setTheme: (theme: string) => void;
 }
 
-type LoginView = 'login' | 'register' | 'forgot-password' | 'recovery-success' | 'simulated-inbox' | 'reset-password' | 'reset-success' | 'donor-coming-soon';
+type LoginView = 'login' | 'register' | 'forgot-password' | 'recovery-success' | 'simulated-inbox' | 'reset-password' | 'reset-success';
 
 export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
   const [view, setView] = useState<LoginView>('login');
+  const [activeRole, setActiveRole] = useState<'patient' | 'donor'>('patient');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -46,6 +47,12 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
 
   const [isRegPasswordValid, setIsRegPasswordValid] = useState(false);
   const [isResetPasswordValid, setIsResetPasswordValid] = useState(false);
+
+  const [showPassword, setShowPassword] = useState(false);
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [showRegConfirmPassword, setShowRegConfirmPassword] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirmPassword, setShowResetConfirmPassword] = useState(false);
 
   const [blockedSecondsLeft, setBlockedSecondsLeft] = useState(0);
 
@@ -130,9 +137,16 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
     try {
       const authenticatedUser = await authenticateUser(cleanCpf, password);
       if (authenticatedUser) {
+        const userRole = authenticatedUser.role || 'patient';
+        if (userRole !== activeRole && userRole !== 'both') {
+          setLoading(false);
+          setError(`Este CPF está cadastrado como ${userRole === 'donor' ? 'Doador' : 'Paciente'}. Por favor, selecione a aba correta acima para entrar.`);
+          return;
+        }
+
         await recordLoginAttempt(cleanCpf, true);
         setLoading(false);
-        onLoginSuccess(authenticatedUser.cpf === '12345678900' ? '123.456.789-00' : formatCpf(authenticatedUser.cpf));
+        onLoginSuccess(authenticatedUser.cpf === '12345678900' ? '123.456.789-00' : formatCpf(authenticatedUser.cpf), activeRole);
       } else {
         const attempt = await recordLoginAttempt(cleanCpf, false);
         setLoading(false);
@@ -163,7 +177,10 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
     try {
       const existing = await getUserByCpf(cleanCpf);
       if (existing) {
-        setError('Este CPF já está cadastrado no sistema.');
+        const existingRole = existing.role || 'patient';
+        if (existingRole === activeRole || existingRole === 'both') {
+          setError('Este CPF já está cadastrado');
+        }
       }
     } catch (err) {
       console.error(err);
@@ -235,10 +252,11 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
         birthDate: regBirthDate,
         email: regEmail,
         phone: regPhone,
-        passwordHash: regPassword
+        passwordHash: regPassword,
+        role: activeRole
       });
       setLoading(false);
-      onLoginSuccess(formatCpf(cleanCpf));
+      onLoginSuccess(formatCpf(cleanCpf), activeRole);
     } catch (err: any) {
       setLoading(false);
       setError(err.message || 'Erro ao realizar cadastro.');
@@ -401,17 +419,20 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                 <Heart className="w-3 h-3 fill-brand-pink text-brand-pink inline mx-0.5 -mt-0.5" aria-hidden="true" />
                 <span>r</span>
               </div>
-              <p className="text-[10px] text-zinc-400">Portal do Paciente</p>
+              <p className="text-[10px] text-zinc-400">{activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}</p>
             </div>
           </div>
 
-          {['login', 'register', 'forgot-password', 'donor-coming-soon'].includes(view) && (
+          {['login', 'register', 'forgot-password'].includes(view) && (
             <div className="flex border-b border-zinc-100 dark:border-zinc-800 mb-6">
               <button
                 type="button"
-                onClick={() => navigateToView('login')}
+                onClick={() => {
+                  setActiveRole('patient');
+                  setError('');
+                }}
                 className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${
-                  view !== 'donor-coming-soon'
+                  activeRole === 'patient'
                     ? 'border-primary text-primary'
                     : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
                 }`}
@@ -420,9 +441,12 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
               </button>
               <button
                 type="button"
-                onClick={() => navigateToView('donor-coming-soon')}
+                onClick={() => {
+                  setActiveRole('donor');
+                  setError('');
+                }}
                 className={`flex-1 pb-3 text-sm font-bold border-b-2 transition-colors ${
-                  view === 'donor-coming-soon'
+                  activeRole === 'donor'
                     ? 'border-secondary text-secondary'
                     : 'border-transparent text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300'
                 }`}
@@ -432,44 +456,17 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
             </div>
           )}
 
-          {view === 'donor-coming-soon' && (
-            <div className="space-y-6 py-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <div className="flex flex-col items-center text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
-                  <Heart className="w-8 h-8 fill-secondary/20" aria-hidden="true" />
-                </div>
-                <div className="space-y-2">
-                  <h1 className="text-2xl font-comfortaa font-bold tracking-tight text-zinc-900 dark:text-zinc-50 uppercase">
-                    Portal do Doador
-                  </h1>
-                  <p className="text-xs font-semibold text-secondary uppercase tracking-widest">
-                    Em Breve / Em Desenvolvimento
-                  </p>
-                </div>
-                <p className="text-zinc-500 dark:text-zinc-400 text-sm leading-relaxed max-w-md">
-                  A ala exclusiva para doadores e parceiros do Hospital de Amor está sendo construída.
-                  Neste espaço, você poderá realizar doações de forma rápida via Pix, Cartão ou Criptomoedas,
-                  acompanhar seu nível de doador (Bronze, Prata e Ouro), acumular pontos de fidelidade e
-                  enviar mensagens de apoio que serão transmitidas diretamente no hospital.
-                </p>
-              </div>
-
-              <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800 flex justify-center">
-                <Button
-                  onClick={() => navigateToView('login')}
-                  className="bg-primary hover:bg-primary/95 text-white font-bold h-11 px-6 rounded-2xl shadow-lg shadow-primary/20 text-xs transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  Voltar para o Portal do Paciente
-                </Button>
-              </div>
-            </div>
-          )}
-
           {view === 'login' && (
             <div className="space-y-6">
               <div className="space-y-2">
-                <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Portal do Paciente</h1>
-                <p className="text-zinc-500 text-sm">Insira suas credenciais de acesso para entrar no painel.</p>
+                <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
+                  {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}
+                </h1>
+                <p className="text-zinc-500 text-sm">
+                  {activeRole === 'donor' 
+                    ? 'Insira suas credenciais de doador para entrar.' 
+                    : 'Insira suas credenciais de acesso para entrar no painel.'}
+                </p>
               </div>
 
               <form onSubmit={handleLoginSubmit} className="space-y-5">
@@ -482,7 +479,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="cpf" className="font-semibold text-zinc-700 dark:text-zinc-300">CPF do Paciente</Label>
+                    <Label htmlFor="cpf" className="font-semibold text-zinc-700 dark:text-zinc-300">{activeRole === 'donor' ? 'CPF do Doador' : 'CPF do Paciente'}</Label>
                     <div className="relative">
                       <Input
                         id="cpf"
@@ -512,13 +509,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="password"
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         placeholder="Digite sua senha"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10 h-11 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl"
+                        className="pl-10 pr-10 h-11 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl"
                       />
                       <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-zinc-400" aria-hidden="true" />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -551,8 +556,14 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
               </div>
 
               <div className="space-y-2">
-                <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Criar Cadastro</h1>
-                <p className="text-zinc-500 text-xs">Preencha com seus dados para liberar o primeiro acesso.</p>
+                <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
+                  {activeRole === 'donor' ? 'Cadastro de Doador' : 'Criar Cadastro'}
+                </h1>
+                <p className="text-zinc-500 text-xs">
+                  {activeRole === 'donor' 
+                    ? 'Preencha com seus dados para iniciar sua jornada de apoio.' 
+                    : 'Preencha com seus dados para liberar o primeiro acesso.'}
+                </p>
               </div>
 
               <form onSubmit={handleRegisterSubmit} className="space-y-4">
@@ -646,13 +657,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="regPass"
-                        type="password"
+                        type={showRegPassword ? "text" : "password"}
                         placeholder="Crie sua senha"
                         value={regPassword}
                         onChange={(e) => setRegPassword(e.target.value)}
-                        className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
+                        className="pl-9 pr-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showRegPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showRegPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -661,13 +680,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="regConfirm"
-                        type="password"
+                        type={showRegConfirmPassword ? "text" : "password"}
                         placeholder="Confirme sua senha"
                         value={regConfirmPassword}
                         onChange={(e) => setRegConfirmPassword(e.target.value)}
-                        className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
+                        className="pl-9 pr-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegConfirmPassword(!showRegConfirmPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showRegConfirmPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showRegConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -686,7 +713,9 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     className="mt-0.5 focus-visible:ring-primary border-zinc-300"
                   />
                   <Label htmlFor="regConsent" className="text-[10px] text-zinc-500 leading-normal cursor-pointer">
-                    Estou ciente e aceito que meus dados cadastrais e exames sejam tratados pelo hospital estritamente para fins de triagem de agendamento, conforme a LGPD.
+                    {activeRole === 'donor'
+                      ? 'Estou ciente e aceito que meus dados cadastrais sejam tratados pelo hospital estritamente para processamento de doações e relacionamento institucional, conforme a LGPD.'
+                      : 'Estou ciente e aceito que meus dados cadastrais e exames sejam tratados pelo hospital estritamente para fins de triagem de agendamento, conforme a LGPD.'}
                   </Label>
                 </div>
 
@@ -809,7 +838,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                 <div className="bg-zinc-50 dark:bg-zinc-900/80 px-4 py-3 border-b border-zinc-200/60 dark:border-zinc-800 flex flex-col gap-1 text-[11px] text-zinc-500">
                   <div><strong className="text-zinc-700 dark:text-zinc-300">De:</strong> suporte@hospitalamor.org (Hospital de Amor)</div>
                   <div><strong className="text-zinc-700 dark:text-zinc-300">Para:</strong> {recoveryUser?.email}</div>
-                  <div><strong className="text-zinc-700 dark:text-zinc-300">Assunto:</strong> Redefinição de Senha - Portal do Paciente</div>
+                  <div><strong className="text-zinc-700 dark:text-zinc-300">Assunto:</strong> Redefinição de Senha - {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}</div>
                 </div>
                 <div className="p-6 bg-white dark:bg-zinc-950 flex flex-col items-center text-center space-y-4 text-xs">
                   <div className="bg-white p-1.5 rounded-xl flex items-center justify-center shadow-sm border border-zinc-100 w-12 h-12">
@@ -817,7 +846,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                   </div>
                   <h2 className="text-sm font-bold text-zinc-800 dark:text-zinc-200">Recuperação de Senha</h2>
                   <p className="text-zinc-500 leading-relaxed max-w-sm">
-                    Olá, <strong>{recoveryUser?.name}</strong>. Recebemos uma solicitação para redefinir a senha do seu Portal do Paciente (Hospital de Amor). Clique no botão abaixo para criar uma nova senha:
+                    Olá, <strong>{recoveryUser?.name}</strong>. Recebemos uma solicitação para redefinir a senha do seu {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'} (Hospital de Amor). Clique no botão abaixo para criar uma nova senha:
                   </p>
                   <Button
                     type="button"
@@ -838,7 +867,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
             <div className="space-y-6">
               <div className="space-y-2">
                 <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Definir Nova Senha</h1>
-                <p className="text-zinc-500 text-xs">Crie uma nova senha de acesso forte para o paciente com o CPF {formatCpf(recoveryUser?.cpf || '')}.</p>
+                <p className="text-zinc-500 text-xs">Crie uma nova senha de acesso forte para o {activeRole === 'donor' ? 'doador' : 'paciente'} com o CPF {formatCpf(recoveryUser?.cpf || '')}.</p>
               </div>
 
               <form onSubmit={handleResetSubmit} className="space-y-4">
@@ -855,13 +884,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="newPassword"
-                        type="password"
+                        type={showResetPassword ? "text" : "password"}
                         placeholder="Digite a nova senha"
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
+                        className="pl-9 pr-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetPassword(!showResetPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showResetPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showResetPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -870,13 +907,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                     <div className="relative">
                       <Input
                         id="confirmNewPassword"
-                        type="password"
+                        type={showResetConfirmPassword ? "text" : "password"}
                         placeholder="Confirme a nova senha"
                         value={confirmNewPassword}
                         onChange={(e) => setConfirmNewPassword(e.target.value)}
-                        className="pl-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
+                        className="pl-9 pr-9 h-10 border-zinc-200 focus-visible:ring-primary dark:border-zinc-800 rounded-xl text-xs"
                       />
                       <Lock className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
+                      <button
+                        type="button"
+                        onClick={() => setShowResetConfirmPassword(!showResetConfirmPassword)}
+                        className="absolute right-3 top-3 text-zinc-400 hover:text-zinc-650 focus:outline-none"
+                        aria-label={showResetConfirmPassword ? "Ocultar senha" : "Ver senha"}
+                      >
+                        {showResetConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                   </div>
 
@@ -906,7 +951,7 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
               <div className="space-y-2">
                 <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Senha Alterada!</h1>
                 <p className="text-zinc-500 text-xs max-w-sm mx-auto leading-relaxed">
-                  Sua nova senha foi salva no banco de dados local com sucesso. Agora você já pode retornar à tela de login e acessar o Portal do Paciente.
+                  Sua nova senha foi salva no banco de dados local com sucesso. Agora você já pode retornar à tela de login e acessar o {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}.
                 </p>
               </div>
 
