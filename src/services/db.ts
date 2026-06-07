@@ -63,8 +63,15 @@ export function initDb(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => reject(request.error);
+    request.onblocked = () => {
+      reject(new Error('Conexão IndexedDB bloqueada por uma versão antiga aberta. Por favor, recarregue a página ou feche outras abas.'));
+    };
     request.onsuccess = () => {
       dbInstance = request.result;
+      dbInstance.onversionchange = () => {
+        dbInstance?.close();
+        dbInstance = null;
+      };
       resolve(dbInstance);
     };
 
