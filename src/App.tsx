@@ -7,7 +7,7 @@ import Login from './pages/Login';
 import SymptomsDiary from './pages/patient/SymptomsDiary';
 import SymptomFloatingWidget from './components/SymptomFloatingWidget';
 import { Button } from './components/ui/button';
-import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin, Sun, Moon, Eye } from 'lucide-react';
+import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin, Sun, Moon, Eye, Mail } from 'lucide-react';
 import { getUserByCpf } from './services/db';
 import logoHospitalDeAmor from './assets/logoHospitalDeAmor.png';
 import { InactivityTimeout } from './components/InactivityTimeout';
@@ -16,6 +16,7 @@ import RoboFaqWidget from './components/RoboFaqWidget';
 import ClinicalHistory from './pages/patient/ClinicalHistory';
 import Units from './pages/patient/Units';
 import DigitalCard from './components/DigitalCard';
+import EmailSimulator from './pages/patient/EmailSimulator';
 
 
 function App() {
@@ -228,6 +229,14 @@ function App() {
                 <Settings className="w-4 h-4" />
                 Configurações
               </Button>
+              <Button
+                variant="ghost"
+                onClick={() => navigateTo('email-simulator')}
+                className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'email-simulator' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+              >
+                <Mail className="w-4 h-4" />
+                Simulador de E-mail
+              </Button>
             </nav>
 
             <div className="space-y-4">
@@ -409,6 +418,13 @@ function App() {
             )}
             {currentPage === 'help-center' && <HelpCenter />}
             {currentPage === 'units' && <Units onNavigate={navigateTo} />}
+            {currentPage === 'email-simulator' && (
+              <EmailSimulator 
+                patientCpf={patientCpf} 
+                patientName={patientName} 
+                onNavigate={navigateTo} 
+              />
+            )}
           </div>
         </main>
         <SymptomFloatingWidget patientCpf={patientCpf} currentPage={currentPage} />
