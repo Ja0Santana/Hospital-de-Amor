@@ -10,6 +10,7 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **Styling**: [Tailwind CSS v3](https://tailwindcss.com/) para design responsivo e ágil
 *   **Componentes**: [shadcn/ui](https://ui.shadcn.com/) (primitives baseados em Radix UI para máxima acessibilidade)
 *   **Ícones**: [Lucide React](https://lucide.dev/)
+*   **Geração de PDF**: [jsPDF](https://github.com/parallax/jsPDF) para geração client-side de documentos fiscais estruturados
 *   **Persistência Local**: API nativa do **IndexedDB** do navegador para armazenamento assíncrono de dados de exames, uploads binários convertidos em Base64 e tabelas de usuários de forma robusta e ilimitada.
 
 ---
@@ -66,6 +67,7 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **RF96 – Gestão de Foto de Perfil (Should Have)**: Permite que o usuário faça upload de uma foto de perfil pessoal (JPG, PNG ou WEBP de até 2MB). A imagem é processada e persistida em Base64 no IndexedDB local e sincronizada automaticamente em tempo real com o avatar da Sidebar.
 *   **RF97 – Destinação de Recursos (Must Have)**: Permite direcionar as doações a campanhas específicas (Geral, Ala Infantil, Prevenção Móvel, Pesquisa Científica) no modal de pagamentos, persistindo o projeto escolhido e exibindo-o na tabela do histórico de contribuições.
 *   **RF100 – Gestão de Assinaturas Recorrentes (Must Have)**: Cria a seção de assinaturas recorrentes locais na dashboard, exibindo status (Ativa, Pausada, Cancelada), valor mensal, projeto de destino e cartão mascarado. Permite pausar/reativar, cancelar (com diálogo de confirmação) e redefinir o valor mensal da assinatura com validação de limite mínimo de R$ 10,00.
+*   **RF87 – Declaração Anual de Doações em PDF (Must Have)**: Geração client-side de documento fiscal estruturado em PDF (via jsPDF) contendo cabeçalho institucional, identificação do doador com CPF mascarado, tabela completa de doações confirmadas no ano selecionado, total consolidado, texto legal e chave de autenticação ICP-Brasil. Suporta seleção dinâmica de ano calendário (derivado automaticamente do histórico real do doador), download direto do arquivo `.pdf` e impressão do mesmo documento via diálogo nativo do navegador (sem depender do CSS da página).
 
 ---
 
@@ -81,6 +83,7 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 * **RNF86 – Acessibilidade de Fontes (Must Have)**: Opção de acessibilidade visual na qual o usuário pode aumentar ou diminuir a escala de tamanho das fontes de texto do portal (Menor, Padrão, Médio, Grande, G+), com persistência de preferências no `localStorage` e aumento de 6.25% (17px) no tamanho base padrão para melhor legibilidade.
 * **RNF87 – Bloqueio de Rolagem do Fundo do Site (Must Have)**: Trava o scroll vertical da página principal quando qualquer modal ou overlay de janela estiver aberto (como carteira digital ou avisos), liberando-o de forma reativa após o fechamento.
 * **RNF89 – Mascaramento de Cartão de Crédito (Must Have)**: Mascara proativamente no cliente os dados sensíveis do cartão inserido (salvando apenas o número final no formato `•••• •••• •••• 1234` na store `recurring_subscriptions`), expurgando do IndexedDB local dados como CVV, validade completa e número inteiro para total conformidade de privacidade financeira (PCI/LGPD).
+* **RNF80 – Responsividade de Escala Tipográfica (Must Have)**: Todos os textos do módulo de doador (modal de Declaração de IR, cards de fidelidade, legendas financeiras) utilizam unidades `rem` em vez de `px` fixos, garantindo que a preferência de tamanho de fonte escolhida pelo usuário (RNF86) seja respeitada em todos os componentes.
 
 ---
 
