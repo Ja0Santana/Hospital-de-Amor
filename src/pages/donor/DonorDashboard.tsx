@@ -8,11 +8,10 @@ import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle,
 interface DonorDashboardProps {
   donorCpf: string;
   donorName: string;
-  onLogout: () => void;
   updateTrigger?: number;
 }
 
-export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTrigger }: DonorDashboardProps) {
+export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: DonorDashboardProps) {
   const [points, setPoints] = useState<DonorPoints | null>(null);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [subscriptions, setSubscriptions] = useState<RecurringSubscription[]>([]);
@@ -116,9 +115,6 @@ export default function DonorDashboard({ donorCpf, donorName, onLogout, updateTr
           </h1>
           <p className="text-zinc-500 mt-1">Obrigado por fazer a diferença. Acompanhe seu impacto hoje.</p>
         </div>
-        <Button onClick={onLogout} variant="outline" className="h-10 px-4 rounded-xl border-zinc-200 text-zinc-700 hover:bg-zinc-50 text-xs">
-          Sair da Conta
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">

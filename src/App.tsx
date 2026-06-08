@@ -448,7 +448,6 @@ function App() {
                 <DonorDashboard
                   donorCpf={patientCpf}
                   donorName={patientName}
-                  onLogout={handleLogout}
                   updateTrigger={donationsTrigger}
                 />
               ) : (
