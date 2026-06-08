@@ -4,7 +4,8 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige } from '../../services/db';
 import type { Donation, DonorPoints, RecurringSubscription } from '../../types';
-import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X, FileText } from 'lucide-react';
+import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X, FileText, Download } from 'lucide-react';
+import { generateTaxDeclarationPdf } from '../../utils/generateTaxDeclarationPdf';
 
 const BADGE_STYLES: Record<string, { color: string; bg: string }> = {
   apoiador: { color: 'text-amber-700 dark:text-amber-505', bg: 'from-amber-600/20 to-amber-700/10 border-amber-600/30' },
@@ -37,7 +38,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
-  const [selectedTaxYear, setSelectedTaxYear] = useState('2025');
+  const [selectedTaxYear, setSelectedTaxYear] = useState('');
   
   const [hoveredInvestment, setHoveredInvestment] = useState<number | null>(null);
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
@@ -534,11 +535,18 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsTaxModalOpen(true)}
+                onClick={() => {
+                  const mostRecentYear = donations
+                    .filter((d) => d.status === 'Confirmada')
+                    .map((d) => new Date(d.date).getFullYear())
+                    .sort((a, b) => b - a)[0];
+                  setSelectedTaxYear(mostRecentYear ? mostRecentYear.toString() : new Date().getFullYear().toString());
+                  setIsTaxModalOpen(true);
+                }}
                 className="h-8 border-brand-pink/30 hover:border-brand-pink text-brand-pink font-bold text-[10px] rounded-lg gap-1.5 active:scale-[0.98] transition-all uppercase tracking-wider"
               >
                 <FileText className="w-3.5 h-3.5" />
-                Declaração IR 2025
+                Declaração de IR
               </Button>
             </div>
 
@@ -549,7 +557,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                   R$ {totalFilteredAmount.toFixed(2)}
                 </span>
               </div>
-              <p className="text-[9px] text-zinc-455 leading-normal max-w-sm">
+              <p className="text-[0.5625rem] text-zinc-455 leading-normal max-w-sm">
                 Apenas doações efetivamente liquidadas e com status <span className="font-extrabold text-green-600 dark:text-green-400">Confirmada</span> compõem este resumo financeiro.
               </p>
             </div>
@@ -913,7 +921,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                       <option key={y} value={y.toString()}>Ano Calendário {y}</option>
                     ))
                   ) : (
-                    <option value="2025">Ano Calendário 2025</option>
+                    <option value={new Date().getFullYear().toString()}>Ano Calendário {new Date().getFullYear()}</option>
                   )}
                 </select>
                 <Button variant="ghost" size="icon" onClick={() => setIsTaxModalOpen(false)} className="h-8 w-8 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50">
@@ -1025,11 +1033,39 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <Button type="button" variant="outline" onClick={() => setIsTaxModalOpen(false)} className="h-10 rounded-xl text-xs font-bold">
                 Fechar
               </Button>
-              <Button type="button" onClick={() => window.print()} className="h-10 bg-brand-pink hover:bg-brand-pink/90 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-pink/20 gap-1.5 flex items-center">
-                <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  generateTaxDeclarationPdf({
+                    donorName,
+                    donorCpf,
+                    year: selectedTaxYear,
+                    donations,
+                    mode: 'print'
+                  })
+                }
+                className="h-10 rounded-xl text-xs font-bold gap-1.5 flex items-center"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
                 </svg>
-                Imprimir Declaração
+                Imprimir
+              </Button>
+              <Button
+                type="button"
+                onClick={() =>
+                  generateTaxDeclarationPdf({
+                    donorName,
+                    donorCpf,
+                    year: selectedTaxYear,
+                    donations
+                  })
+                }
+                className="h-10 bg-brand-pink hover:bg-brand-pink/90 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-pink/20 gap-1.5 flex items-center"
+              >
+                <Download className="w-4 h-4" />
+                Baixar PDF
               </Button>
             </div>
           </Card>
