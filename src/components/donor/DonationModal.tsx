@@ -44,6 +44,11 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
   const [projectDestiny, setProjectDestiny] = useState<string>('Geral');
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
     if (isOpen) {
       setMethod('pix');
       setAmount(50);
@@ -64,10 +69,14 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
       setProjectDestiny('Geral');
       
       startPixTimer();
+      window.addEventListener('keydown', handleKeyDown);
     } else {
       stopPixTimer();
     }
-    return () => stopPixTimer();
+    return () => {
+      stopPixTimer();
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -275,8 +284,8 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <Card className="w-full max-w-lg border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
+    <div onClick={onClose} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-lg border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
         <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
           <div>
             <h2 className="text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Apoie o Hospital de Amor</h2>

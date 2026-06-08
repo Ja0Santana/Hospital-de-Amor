@@ -96,6 +96,21 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
     loadUserData();
   }, [patientCpf]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowBlockedModal(false);
+        setShowDeleteModal(false);
+      }
+    };
+    if (showBlockedModal || showDeleteModal) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showBlockedModal, showDeleteModal]);
+
   const handlePhotoUpload = (file: File) => {
     if (file.size > 2 * 1024 * 1024) {
       setErrorMessage('A imagem deve ter no máximo 2MB.');
@@ -866,8 +881,8 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
       </div>
 
       {showBlockedModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5">
+        <div onClick={() => setShowBlockedModal(false)} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5">
             <div className="flex gap-3 items-start">
               <div className="p-2.5 bg-yellow-100 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400 rounded-full shrink-0 border border-yellow-200/20">
                 <AlertTriangle className="w-6 h-6" aria-hidden="true" />
@@ -918,8 +933,8 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
       )}
 
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in">
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-6">
+        <div onClick={() => setShowDeleteModal(false)} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-6">
             <div className="flex gap-3 items-start">
               <div className="p-2.5 bg-red-100 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-full shrink-0 border border-red-200/20">
                 <AlertTriangle className="w-6 h-6" />

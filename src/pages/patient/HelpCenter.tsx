@@ -103,6 +103,20 @@ export default function HelpCenter() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, isBotTyping]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setDownloadingId(null);
+      }
+    };
+    if (downloadingId) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [downloadingId]);
+
   const handleDownload = (booklet: Booklet) => {
     if (downloadingId) return;
 
@@ -448,8 +462,8 @@ export default function HelpCenter() {
       )}
 
       {downloadingId && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <Card className="max-w-xs w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden p-6 text-center space-y-4 animate-in zoom-in-95 duration-200">
+        <div onClick={() => setDownloadingId(null)} className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <Card onClick={(e) => e.stopPropagation()} className="max-w-xs w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden p-6 text-center space-y-4 animate-in zoom-in-95 duration-200">
             <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center text-primary mx-auto animate-bounce">
               <Download className="w-6 h-6" />
             </div>

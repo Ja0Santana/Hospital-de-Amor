@@ -107,6 +107,20 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
     }
   }, [filteredAppointments, selectedProtocol]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsRescheduleOpen(false);
+      }
+    };
+    if (isRescheduleOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isRescheduleOpen]);
+
   const appointment = appointments.find((app) => app.protocol === selectedProtocol) || null;
 
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
@@ -839,8 +853,8 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
       )}
 
       {isRescheduleOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <Card className="max-w-md w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div onClick={() => setIsRescheduleOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <Card onClick={(e) => e.stopPropagation()} className="max-w-md w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200">
             <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 p-5 flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base font-bold text-zinc-900 dark:text-zinc-50">Reagendar Atendimento</CardTitle>

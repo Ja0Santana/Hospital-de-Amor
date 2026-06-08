@@ -143,7 +143,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <Card className="lg:col-span-2 bg-primary text-white border-none shadow-lg rounded-3xl p-6 flex flex-col justify-between min-h-[190px]">
-          <div className="space-y-2">
+          <div className="space-y-2 pb-4">
             <h2 className="text-2xl font-black tracking-tight">Iniciar nova solicitação</h2>
             <p className="text-white/80 text-sm max-w-[210px] leading-snug">
               Agende exames, consultas ou solicite documentos.
