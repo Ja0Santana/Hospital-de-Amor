@@ -428,7 +428,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <div className="absolute top-2 right-2">
                 <Button 
                   onClick={() => setIsPrestigeModalOpen(true)}
-                  className="bg-gradient-to-r from-brand-pink to-primary hover:from-brand-pink/95 hover:to-primary/95 text-white font-black text-[9px] h-7 px-2.5 rounded-xl shadow-md uppercase tracking-wider gap-1 flex items-center"
+                  className="bg-brand-pink hover:bg-brand-pink/95 text-white font-black text-[9px] h-7 px-2.5 rounded-xl shadow-md uppercase tracking-wider gap-1 flex items-center"
                 >
                   <Sparkles className="w-3 h-3 fill-white" />
                   Ativar Prestígio
