@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
-import { createDonation, addDonorPoints, saveSupportMessage, getUserByCpf } from '../../services/db';
+import { createDonation, addDonorPoints, saveSupportMessage, getUserByCpf, createRecurringSubscription } from '../../services/db';
 import { X, CheckCircle2, AlertTriangle, CreditCard, QrCode, FileText, Copy, Check, Download, RefreshCw, AlertCircle } from 'lucide-react';
 import type { Donation } from '../../types';
 
@@ -41,6 +41,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
 
   const [supportMessage, setSupportMessage] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(true);
+  const [projectDestiny, setProjectDestiny] = useState<string>('Geral');
 
   useEffect(() => {
     if (isOpen) {
@@ -60,6 +61,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
       setDownloadProgress(null);
       setSupportMessage('');
       setIsAuthorized(true);
+      setProjectDestiny('Geral');
       
       startPixTimer();
     } else {
@@ -132,11 +134,26 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
         status: 'Confirmada',
         date: new Date().toISOString(),
         type: recurrence,
-        hash: 'TX-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 12)
+        hash: 'TX-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 12),
+        projectDestiny
       };
 
       await createDonation(newDonation);
       await addDonorPoints(donorCpf, points);
+
+      if (methodName === 'Cartão de Crédito' && recurrence === 'recurring') {
+        const last4 = cardNumber.replace(/\D/g, '').slice(-4);
+        const cardMaskedNumber = `•••• •••• •••• ${last4 || '1234'}`;
+        await createRecurringSubscription({
+          id: 'sub-' + crypto.randomUUID().slice(0, 8),
+          donorCpf,
+          amount: donationAmount,
+          projectDestiny,
+          status: 'Ativa',
+          cardMaskedNumber,
+          createdAt: new Date().toISOString()
+        });
+      }
 
       if (supportMessage.trim()) {
         const cleanCpf = donorCpf.replace(/\D/g, "");
@@ -163,6 +180,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
       setLoading(false);
     }
   };
+
 
   const handleCardDonation = (simulateFail = false) => {
     setCardError('');
@@ -321,6 +339,21 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                   />
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="projectDestiny" className="text-xs font-bold text-zinc-650 dark:text-zinc-350">Destinação dos Recursos</Label>
+              <select
+                id="projectDestiny"
+                value={projectDestiny}
+                onChange={(e) => setProjectDestiny(e.target.value)}
+                className="w-full h-10 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl text-xs px-3 text-zinc-900 dark:text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink"
+              >
+                <option value="Geral">Geral (Onde a necessidade for maior)</option>
+                <option value="Ala Infantil">Ala Infantil</option>
+                <option value="Prevenção Móvel">Prevenção Móvel</option>
+                <option value="Pesquisa Científica">Pesquisa Científica</option>
+              </select>
             </div>
 
             <div className="space-y-2">

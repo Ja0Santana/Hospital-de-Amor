@@ -109,6 +109,18 @@ export interface Donation {
   date: string;
   type: 'single' | 'recurring';
   hash: string;
+  projectDestiny?: string;
+}
+
+export interface RecurringSubscription {
+  id: string;
+  donorCpf: string;
+  amount: number;
+  projectDestiny: string;
+  status: 'Ativa' | 'Pausada' | 'Cancelada';
+  cardMaskedNumber: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface DonorPoints {
@@ -124,3 +136,4 @@ export interface SupportMessage {
   date: string;
   isAuthorized: boolean;
 }
+
