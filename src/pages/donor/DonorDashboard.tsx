@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige } from '../../services/db';
+import { Label } from '../../components/ui/label';
+import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige, addDonorPoints } from '../../services/db';
 import type { Donation, DonorPoints, RecurringSubscription } from '../../types';
-import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X, FileText, Download } from 'lucide-react';
+import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X, FileText, Download, Copy, Check, Send } from 'lucide-react';
 import { generateTaxDeclarationPdf } from '../../utils/generateTaxDeclarationPdf';
 
 const BADGE_STYLES: Record<string, { color: string; bg: string }> = {
@@ -42,6 +43,58 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
   
   const [hoveredInvestment, setHoveredInvestment] = useState<number | null>(null);
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
+
+  const [copiedRefLink, setCopiedRefLink] = useState(false);
+  const [referredUsers, setReferredUsers] = useState<{ id: string; name: string; date: string; status: 'Pendente' | 'Doou (100 pts)'; amount?: number }[]>([]);
+
+  useEffect(() => {
+    const key = `referred_users_${donorCpf}`;
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      setReferredUsers(JSON.parse(stored));
+    } else {
+      const initial = [
+        { id: 'ref-1', name: 'Marcos de Oliveira', date: '2026-06-01T14:32:00.000Z', status: 'Doou (100 pts)' as const, amount: 50 },
+        { id: 'ref-2', name: 'Carla Dias Souza', date: '2026-06-05T09:15:00.000Z', status: 'Pendente' as const }
+      ];
+      localStorage.setItem(key, JSON.stringify(initial));
+      setReferredUsers(initial);
+    }
+  }, [donorCpf]);
+
+  const handleCopyRefLink = () => {
+    setCopiedRefLink(true);
+    navigator.clipboard.writeText(`https://hospitaldeamor.org.br/doar?ref=${donorCpf}`);
+    setTimeout(() => setCopiedRefLink(false), 2000);
+  };
+
+  const handleSimulateReferral = async () => {
+    const names = ['Gabriela Costa', 'Rodrigo Ramos', 'Patrícia Lima', 'Fernando Mendes'];
+    const randomName = names[Math.floor(Math.random() * names.length)];
+    const newRef = {
+      id: 'ref-' + Math.random().toString(36).substring(2, 9),
+      name: randomName,
+      date: new Date().toISOString(),
+      status: 'Doou (100 pts)' as const,
+      amount: 50
+    };
+    
+    const updated = [newRef, ...referredUsers];
+    localStorage.setItem(`referred_users_${donorCpf}`, JSON.stringify(updated));
+    setReferredUsers(updated);
+    
+    try {
+      await addDonorPoints(donorCpf, 100);
+      loadData();
+      alert(`Indicação simulada com sucesso! ${randomName} cadastrou-se e efetuou uma doação. Você ganhou 100 pontos de bônus!`);
+    } catch(err) {
+      console.error(err);
+    }
+  };
+
+  const handleSimulateShare = (channel: string) => {
+    alert(`Simulação: Compartilhando link de indicação via ${channel}. Mensagem enviada com sucesso!`);
+  };
 
   useEffect(() => {
     loadData();
@@ -412,7 +465,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-        <div className="lg:col-span-12 flex flex-col">
+        <div className="lg:col-span-6 flex flex-col">
           <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex-1 flex flex-col space-y-4 shadow-sm hover:shadow-md transition-shadow">
             <div className="flex items-center gap-2 pb-1 border-b border-zinc-100 dark:border-zinc-800">
               <Heart className="w-4 h-4 text-brand-pink fill-brand-pink" />
@@ -424,12 +477,12 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
             ) : subscriptions.length === 0 ? (
               <div className="text-center py-6 text-xs text-zinc-400">Nenhuma assinatura recorrente registrada.</div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="grid grid-cols-1 gap-4 text-xs">
                 {subscriptions.map((sub) => (
                   <Card key={sub.id} className="p-4 border border-zinc-100 dark:border-zinc-900 bg-zinc-50/30 dark:bg-zinc-900/10 rounded-2xl flex flex-col justify-between space-y-4">
                     <div className="flex justify-between items-start">
                       <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-450 dark:text-zinc-400 block">Projeto Destino</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-455 dark:text-zinc-400 block">Projeto Destino</span>
                         <span className="text-sm font-black text-zinc-900 dark:text-zinc-50">{sub.projectDestiny}</span>
                       </div>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
@@ -445,12 +498,12 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
 
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className="text-[10px] text-zinc-450 dark:text-zinc-400 block">Valor Mensal</span>
+                        <span className="text-[10px] text-zinc-455 dark:text-zinc-400 block">Valor Mensal</span>
                         {editingSubId === sub.id ? (
                           <div className="flex flex-col space-y-1.5 mt-1">
                             <div className="flex gap-1.5">
                               <div className="relative w-28">
-                                <span className="absolute left-2.5 top-2 text-zinc-450 text-[11px] font-bold">R$</span>
+                                <span className="absolute left-2.5 top-2 text-zinc-455 text-[11px] font-bold">R$</span>
                                 <input
                                   type="number"
                                   className="w-full h-8 pl-7 pr-1 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-lg text-xs font-bold text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-1 focus:ring-brand-pink"
@@ -474,7 +527,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="font-extrabold text-zinc-900 dark:text-zinc-50 text-base">R$ {sub.amount.toFixed(2)}</span>
                             {sub.status !== 'Cancelada' && (
-                              <button onClick={() => handleStartEdit(sub)} className="p-1 text-zinc-400 hover:text-primary transition-colors">
+                              <button onClick={() => handleStartEdit(sub)} className="p-1 text-zinc-455 hover:text-primary transition-colors">
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
                             )}
@@ -482,7 +535,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                         )}
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] text-zinc-450 dark:text-zinc-400 block">Forma de Pagamento</span>
+                        <span className="text-[10px] text-zinc-455 dark:text-zinc-400 block">Forma de Pagamento</span>
                         <span className="font-semibold text-zinc-800 dark:text-zinc-200 font-mono mt-0.5 block">{sub.cardMaskedNumber}</span>
                       </div>
                     </div>
@@ -520,6 +573,79 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                 ))}
               </div>
             )}
+          </Card>
+        </div>
+
+        <div className="lg:col-span-6 flex flex-col">
+          <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex-1 flex flex-col space-y-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 pb-1 border-b border-zinc-100 dark:border-zinc-800">
+              <Users className="w-4 h-4 text-primary" />
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400 font-sans">Indicar Amigos & Convites (RF19)</h3>
+            </div>
+
+            <div className="space-y-4 text-xs flex-1 flex flex-col justify-between">
+              <p className="text-zinc-500 dark:text-zinc-400 leading-normal">
+                Indique novos doadores para ajudar o hospital! Para cada amigo indicado que realizar a primeira doação, você ganha <strong className="text-brand-pink">100 pontos de bônus</strong> para seu perfil de fidelidade.
+              </p>
+
+              <div className="space-y-1.5">
+                <Label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">Seu Link de Indicação</Label>
+                <div className="flex gap-2">
+                  <input
+                    readOnly
+                    value={`https://hospitaldeamor.org.br/doar?ref=${donorCpf}`}
+                    className="h-10 text-xs border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/30 px-3 font-mono text-zinc-500 rounded-xl flex-1 select-all focus:outline-none"
+                  />
+                  <Button onClick={handleCopyRefLink} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 dark:border-zinc-800 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
+                    {copiedRefLink ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Compartilhar rápido:</span>
+                <div className="flex gap-1.5">
+                  <Button onClick={() => handleSimulateShare('WhatsApp')} size="sm" variant="outline" className="h-8 text-[10px] font-bold border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-100 text-zinc-650">
+                    WhatsApp
+                  </Button>
+                  <Button onClick={() => handleSimulateShare('E-mail')} size="sm" variant="outline" className="h-8 text-[10px] font-bold border-zinc-200 dark:border-zinc-800 rounded-lg hover:bg-zinc-100 text-zinc-650">
+                    E-mail
+                  </Button>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-zinc-150 dark:border-zinc-850 flex-1 flex flex-col justify-between space-y-3">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-[10px] font-black uppercase tracking-wider text-zinc-400 dark:text-zinc-550">Amigos Indicados ({referredUsers.length})</h4>
+                  <Button onClick={handleSimulateReferral} size="sm" variant="link" className="text-[10px] text-primary hover:text-primary/90 p-0 h-auto font-bold flex items-center gap-1">
+                    <Send className="w-3 h-3" />
+                    Simular Nova Indicação
+                  </Button>
+                </div>
+
+                <div className="max-h-[140px] overflow-y-auto pr-1 space-y-2">
+                  {referredUsers.length === 0 ? (
+                    <div className="text-center py-6 text-zinc-400 text-[10px]">Nenhuma indicação realizada ainda.</div>
+                  ) : (
+                    referredUsers.map((ref) => (
+                      <div key={ref.id} className="flex justify-between items-center p-2 border border-zinc-100 dark:border-zinc-900 bg-zinc-50/20 dark:bg-zinc-900/10 rounded-xl">
+                        <div>
+                          <span className="font-extrabold text-zinc-800 dark:text-zinc-200 block leading-tight">{ref.name}</span>
+                          <span className="text-[9px] text-zinc-400">{new Date(ref.date).toLocaleDateString('pt-BR')}</span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                          ref.status.includes('Doou') 
+                            ? 'bg-green-50 text-green-600 dark:bg-green-950/20 dark:text-green-400' 
+                            : 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400'
+                        }`}>
+                          {ref.status}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
           </Card>
         </div>
       </div>
