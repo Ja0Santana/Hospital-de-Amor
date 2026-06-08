@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { getDonorPoints, redeemDonorBadge, triggerDonorPrestige } from '../../services/db';
 import type { DonorPoints } from '../../types';
-import { Trophy, Award, Star, Sparkles } from 'lucide-react';
+import { Trophy, Award, Star, Sparkles, X } from 'lucide-react';
 
 const BADGE_STYLES: Record<string, { color: string; bg: string }> = {
   apoiador: { color: 'text-amber-700 dark:text-amber-505', bg: 'from-amber-600/20 to-amber-700/10 border-amber-600/30' },
@@ -25,6 +26,14 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
   const [activeTab, setActiveTab] = useState<'catalog' | 'gallery'>('catalog');
   const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
   const [isPrestigeModalOpen, setIsPrestigeModalOpen] = useState(false);
+  const [showVoucher, setShowVoucher] = useState<{
+    badgeName: string;
+    cost: number;
+    date: string;
+    badgeId: string;
+    prestige: number;
+    hash: string;
+  } | null>(null);
 
   useEffect(() => {
     loadPoints();
@@ -102,6 +111,15 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
     try {
       await redeemDonorBadge(donorCpf, badgeId, badgeName, finalCost);
       setRedeemSuccess(badgeId);
+      const generatedHash = `HA-REDEEM-${Math.random().toString(36).substring(2, 11).toUpperCase()}-${Date.now()}`;
+      setShowVoucher({
+        badgeName,
+        cost: finalCost,
+        date: new Date().toISOString(),
+        badgeId,
+        prestige,
+        hash: generatedHash
+      });
       setTimeout(() => setRedeemSuccess(null), 3000);
       await loadPoints();
       if (onPointsUpdated) {
@@ -375,6 +393,90 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
             </div>
           </Card>
         </div>
+      )}
+
+      {showVoucher && createPortal(
+        <div onClick={() => setShowVoucher(null)} className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm print:p-0 print:bg-white">
+          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-md border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col animate-in zoom-in-95 duration-200 print:shadow-none print:border-none print:w-full print:rounded-none">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 print:hidden">
+              <div>
+                <h2 className="text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Comprovante de Resgate</h2>
+                <p className="text-[9px] text-zinc-400">Voucher digital de honra institucional</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowVoucher(null)} className="h-8 w-8 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50">
+                <X className="w-4 h-4 text-zinc-500" />
+              </Button>
+            </div>
+
+            <div className="p-6 space-y-6 text-center text-zinc-800 dark:text-zinc-200 font-sans print:p-0">
+              <div className="space-y-1 pb-4 border-b border-zinc-150">
+                <h3 className="font-black text-sm uppercase text-primary">Hospital de Amor</h3>
+                <p className="text-[9px] text-zinc-450 dark:text-zinc-400">Agradecemos profundamente pela sua preciosa doação.</p>
+              </div>
+
+              <div className="space-y-4 py-2 flex flex-col items-center">
+                <div className={`p-4 bg-gradient-to-br ${BADGE_STYLES[showVoucher.badgeId]?.bg || 'from-zinc-400/20 to-zinc-500/10 border-zinc-400/30'} rounded-3xl border shrink-0 ${BADGE_STYLES[showVoucher.badgeId]?.color || 'text-zinc-550'} w-16 h-16 flex items-center justify-center animate-bounce`}>
+                  <Award className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-extrabold text-base text-zinc-900 dark:text-zinc-50">{showVoucher.badgeName}</h4>
+                  <span className="text-[10px] text-zinc-450 dark:text-zinc-400 block">Selo de Honra Institucional Resgatado</span>
+                </div>
+              </div>
+
+              <div className="border border-zinc-150 dark:border-zinc-850 rounded-2xl p-4 text-left text-xs space-y-2 bg-zinc-50/50 dark:bg-zinc-900/10 font-mono">
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-zinc-450">Data de Resgate:</span>
+                  <span className="font-bold text-zinc-800 dark:text-zinc-200">{new Date(showVoucher.date).toLocaleString('pt-BR')}</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-zinc-450">Pontos Utilizados:</span>
+                  <span className="font-bold text-brand-pink">{showVoucher.cost} pts</span>
+                </div>
+                <div className="flex justify-between items-center text-[10px]">
+                  <span className="text-zinc-450">Tipo de Adição:</span>
+                  <span className="font-bold text-zinc-800 dark:text-zinc-200">
+                    {showVoucher.prestige > 0 ? `Prestígio ${showVoucher.prestige}` : 'Regular'}
+                  </span>
+                </div>
+                <div className="border-t border-zinc-200 dark:border-zinc-800 pt-2 text-[9px] break-all">
+                  <span className="text-zinc-450 block">Hash da Transação:</span>
+                  <span className="text-zinc-600 dark:text-zinc-400 font-bold select-all block">{showVoucher.hash}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col items-center gap-3 pt-2">
+                <svg className="w-24 h-24 text-zinc-800 dark:text-zinc-200" viewBox="0 0 100 100">
+                  <rect width="100" height="100" fill="white" stroke="#cbd5e1" strokeWidth="2" />
+                  <rect x="10" y="10" width="25" height="25" fill="black" />
+                  <rect x="15" y="15" width="15" height="15" fill="white" />
+                  <rect x="65" y="10" width="25" height="25" fill="black" />
+                  <rect x="70" y="15" width="15" height="15" fill="white" />
+                  <rect x="10" y="65" width="25" height="25" fill="black" />
+                  <rect x="15" y="70" width="15" height="15" fill="white" />
+                  <rect x="45" y="45" width="10" height="10" fill="black" />
+                  <rect x="35" y="40" width="10" height="15" fill="black" />
+                  <rect x="55" y="65" width="20" height="10" fill="black" />
+                  <rect x="75" y="75" width="15" height="15" fill="black" />
+                </svg>
+                <span className="text-[8px] text-zinc-400 uppercase tracking-widest font-bold">Controle Administrativo Fictício</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row justify-end gap-3 p-4 bg-zinc-50 dark:bg-zinc-900/40 border-t border-zinc-150 dark:border-zinc-800 print:hidden">
+              <Button type="button" variant="outline" onClick={() => setShowVoucher(null)} className="h-10 rounded-xl text-xs font-bold">
+                Fechar
+              </Button>
+              <Button type="button" onClick={() => window.print()} className="h-10 bg-brand-pink hover:bg-brand-pink/90 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-pink/20 gap-1.5 flex items-center">
+                <svg className="w-4 h-4 fill-white" viewBox="0 0 24 24">
+                  <path d="M19 8H5c-1.66 0-3 1.34-3 3v6h4v4h12v-4h4v-6c0-1.66-1.34-3-3-3zm-3 11H8v-5h8v5zm3-7c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm-1-9H6v4h12V3z"/>
+                </svg>
+                Imprimir Comprovante
+              </Button>
+            </div>
+          </Card>
+        </div>,
+        document.body
       )}
     </div>
   );
