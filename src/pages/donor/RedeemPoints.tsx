@@ -344,7 +344,7 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
 
       {showVoucher && createPortal(
         <div onClick={() => setShowVoucher(null)} className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm print:p-0 print:bg-white">
-          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-md border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col animate-in zoom-in-95 duration-200 print:shadow-none print:border-none print:w-full print:rounded-none">
+          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-md border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200 print:shadow-none print:border-none print:w-full print:rounded-none">
             <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 print:hidden">
               <div>
                 <h2 className="text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Comprovante de Resgate</h2>
@@ -355,45 +355,45 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
               </Button>
             </div>
 
-            <div className="p-6 space-y-6 text-center text-zinc-800 dark:text-zinc-200 font-sans print:p-0">
-              <div className="space-y-1 pb-4 border-b border-zinc-150">
-                <h3 className="font-black text-sm uppercase text-primary">Hospital de Amor</h3>
-                <p className="text-[9px] text-zinc-450 dark:text-zinc-400">Agradecemos profundamente pela sua preciosa doação.</p>
+            <div className="p-6 space-y-4 text-center text-zinc-800 dark:text-zinc-200 font-sans print:p-0 overflow-y-auto flex-1">
+              <div className="space-y-0.5 pb-3 border-b border-zinc-150 dark:border-zinc-855">
+                <h3 className="font-black text-xs uppercase text-primary">Hospital de Amor</h3>
+                <p className="text-[8px] text-zinc-455 dark:text-zinc-400">Agradecemos profundamente pela sua preciosa doação.</p>
               </div>
 
-              <div className="space-y-4 py-2 flex flex-col items-center">
-                <div className={`p-4 bg-gradient-to-br ${BADGE_STYLES[showVoucher.badgeId]?.bg || 'from-zinc-400/20 to-zinc-500/10 border-zinc-400/30'} rounded-3xl border shrink-0 ${BADGE_STYLES[showVoucher.badgeId]?.color || 'text-zinc-550'} w-16 h-16 flex items-center justify-center animate-bounce`}>
-                  <Award className="w-8 h-8" />
+              <div className="space-y-3 py-1 flex flex-col items-center">
+                <div className={`p-3 bg-gradient-to-br ${BADGE_STYLES[showVoucher.badgeId]?.bg || 'from-zinc-400/20 to-zinc-500/10 border-zinc-400/30'} rounded-3xl border shrink-0 ${BADGE_STYLES[showVoucher.badgeId]?.color || 'text-zinc-550'} w-14 h-14 flex items-center justify-center`}>
+                  <Award className="w-7 h-7" />
                 </div>
                 <div className="space-y-1">
-                  <h4 className="font-extrabold text-base text-zinc-900 dark:text-zinc-50">{showVoucher.badgeName}</h4>
-                  <span className="text-[10px] text-zinc-450 dark:text-zinc-400 block">Selo de Honra Institucional Resgatado</span>
+                  <h4 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">{showVoucher.badgeName}</h4>
+                  <span className="text-[9px] text-zinc-450 dark:text-zinc-400 block">Selo de Honra Institucional Resgatado</span>
                 </div>
               </div>
 
-              <div className="border border-zinc-150 dark:border-zinc-850 rounded-2xl p-4 text-left text-xs space-y-2 bg-zinc-50/50 dark:bg-zinc-900/10 font-mono">
-                <div className="flex justify-between items-center text-[10px]">
+              <div className="border border-zinc-150 dark:border-zinc-850 rounded-xl p-3 text-left text-xs space-y-1.5 bg-zinc-50/50 dark:bg-zinc-900/10 font-mono">
+                <div className="flex justify-between items-center text-[9px]">
                   <span className="text-zinc-450">Data de Resgate:</span>
                   <span className="font-bold text-zinc-800 dark:text-zinc-200">{new Date(showVoucher.date).toLocaleString('pt-BR')}</span>
                 </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-zinc-450">Pontos Utilizados:</span>
+                <div className="flex justify-between items-center text-[9px]">
+                  <span className="text-zinc-455">Pontos Utilizados:</span>
                   <span className="font-bold text-brand-pink">{showVoucher.cost} pts</span>
                 </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="text-zinc-450">Tipo de Adição:</span>
+                <div className="flex justify-between items-center text-[9px]">
+                  <span className="text-zinc-455">Tipo de Adição:</span>
                   <span className="font-bold text-zinc-800 dark:text-zinc-200">
                     {showVoucher.prestige > 0 ? `Prestígio ${showVoucher.prestige}` : 'Regular'}
                   </span>
                 </div>
-                <div className="border-t border-zinc-200 dark:border-zinc-800 pt-2 text-[9px] break-all">
+                <div className="border-t border-zinc-200 dark:border-zinc-800 pt-1.5 text-[8px] break-all">
                   <span className="text-zinc-450 block">Hash da Transação:</span>
                   <span className="text-zinc-600 dark:text-zinc-400 font-bold select-all block">{showVoucher.hash}</span>
                 </div>
               </div>
 
-              <div className="flex flex-col items-center gap-3 pt-2">
-                <svg className="w-24 h-24 text-zinc-800 dark:text-zinc-200" viewBox="0 0 100 100">
+              <div className="flex flex-col items-center gap-2 pt-1">
+                <svg className="w-20 h-20 text-zinc-800 dark:text-zinc-200" viewBox="0 0 100 100">
                   <rect width="100" height="100" fill="white" stroke="#cbd5e1" strokeWidth="2" />
                   <rect x="10" y="10" width="25" height="25" fill="black" />
                   <rect x="15" y="15" width="15" height="15" fill="white" />
@@ -406,7 +406,7 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
                   <rect x="55" y="65" width="20" height="10" fill="black" />
                   <rect x="75" y="75" width="15" height="15" fill="black" />
                 </svg>
-                <span className="text-[8px] text-zinc-400 uppercase tracking-widest font-bold">Controle Administrativo Fictício</span>
+                <span className="text-[7px] text-zinc-400 uppercase tracking-widest font-bold">Controle Administrativo Fictício</span>
               </div>
             </div>
 

@@ -7,7 +7,7 @@ import Login from './pages/Login';
 import SymptomsDiary from './pages/patient/SymptomsDiary';
 import SymptomFloatingWidget from './components/SymptomFloatingWidget';
 import { Button } from './components/ui/button';
-import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin, Sun, Moon, Eye, Mail, Award } from 'lucide-react';
+import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin, Sun, Moon, Eye, Mail, Award, Building2 } from 'lucide-react';
 import { getUserByCpf } from './services/db';
 import logoHospitalDeAmor from './assets/logoHospitalDeAmor.png';
 import { InactivityTimeout } from './components/InactivityTimeout';
@@ -20,6 +20,7 @@ import EmailSimulator from './pages/patient/EmailSimulator';
 import DonorDashboard from './pages/donor/DonorDashboard';
 import DonationModal from './components/donor/DonationModal';
 import RedeemPoints from './pages/donor/RedeemPoints';
+import CorporateSponsorship from './pages/donor/CorporateSponsorship';
 
 
 function App() {
@@ -102,7 +103,8 @@ function App() {
       'central-ajuda': 'help-center',
       'nossas-unidades': 'units',
       'simulador-emails': 'email-simulator',
-      'fidelidade': 'fidelidade'
+      'fidelidade': 'fidelidade',
+      'patrocinio': 'patrocinio'
     };
     return {
       role: userType as 'patient' | 'donor',
@@ -169,6 +171,7 @@ function App() {
     profile: 'Meu Perfil — Hospital de Amor',
     'help-center': 'Central de Ajuda — Hospital de Amor',
     units: 'Nossas Unidades — Hospital de Amor',
+    patrocinio: 'Patrocínio Corporativo — Hospital de Amor',
   };
 
   useEffect(() => {
@@ -228,7 +231,8 @@ function App() {
         'help-center': 'central-ajuda',
         'units': 'nossas-unidades',
         'email-simulator': 'simulador-emails',
-        'fidelidade': 'fidelidade'
+        'fidelidade': 'fidelidade',
+        'patrocinio': 'patrocinio'
       };
       targetPage = reverseRouteMap[path] || path;
     }
@@ -300,6 +304,14 @@ function App() {
                   >
                     <Award className="w-4 h-4" />
                     Fidelidade
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('patrocinio')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'patrocinio' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <Building2 className="w-4 h-4" />
+                    Patrocínio Corporativo
                   </Button>
                   <Button
                     variant="ghost"
@@ -565,6 +577,7 @@ function App() {
                 onPointsUpdated={() => setDonationsTrigger((prev) => prev + 1)}
               />
             )}
+            {currentPage === 'patrocinio' && userRole === 'donor' && <CorporateSponsorship />}
             {currentPage === 'clinical-history' && userRole === 'patient' && <ClinicalHistory patientCpf={patientCpf} onNavigate={navigateTo} />}
             {currentPage === 'new-request' && userRole === 'patient' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
             {currentPage === 'status-check' && userRole === 'patient' && (
