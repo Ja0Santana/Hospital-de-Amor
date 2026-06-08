@@ -37,6 +37,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
   const [searchQuery, setSearchQuery] = useState('');
   const [filterYear, setFilterYear] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
+  const [selectedTaxYear, setSelectedTaxYear] = useState('2025');
   
   const [hoveredInvestment, setHoveredInvestment] = useState<number | null>(null);
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
@@ -899,11 +900,26 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
             <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 print:hidden">
               <div>
                 <h2 className="text-sm font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Declaração Anual de Doações</h2>
-                <p className="text-[9px] text-zinc-400">Comprovante consolidado para fins de Imposto de Renda - Ano Calendário 2025</p>
+                <p className="text-[9px] text-zinc-400">Comprovante consolidado para fins de Imposto de Renda - Ano Calendário {selectedTaxYear}</p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setIsTaxModalOpen(false)} className="h-8 w-8 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50">
-                <X className="w-4 h-4 text-zinc-500" />
-              </Button>
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedTaxYear}
+                  onChange={(e) => setSelectedTaxYear(e.target.value)}
+                  className="h-8 px-2 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-lg text-[10px] font-bold focus:outline-none dark:text-zinc-50"
+                >
+                  {years.length > 0 ? (
+                    years.map((y) => (
+                      <option key={y} value={y.toString()}>Ano Calendário {y}</option>
+                    ))
+                  ) : (
+                    <option value="2025">Ano Calendário 2025</option>
+                  )}
+                </select>
+                <Button variant="ghost" size="icon" onClick={() => setIsTaxModalOpen(false)} className="h-8 w-8 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50">
+                  <X className="w-4 h-4 text-zinc-500" />
+                </Button>
+              </div>
             </div>
 
             <div className="p-8 overflow-y-auto flex-1 space-y-6 text-left text-zinc-800 dark:text-zinc-200 font-sans print:overflow-visible print:p-0">
@@ -936,7 +952,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Doações Recebidas em 2025</h4>
+                <h4 className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Doações Recebidas em {selectedTaxYear}</h4>
                 <div className="border border-zinc-150 dark:border-zinc-800 rounded-xl overflow-hidden">
                   <table className="w-full text-[10px] text-left">
                     <thead>
@@ -949,7 +965,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                     </thead>
                     <tbody className="divide-y divide-zinc-100 dark:divide-zinc-900">
                       {donations
-                        .filter((d) => d.status === 'Confirmada' && new Date(d.date).getFullYear() === 2025)
+                        .filter((d) => d.status === 'Confirmada' && new Date(d.date).getFullYear().toString() === selectedTaxYear)
                         .map((d) => (
                           <tr key={d.id} className="text-zinc-700 dark:text-zinc-300">
                             <td className="py-2 px-3 font-mono">{new Date(d.date).toLocaleDateString('pt-BR')}</td>
@@ -958,9 +974,9 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                             <td className="py-2 px-3 text-right font-bold font-mono">R$ {d.amount.toFixed(2)}</td>
                           </tr>
                         ))}
-                      {donations.filter((d) => d.status === 'Confirmada' && new Date(d.date).getFullYear() === 2025).length === 0 && (
+                      {donations.filter((d) => d.status === 'Confirmada' && new Date(d.date).getFullYear().toString() === selectedTaxYear).length === 0 && (
                         <tr>
-                          <td colSpan={4} className="py-6 text-center text-zinc-400">Nenhuma doação realizada no ano fiscal de 2025.</td>
+                          <td colSpan={4} className="py-6 text-center text-zinc-400">Nenhuma doação realizada no ano fiscal de {selectedTaxYear}.</td>
                         </tr>
                       )}
                     </tbody>
@@ -969,16 +985,16 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t border-zinc-200">
-                <span className="text-[11px] font-black uppercase text-zinc-500">Valor Total Consolidado em 2025:</span>
+                <span className="text-[11px] font-black uppercase text-zinc-500">Valor Total Consolidado em {selectedTaxYear}:</span>
                 <span className="text-sm font-black text-brand-pink font-mono">
                   R$ {donations
-                    .filter((d) => d.status === 'Confirmada' && new Date(d.date).getFullYear() === 2025)
+                    .filter((d) => d.status === 'Confirmada' && new Date(d.date).getFullYear().toString() === selectedTaxYear)
                     .reduce((sum, d) => sum + d.amount, 0)
                     .toFixed(2)}
                 </span>
               </div>
 
-              <div className="text-[9px] text-zinc-450 dark:text-zinc-400 leading-relaxed space-y-2 bg-zinc-50/50 dark:bg-zinc-900/30 p-3 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-800">
+              <div className="text-[9px] text-zinc-450 dark:text-zinc-400 leading-relaxed space-y-2 bg-zinc-50/50 dark:bg-zinc-900/30 p-3 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-850">
                 <p>
                   Declaramos para os devidos fins de comprovação e dedução fiscal que a Fundação Pio XII (Hospital de Amor) é uma entidade filantrópica qualificada nos termos da legislação federal brasileira e que recebeu os valores acima identificados a título de doação espontânea, sem que tenha ocorrido qualquer contraprestação direta ou indireta de bens ou serviços.
                 </p>
@@ -998,7 +1014,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                   </svg>
                   <div>
                     <span className="font-bold block">Chave de Autenticação ICP-Brasil:</span>
-                    <span className="font-mono text-zinc-500 break-all select-all block">HA2025-DF9A-87C2-E23B-98F1-44A9B8CE3A1D</span>
+                    <span className="font-mono text-zinc-500 break-all select-all block">HA{selectedTaxYear}-DF9A-87C2-E23B-98F1-44A9B8CE3A1D</span>
                     <span className="text-[8px] text-zinc-400 block mt-0.5">Assinatura digitalizada e validada nos termos da Medida Provisória nº 2.200-2/2001.</span>
                   </div>
                 </div>

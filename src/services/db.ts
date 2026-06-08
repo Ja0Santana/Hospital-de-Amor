@@ -377,7 +377,7 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
             amount: 150.00,
             method: 'Pix',
             status: 'Confirmada',
-            date: '2026-05-12T11:00:00.000Z',
+            date: '2025-05-12T11:00:00.000Z',
             type: 'single',
             hash: 'E2E-PIX-MOCK-1'
           },
@@ -387,7 +387,7 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
             amount: 50.00,
             method: 'Cartão de Crédito',
             status: 'Confirmada',
-            date: '2026-05-05T09:00:00.000Z',
+            date: '2025-05-05T09:00:00.000Z',
             type: 'recurring',
             hash: 'TX-CARD-MOCK-2'
           }
