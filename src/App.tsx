@@ -181,6 +181,12 @@ function App() {
         }
         return;
       }
+      const hash = window.location.hash;
+      if (!hash || hash === '#/' || hash === '#' || hash === '#/login') {
+        const rolePath = userRole === 'donor' ? 'doador' : 'paciente';
+        window.location.hash = `#/${rolePath}/dashboard`;
+        return;
+      }
       const { role, page, protocol } = getRouteFromHash();
       setUserRole(role as 'patient' | 'donor');
       setCurrentPage(page);
