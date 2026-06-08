@@ -1007,6 +1007,12 @@ export async function redeemDonorBadge(cpf: string, badgeId: string, badgeName: 
   };
   
   const badgesList = currentPoints.redeemedBadges || [];
+  const currentPrestige = currentPoints.prestige || 0;
+  const alreadyRedeemed = badgesList.some(
+    (b) => b.badgeId === badgeId && b.prestigeAtAcquisition === currentPrestige
+  );
+  if (alreadyRedeemed) throw new Error("Este selo já foi resgatado no nível de prestígio atual.");
+
   const updatedPoints: DonorPoints = {
     ...currentPoints,
     balance,

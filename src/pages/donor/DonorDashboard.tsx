@@ -4,7 +4,7 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige } from '../../services/db';
 import type { Donation, DonorPoints, RecurringSubscription } from '../../types';
-import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star } from 'lucide-react';
+import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X } from 'lucide-react';
 
 interface DonorDashboardProps {
   donorCpf: string;
@@ -23,6 +23,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
   const [editError, setEditError] = useState<string>('');
 
   const [isPrestigeModalOpen, setIsPrestigeModalOpen] = useState(false);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   
   const [hoveredInvestment, setHoveredInvestment] = useState<number | null>(null);
   const [hoveredBar, setHoveredBar] = useState<number | null>(null);
@@ -35,15 +36,16 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsPrestigeModalOpen(false);
+        setIsCatalogOpen(false);
       }
     };
-    if (isPrestigeModalOpen) {
+    if (isPrestigeModalOpen || isCatalogOpen) {
       window.addEventListener('keydown', handleKeyDown);
     }
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isPrestigeModalOpen]);
+  }, [isPrestigeModalOpen, isCatalogOpen]);
 
   const loadData = async () => {
     setLoading(true);
@@ -345,7 +347,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
 
             <Button 
               variant="outline" 
-              onClick={() => window.location.hash = '#/doador/fidelidade'}
+              onClick={() => setIsCatalogOpen(true)}
               className="w-full h-10 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-350 hover:bg-zinc-50 dark:hover:bg-zinc-900 rounded-xl text-xs font-bold transition-all active:scale-[0.99] hover:border-brand-pink/30 hover:text-brand-pink"
             >
               Ver Catálogo & Conquistas
@@ -637,6 +639,72 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <Button type="button" onClick={handleActivatePrestige} className="h-10 bg-brand-pink hover:bg-brand-pink/90 text-white rounded-xl text-xs font-bold shadow-md shadow-brand-pink/20">
                 Ativar Prestígio
               </Button>
+            </div>
+          </Card>
+        </div>,
+        document.body
+      )}
+      {isCatalogOpen && createPortal(
+        <div onClick={() => setIsCatalogOpen(false)} className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
+          <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col max-h-[80vh] animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Minhas Conquistas & Insígnias</h2>
+                <p className="text-[10px] text-zinc-400">Medalhas e selos institucionais que você já conquistou</p>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setIsCatalogOpen(false)} className="h-8 w-8 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50">
+                <X className="w-4 h-4 text-zinc-500" />
+              </Button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto flex-1 space-y-6 text-left">
+              {!points?.redeemedBadges || points.redeemedBadges.length === 0 ? (
+                <div className="text-center py-12 text-zinc-450 dark:text-zinc-550 text-xs">
+                  Você ainda não resgatou nenhum selo. Suas doações geram pontos que podem ser trocados por medalhas na aba Fidelidade!
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="text-zinc-400 border-b border-zinc-150 dark:border-zinc-850 font-bold uppercase tracking-wider text-[9px] pb-2">
+                        <th className="py-2">Selo</th>
+                        <th className="py-2 text-center">Prestígio</th>
+                        <th className="py-2 text-center">Pontos Pagos</th>
+                        <th className="py-2 text-right">Data de Resgate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-50 dark:divide-zinc-900">
+                      {points.redeemedBadges.map((b, idx) => (
+                        <tr key={idx} className="text-zinc-700 dark:text-zinc-300">
+                          <td className="py-3 font-extrabold flex items-center gap-2">
+                            <Award className="w-4 h-4 text-brand-pink" />
+                            {b.name}
+                          </td>
+                          <td className="py-3 text-center font-bold">
+                            {b.prestigeAtAcquisition > 0 ? (
+                              <span className="bg-brand-pink/5 text-brand-pink text-[9px] px-2 py-0.5 rounded-full border border-brand-pink/20 font-black uppercase">
+                                Prestígio {b.prestigeAtAcquisition}
+                              </span>
+                            ) : (
+                              <span className="text-zinc-400">Regular</span>
+                            )}
+                          </td>
+                          <td className="py-3 text-center font-mono font-bold text-zinc-900 dark:text-zinc-50">{b.cost} pts</td>
+                          <td className="py-3 text-right font-mono text-zinc-450">
+                            {new Date(b.date).toLocaleDateString('pt-BR')} às {new Date(b.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 bg-zinc-50 dark:bg-zinc-900/40 border-t border-zinc-150 dark:border-zinc-800 text-center">
+              <p className="text-[10px] text-zinc-500 font-medium">
+                Para resgatar novos selos com seus pontos acumulados, acesse a aba <span className="font-bold text-brand-pink">Fidelidade</span> na barra lateral.
+              </p>
             </div>
           </Card>
         </div>,

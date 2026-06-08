@@ -242,7 +242,10 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
                 { id: 'pilar', name: 'Pilar da Solidariedade', desc: 'A maior distinção para doadores que transformam o cenário oncológico.', cost: 10000, levelReq: 'Diamante', color: 'from-pink-500/20 to-indigo-650/20 border-pink-500/30 text-brand-pink' }
               ].map((badge) => {
                 const finalCost = Math.round(badge.cost * (1 + (points?.prestige || 0) * 0.1));
-                const canRedeem = (points?.balance || 0) >= finalCost;
+                const alreadyRedeemed = points?.redeemedBadges?.some(
+                  (b) => b.badgeId === badge.id && b.prestigeAtAcquisition === (points?.prestige || 0)
+                ) || false;
+                const canRedeem = (points?.balance || 0) >= finalCost && !alreadyRedeemed;
                 
                 return (
                   <Card key={badge.id} className="p-4 border border-zinc-150 dark:border-zinc-800 bg-zinc-50/25 dark:bg-zinc-900/5 rounded-2xl flex flex-col justify-between space-y-4 shadow-xs">
@@ -263,7 +266,9 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
                         <span className="text-xs font-black text-brand-pink font-mono">{finalCost} pts</span>
                       </div>
 
-                      {redeemSuccess === badge.id ? (
+                      {alreadyRedeemed ? (
+                        <span className="text-[0.625rem] font-black text-zinc-500 uppercase tracking-wider bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 px-3 py-1 rounded-xl">Já Resgatado</span>
+                      ) : redeemSuccess === badge.id ? (
                         <span className="text-[0.625rem] font-black text-green-600 dark:text-green-400 uppercase tracking-wider bg-green-50 dark:bg-green-950/20 border border-green-200/30 px-3 py-1 rounded-xl">Resgatado!</span>
                       ) : (
                         <Button
