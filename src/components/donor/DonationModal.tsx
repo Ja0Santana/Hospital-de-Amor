@@ -5,7 +5,7 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
 import { createDonation, addDonorPoints, saveSupportMessage, getUserByCpf, createRecurringSubscription } from '../../services/db';
-import { X, CheckCircle2, AlertTriangle, CreditCard, QrCode, FileText, Copy, Check, Download, RefreshCw, AlertCircle } from 'lucide-react';
+import { X, CheckCircle2, AlertTriangle, CreditCard, QrCode, FileText, Copy, Check, Download, RefreshCw, AlertCircle, Coins } from 'lucide-react';
 import type { Donation } from '../../types';
 
 interface DonationModalProps {
@@ -17,8 +17,15 @@ interface DonationModalProps {
 
 const PRESET_VALUES = [20, 50, 100, 200];
 
+const CRYPTO_WALLETS = {
+  btc: 'bc1qxy2kg3k4g7kkqfzv7lmv400xp3v22tt965ff0',
+  eth: '0x71C7656EC7ab88b098defB751B7401B5f6d8976F',
+  usdt: 'TX5b1A1zP1eP5QGefi2DMPTfTL5SLmv7Div'
+};
+
 export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuccess }: DonationModalProps) {
-  const [method, setMethod] = useState<'pix' | 'card' | 'boleto'>('pix');
+  const [method, setMethod] = useState<'pix' | 'card' | 'boleto' | 'crypto'>('pix');
+  const [selectedCrypto, setSelectedCrypto] = useState<'btc' | 'eth' | 'usdt'>('btc');
   const [amount, setAmount] = useState<number>(50);
   const [customAmount, setCustomAmount] = useState<string>('');
   const [isCustom, setIsCustom] = useState(false);
@@ -51,6 +58,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
     };
     if (isOpen) {
       setMethod('pix');
+      setSelectedCrypto('btc');
       setAmount(50);
       setIsCustom(false);
       setCustomAmount('');
@@ -133,13 +141,14 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
     return amount;
   };
 
-  const handleCopy = () => {
+  const handleCopy = (textToCopy?: string) => {
     setCopied(true);
-    navigator.clipboard.writeText('00020126580014br.gov.bcb.pix0136ha-doacao-hospital-de-amor-3450520400005303986540550.005802BR5916Hospital de Amor6009Barretos62070503***6304abcd');
+    const text = textToCopy || '00020126580014br.gov.bcb.pix0136ha-doacao-hospital-de-amor-3450520400005303986540550.005802BR5916Hospital de Amor6009Barretos62070503***6304abcd';
+    navigator.clipboard.writeText(text);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const processSuccess = async (methodName: 'Pix' | 'Cartão de Crédito' | 'Boleto', recurrence: 'single' | 'recurring' = 'single') => {
+  const processSuccess = async (methodName: 'Pix' | 'Cartão de Crédito' | 'Boleto' | 'Criptomoedas', recurrence: 'single' | 'recurring' = 'single') => {
     setLoading(true);
     const donationAmount = getActiveAmount();
     if (donationAmount <= 0) {
@@ -411,7 +420,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
 
             <div className="space-y-3">
               <Label className="text-xs font-bold text-zinc-650 dark:text-zinc-350">Método de Pagamento</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <Button
                   type="button"
                   variant={method === 'pix' ? 'default' : 'outline'}
@@ -438,6 +447,15 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                 >
                   <FileText className="w-4 h-4 shrink-0" />
                   Boleto
+                </Button>
+                <Button
+                  type="button"
+                  variant={method === 'crypto' ? 'default' : 'outline'}
+                  onClick={() => setMethod('crypto')}
+                  className={`h-11 rounded-xl text-xs font-bold gap-2 ${method === 'crypto' ? 'bg-primary text-white shadow-sm' : 'border-zinc-200 text-zinc-700'}`}
+                >
+                  <Coins className="w-4 h-4 shrink-0" />
+                  Cripto
                 </Button>
               </div>
             </div>
@@ -485,7 +503,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                       value="00020126580014br.gov.bcb.pix0136ha-doacao-hospital-de-amor-345052..."
                       className="h-10 text-xs border-zinc-200 bg-zinc-100/30 font-mono text-zinc-500 rounded-xl flex-1 select-all"
                     />
-                    <Button onClick={handleCopy} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
+                    <Button onClick={() => handleCopy()} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
                       {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
                     </Button>
                   </div>
@@ -635,7 +653,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                       value="34191.79001 01043.513184 91020.150008 7 98760000005000"
                       className="h-10 text-xs border-zinc-200 bg-zinc-100/30 font-mono text-zinc-500 rounded-xl flex-1 select-all"
                     />
-                    <Button onClick={handleCopy} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
+                    <Button onClick={() => handleCopy()} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
                       {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
                     </Button>
                   </div>
@@ -666,6 +684,65 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                     className="w-full bg-green-600 hover:bg-green-600/95 text-white font-bold h-11 rounded-xl shadow-md text-xs"
                   >
                     Simular Compensação do Boleto (Sucesso)
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {method === 'crypto' && (
+              <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-150 dark:border-zinc-800 space-y-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Selecione a Criptomoeda</Label>
+                  <select
+                    value={selectedCrypto}
+                    onChange={(e) => setSelectedCrypto(e.target.value as 'btc' | 'eth' | 'usdt')}
+                    className="w-full h-10 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl text-xs px-3 text-zinc-900 dark:text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink"
+                  >
+                    <option value="btc">Bitcoin (BTC)</option>
+                    <option value="eth">Ethereum (ETH)</option>
+                    <option value="usdt">Tether (USDT TRC20)</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col items-center text-center space-y-2 pt-2">
+                  <div className="bg-white p-3 rounded-2xl border border-zinc-200 shadow-sm w-36 h-36 flex items-center justify-center relative">
+                    <svg className="w-full h-full text-zinc-900" viewBox="0 0 100 100">
+                      <rect x="5" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
+                      <rect x="12" y="12" width="11" height="11" fill="currentColor" />
+                      <rect x="70" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
+                      <rect x="77" y="12" width="11" height="11" fill="currentColor" />
+                      <rect x="5" y="70" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
+                      <rect x="12" y="77" width="11" height="11" fill="currentColor" />
+                      <path d="M40,10 h15 M40,20 h20 M50,40 h10 M70,70 h25 M80,80 h10 M40,80 h15 M90,40 h5" stroke="currentColor" strokeWidth="6" strokeLinecap="square" />
+                    </svg>
+                  </div>
+                  <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Escaneie o QR Code</span>
+                </div>
+
+                <div className="space-y-1.5 pt-2">
+                  <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Endereço da Carteira ({selectedCrypto.toUpperCase()})</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      readOnly
+                      value={CRYPTO_WALLETS[selectedCrypto]}
+                      className="h-10 text-xs border-zinc-200 bg-zinc-100/30 font-mono text-zinc-500 rounded-xl flex-1 select-all"
+                    />
+                    <Button onClick={() => handleCopy(CRYPTO_WALLETS[selectedCrypto])} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
+                      {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 flex flex-col gap-2">
+                  <span className="text-[9px] text-zinc-450 dark:text-zinc-550 leading-normal text-center">
+                    Atenção: envie apenas {selectedCrypto.toUpperCase()} para o endereço acima. O envio de outro ativo resultará em perda permanente.
+                  </span>
+                  <Button
+                    onClick={() => processSuccess('Criptomoedas')}
+                    disabled={loading}
+                    className="w-full bg-green-600 hover:bg-green-600/95 text-white font-bold h-11 rounded-xl shadow-md text-xs mt-1"
+                  >
+                    Simular Confirmação Blockchain (Sucesso)
                   </Button>
                 </div>
               </div>
