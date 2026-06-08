@@ -101,9 +101,24 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
     }
   };
 
+  const handleCustomAmountChange = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    if (!digits) {
+      setCustomAmount('');
+      return;
+    }
+    const cents = parseInt(digits, 10);
+    const formatted = (cents / 100).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    setCustomAmount(formatted);
+  };
+
   const getActiveAmount = () => {
     if (isCustom) {
-      const parsed = parseFloat(customAmount);
+      const cleanVal = customAmount.replace(/\./g, '').replace(',', '.');
+      const parsed = parseFloat(cleanVal);
       return isNaN(parsed) || parsed <= 0 ? 0 : parsed;
     }
     return amount;
@@ -333,10 +348,11 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                 <div className="relative mt-2">
                   <span className="absolute left-3 top-2.5 text-zinc-400 font-bold text-xs">R$</span>
                   <Input
-                    type="number"
-                    placeholder="Digite o valor personalizado"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0,00"
                     value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
+                    onChange={(e) => handleCustomAmountChange(e.target.value)}
                     className="pl-8 h-10 border-zinc-200 focus-visible:ring-brand-pink rounded-xl text-xs"
                   />
                 </div>

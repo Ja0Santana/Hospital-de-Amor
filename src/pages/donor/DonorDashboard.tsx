@@ -87,20 +87,40 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
 
   const getPointsInfo = () => {
     const balance = points?.balance || 0;
-    const level = points?.level || 'Bronze';
+    
+    let level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante' = 'Bronze';
+    if (balance > 30000) {
+      level = 'Diamante';
+    } else if (balance > 15000) {
+      level = 'Platina';
+    } else if (balance > 5000) {
+      level = 'Ouro';
+    } else if (balance > 1000) {
+      level = 'Prata';
+    }
     
     if (level === 'Bronze') {
       const nextLimit = 1000;
       const progress = (balance / nextLimit) * 100;
       const remaining = nextLimit - balance;
-      return { progress, label: `Faltam ${remaining} pontos para o nível Prata`, nextLevel: 'Prata' };
+      return { level, progress, label: `Faltam ${remaining} pontos para o nível Prata`, nextLevel: 'Prata' };
     } else if (level === 'Prata') {
       const nextLimit = 5000;
       const progress = ((balance - 1000) / (nextLimit - 1000)) * 100;
       const remaining = nextLimit - balance;
-      return { progress, label: `Faltam ${remaining} pontos para o nível Ouro`, nextLevel: 'Ouro' };
+      return { level, progress, label: `Faltam ${remaining} pontos para o nível Ouro`, nextLevel: 'Ouro' };
+    } else if (level === 'Ouro') {
+      const nextLimit = 15000;
+      const progress = ((balance - 5000) / (nextLimit - 5000)) * 100;
+      const remaining = nextLimit - balance;
+      return { level, progress, label: `Faltam ${remaining} pontos para o nível Platina`, nextLevel: 'Platina' };
+    } else if (level === 'Platina') {
+      const nextLimit = 30000;
+      const progress = ((balance - 15000) / (nextLimit - 15000)) * 100;
+      const remaining = nextLimit - balance;
+      return { level, progress, label: `Faltam ${remaining} pontos para o nível Diamante`, nextLevel: 'Diamante' };
     } else {
-      return { progress: 100, label: 'Nível máximo atingido! Obrigado pelo seu apoio extraordinário.', nextLevel: null };
+      return { level, progress: 100, label: 'Nível máximo atingido! Obrigado pelo seu apoio extraordinário.', nextLevel: null };
     }
   };
 
@@ -125,7 +145,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Nível do Doador</h3>
                 <p className="text-2xl font-black text-primary mt-1 flex items-center gap-2">
                   <Award className="w-6 h-6 text-secondary" />
-                  {points?.level || 'Bronze'}
+                  {pointsInfo.level}
                 </p>
               </div>
               <Trophy className="w-8 h-8 text-zinc-200 dark:text-zinc-800" />
@@ -145,6 +165,8 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <span>Bronze</span>
               <span>Prata</span>
               <span>Ouro</span>
+              <span>Platina</span>
+              <span>Diamante</span>
             </div>
           </Card>
         </div>

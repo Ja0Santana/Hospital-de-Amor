@@ -126,7 +126,7 @@ export interface RecurringSubscription {
 export interface DonorPoints {
   donorCpf: string;
   balance: number;
-  level: 'Bronze' | 'Prata' | 'Ouro';
+  level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante';
 }
 
 export interface SupportMessage {

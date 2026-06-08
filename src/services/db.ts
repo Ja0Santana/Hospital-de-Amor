@@ -948,8 +948,12 @@ export async function addDonorPoints(cpf: string, points: number): Promise<void>
   const currentPoints = await getDonorPoints(cleanCpf);
   
   const balance = (currentPoints?.balance || 0) + points;
-  let level: 'Bronze' | 'Prata' | 'Ouro' = 'Bronze';
-  if (balance > 5000) {
+  let level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante' = 'Bronze';
+  if (balance > 30000) {
+    level = 'Diamante';
+  } else if (balance > 15000) {
+    level = 'Platina';
+  } else if (balance > 5000) {
     level = 'Ouro';
   } else if (balance > 1000) {
     level = 'Prata';
