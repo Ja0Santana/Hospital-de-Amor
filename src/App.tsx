@@ -85,7 +85,7 @@ function App() {
   const getRouteFromHash = () => {
     const hash = window.location.hash;
     if (!hash || hash === '#/' || hash === '#' || hash === '#/login') {
-      return { role: 'patient' as 'patient' | 'donor', page: 'dashboard', protocol: '' };
+      return { role: userRole, page: 'dashboard', protocol: '' };
     }
     const parts = hash.slice(2).split('/');
     const userType = parts[0] === 'doador' ? 'donor' : 'patient';
@@ -199,7 +199,7 @@ function App() {
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, userRole]);
 
   const navigateTo = (path: string) => {
     setIsSidebarOpen(false);
