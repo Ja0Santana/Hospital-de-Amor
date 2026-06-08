@@ -91,6 +91,20 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
     }
   }, [patientCpf, isOpen]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handlePrint = (e: React.MouseEvent) => {
@@ -124,8 +138,8 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-xs">
-      <div className="bg-zinc-50 dark:bg-zinc-900 rounded-3xl pt-5 pb-6 px-6 max-w-lg w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5 relative">
+    <div onClick={onClose} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 animate-in fade-in backdrop-blur-xs">
+      <div onClick={(e) => e.stopPropagation()} className="bg-zinc-50 dark:bg-zinc-900 rounded-3xl pt-5 pb-6 px-6 max-w-lg w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5 relative">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 p-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded-full hover:bg-zinc-150 dark:hover:bg-zinc-800 transition-colors"

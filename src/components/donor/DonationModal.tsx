@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
-import { createDonation, addDonorPoints, saveSupportMessage, getUserByCpf } from '../../services/db';
+import { createDonation, addDonorPoints, saveSupportMessage, getUserByCpf, createRecurringSubscription } from '../../services/db';
 import { X, CheckCircle2, AlertTriangle, CreditCard, QrCode, FileText, Copy, Check, Download, RefreshCw, AlertCircle } from 'lucide-react';
 import type { Donation } from '../../types';
 
@@ -41,8 +41,14 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
 
   const [supportMessage, setSupportMessage] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(true);
+  const [projectDestiny, setProjectDestiny] = useState<string>('Geral');
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
     if (isOpen) {
       setMethod('pix');
       setAmount(50);
@@ -60,12 +66,17 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
       setDownloadProgress(null);
       setSupportMessage('');
       setIsAuthorized(true);
+      setProjectDestiny('Geral');
       
       startPixTimer();
+      window.addEventListener('keydown', handleKeyDown);
     } else {
       stopPixTimer();
     }
-    return () => stopPixTimer();
+    return () => {
+      stopPixTimer();
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [isOpen]);
 
   useEffect(() => {
@@ -99,9 +110,24 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
     }
   };
 
+  const handleCustomAmountChange = (val: string) => {
+    const digits = val.replace(/\D/g, '');
+    if (!digits) {
+      setCustomAmount('');
+      return;
+    }
+    const cents = parseInt(digits, 10);
+    const formatted = (cents / 100).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    setCustomAmount(formatted);
+  };
+
   const getActiveAmount = () => {
     if (isCustom) {
-      const parsed = parseFloat(customAmount);
+      const cleanVal = customAmount.replace(/\./g, '').replace(',', '.');
+      const parsed = parseFloat(cleanVal);
       return isNaN(parsed) || parsed <= 0 ? 0 : parsed;
     }
     return amount;
@@ -132,11 +158,26 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
         status: 'Confirmada',
         date: new Date().toISOString(),
         type: recurrence,
-        hash: 'TX-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 12)
+        hash: 'TX-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 12),
+        projectDestiny
       };
 
       await createDonation(newDonation);
       await addDonorPoints(donorCpf, points);
+
+      if (methodName === 'Cartão de Crédito' && recurrence === 'recurring') {
+        const last4 = cardNumber.replace(/\D/g, '').slice(-4);
+        const cardMaskedNumber = `•••• •••• •••• ${last4 || '1234'}`;
+        await createRecurringSubscription({
+          id: 'sub-' + crypto.randomUUID().slice(0, 8),
+          donorCpf,
+          amount: donationAmount,
+          projectDestiny,
+          status: 'Ativa',
+          cardMaskedNumber,
+          createdAt: new Date().toISOString()
+        });
+      }
 
       if (supportMessage.trim()) {
         const cleanCpf = donorCpf.replace(/\D/g, "");
@@ -163,6 +204,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
       setLoading(false);
     }
   };
+
 
   const handleCardDonation = (simulateFail = false) => {
     setCardError('');
@@ -242,8 +284,8 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-      <Card className="w-full max-w-lg border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
+    <div onClick={onClose} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-lg border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col max-h-[90vh]">
         <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
           <div>
             <h2 className="text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Apoie o Hospital de Amor</h2>
@@ -278,7 +320,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
           <div className="p-6 overflow-y-auto space-y-6 text-left flex-1">
             <div className="space-y-2.5">
               <Label className="text-xs font-bold text-zinc-650 dark:text-zinc-350">Selecione o valor da doação</Label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-2">
                 {PRESET_VALUES.map((val) => (
                   <Button
                     key={val}
@@ -297,15 +339,17 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                     R$ {val}
                   </Button>
                 ))}
-              </div>
-              <div className="pt-1">
                 <Button
                   type="button"
-                  variant="link"
-                  onClick={() => setIsCustom(!isCustom)}
-                  className="text-primary text-xs font-bold p-0 h-auto"
+                  variant={isCustom ? 'default' : 'outline'}
+                  onClick={() => setIsCustom(true)}
+                  className={`h-10 text-xs font-bold rounded-xl transition-all ${
+                    isCustom
+                      ? 'bg-brand-pink hover:bg-brand-pink/95 text-white shadow-md shadow-brand-pink/10'
+                      : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'
+                  }`}
                 >
-                  {isCustom ? '← Escolher valores pré-definidos' : 'Ou doar outro valor customizado...'}
+                  Outro
                 </Button>
               </div>
 
@@ -313,14 +357,30 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                 <div className="relative mt-2">
                   <span className="absolute left-3 top-2.5 text-zinc-400 font-bold text-xs">R$</span>
                   <Input
-                    type="number"
-                    placeholder="Digite o valor"
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="0,00"
                     value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
+                    onChange={(e) => handleCustomAmountChange(e.target.value)}
                     className="pl-8 h-10 border-zinc-200 focus-visible:ring-brand-pink rounded-xl text-xs"
                   />
                 </div>
               )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="projectDestiny" className="text-xs font-bold text-zinc-650 dark:text-zinc-350">Destinação dos Recursos</Label>
+              <select
+                id="projectDestiny"
+                value={projectDestiny}
+                onChange={(e) => setProjectDestiny(e.target.value)}
+                className="w-full h-10 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-xl text-xs px-3 text-zinc-900 dark:text-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink"
+              >
+                <option value="Geral">Geral (Onde a necessidade for maior)</option>
+                <option value="Ala Infantil">Ala Infantil</option>
+                <option value="Prevenção Móvel">Prevenção Móvel</option>
+                <option value="Pesquisa Científica">Pesquisa Científica</option>
+              </select>
             </div>
 
             <div className="space-y-2">

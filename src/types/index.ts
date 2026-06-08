@@ -109,12 +109,35 @@ export interface Donation {
   date: string;
   type: 'single' | 'recurring';
   hash: string;
+  projectDestiny?: string;
+}
+
+export interface RecurringSubscription {
+  id: string;
+  donorCpf: string;
+  amount: number;
+  projectDestiny: string;
+  status: 'Ativa' | 'Pausada' | 'Cancelada';
+  cardMaskedNumber: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface RedeemedBadge {
+  id: string;
+  badgeId: string;
+  name: string;
+  cost: number;
+  date: string;
+  prestigeAtAcquisition: number;
 }
 
 export interface DonorPoints {
   donorCpf: string;
   balance: number;
-  level: 'Bronze' | 'Prata' | 'Ouro';
+  level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante';
+  prestige?: number;
+  redeemedBadges?: RedeemedBadge[];
 }
 
 export interface SupportMessage {
@@ -124,3 +147,4 @@ export interface SupportMessage {
   date: string;
   isAuthorized: boolean;
 }
+

@@ -1,7 +1,7 @@
-import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage } from '../types';
+import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -121,6 +121,10 @@ export function initDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('support_messages')) {
         db.createObjectStore('support_messages', { keyPath: 'id' });
       }
+
+      if (!db.objectStoreNames.contains('recurring_subscriptions')) {
+        db.createObjectStore('recurring_subscriptions', { keyPath: 'id' });
+      }
     };
   }).then((db) => {
     return seedData(db);
@@ -129,7 +133,7 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
@@ -139,6 +143,7 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
     const donationsStore = tx.objectStore('donations');
     const donorPointsStore = tx.objectStore('donor_points');
     const supportMessagesStore = tx.objectStore('support_messages');
+    const recurringSubscriptionsStore = tx.objectStore('recurring_subscriptions');
 
     specStore.clear();
     cityStore.clear();
@@ -355,7 +360,9 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
         donorPointsStore.put({
           donorCpf: '98765432100',
           balance: 3450,
-          level: 'Prata'
+          level: 'Prata',
+          prestige: 0,
+          redeemedBadges: []
         });
       }
     };
@@ -398,6 +405,21 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
           message: 'Muita força e fé para todos! Vocês não estão sozinhos nessa caminhada.',
           date: '2026-05-12T12:00:00.000Z',
           isAuthorized: true
+        });
+      }
+    };
+
+    const subReq = recurringSubscriptionsStore.getAll();
+    subReq.onsuccess = () => {
+      if (subReq.result.length === 0) {
+        recurringSubscriptionsStore.put({
+          id: 'sub-mock-1',
+          donorCpf: '98765432100',
+          amount: 50.00,
+          projectDestiny: 'Ala Infantil',
+          status: 'Ativa',
+          cardMaskedNumber: '•••• •••• •••• 4321',
+          createdAt: new Date('2026-05-05T09:00:00.000Z').toISOString()
         });
       }
     };
@@ -667,11 +689,12 @@ export async function deleteUserAndAppointments(cpf: string): Promise<void> {
   const db = await initDb();
   const cleanCpf = cpf.replace(/\D/g, "");
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(['users', 'appointments', 'symptoms_diary', 'clinical_history'], 'readwrite');
+    const tx = db.transaction(['users', 'appointments', 'symptoms_diary', 'clinical_history', 'recurring_subscriptions'], 'readwrite');
     const userStore = tx.objectStore('users');
     const appStore = tx.objectStore('appointments');
     const symptomStore = tx.objectStore('symptoms_diary');
     const clinicalStore = tx.objectStore('clinical_history');
+    const subStore = tx.objectStore('recurring_subscriptions');
 
     userStore.delete(cleanCpf);
 
@@ -699,6 +722,15 @@ export async function deleteUserAndAppointments(cpf: string): Promise<void> {
       const userClins = clins.filter((clin: any) => clin.patientCpf.replace(/\D/g, "") === cleanCpf);
       userClins.forEach((clin: any) => {
         clinicalStore.delete(clin.id);
+      });
+    };
+
+    const subReq = subStore.getAll();
+    subReq.onsuccess = () => {
+      const subs = subReq.result || [];
+      const userSubs = subs.filter((sub: any) => sub.donorCpf.replace(/\D/g, "") === cleanCpf);
+      userSubs.forEach((sub: any) => {
+        subStore.delete(sub.id);
       });
     };
 
@@ -907,7 +939,14 @@ export async function getDonorPoints(cpf: string): Promise<DonorPoints | null> {
     const tx = db.transaction('donor_points', 'readonly');
     const store = tx.objectStore('donor_points');
     const request = store.get(cleanCpf);
-    request.onsuccess = () => resolve(request.result || null);
+    request.onsuccess = () => {
+      const res = request.result;
+      if (res) {
+        if (res.prestige === undefined) res.prestige = 0;
+        if (!res.redeemedBadges) res.redeemedBadges = [];
+      }
+      resolve(res || null);
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -917,20 +956,86 @@ export async function addDonorPoints(cpf: string, points: number): Promise<void>
   const cleanCpf = cpf.replace(/\D/g, "");
   const currentPoints = await getDonorPoints(cleanCpf);
   
+  const prestige = currentPoints?.prestige || 0;
+  const multiplier = 1 + (prestige * 0.10);
+  
   const balance = (currentPoints?.balance || 0) + points;
-  let level: 'Bronze' | 'Prata' | 'Ouro' = 'Bronze';
-  if (balance > 5000) {
+  let level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante' = 'Bronze';
+  if (balance >= 30000 * multiplier) {
+    level = 'Diamante';
+  } else if (balance >= 15000 * multiplier) {
+    level = 'Platina';
+  } else if (balance >= 5000 * multiplier) {
     level = 'Ouro';
-  } else if (balance > 1000) {
+  } else if (balance >= 1000 * multiplier) {
     level = 'Prata';
   }
 
   const updatedPoints: DonorPoints = {
     donorCpf: cleanCpf,
     balance,
-    level
+    level,
+    prestige,
+    redeemedBadges: currentPoints?.redeemedBadges || []
   };
 
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('donor_points', 'readwrite');
+    const store = tx.objectStore('donor_points');
+    const request = store.put(updatedPoints);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function redeemDonorBadge(cpf: string, badgeId: string, badgeName: string, cost: number): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  const currentPoints = await getDonorPoints(cleanCpf);
+  if (!currentPoints) throw new Error("Pontos não encontrados.");
+  
+  const balance = currentPoints.balance - cost;
+  if (balance < 0) throw new Error("Pontos insuficientes para o resgate.");
+  
+  const newBadge = {
+    id: 'badge-' + crypto.randomUUID().slice(0, 8),
+    badgeId,
+    name: badgeName,
+    cost,
+    date: new Date().toISOString(),
+    prestigeAtAcquisition: currentPoints.prestige || 0
+  };
+  
+  const badgesList = currentPoints.redeemedBadges || [];
+  const updatedPoints: DonorPoints = {
+    ...currentPoints,
+    balance,
+    redeemedBadges: [...badgesList, newBadge]
+  };
+  
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('donor_points', 'readwrite');
+    const store = tx.objectStore('donor_points');
+    const request = store.put(updatedPoints);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function triggerDonorPrestige(cpf: string): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  const currentPoints = await getDonorPoints(cleanCpf);
+  if (!currentPoints) throw new Error("Pontos não encontrados.");
+  
+  const prestige = (currentPoints.prestige || 0) + 1;
+  const updatedPoints: DonorPoints = {
+    ...currentPoints,
+    balance: 0,
+    level: 'Bronze',
+    prestige
+  };
+  
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction('donor_points', 'readwrite');
     const store = tx.objectStore('donor_points');
@@ -962,6 +1067,73 @@ export async function getSupportMessages(): Promise<SupportMessage[]> {
       const sorted = results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       resolve(sorted);
     };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function createRecurringSubscription(sub: RecurringSubscription): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('recurring_subscriptions', 'readwrite');
+    const store = tx.objectStore('recurring_subscriptions');
+    const request = store.add(sub);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getRecurringSubscriptionsByCpf(cpf: string): Promise<RecurringSubscription[]> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise<RecurringSubscription[]>((resolve, reject) => {
+    const tx = db.transaction('recurring_subscriptions', 'readonly');
+    const store = tx.objectStore('recurring_subscriptions');
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const results = (request.result || []) as RecurringSubscription[];
+      const filtered = results.filter((sub) => sub.donorCpf.replace(/\D/g, "") === cleanCpf);
+      resolve(filtered);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function updateRecurringSubscription(id: string, data: Partial<RecurringSubscription>): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('recurring_subscriptions', 'readwrite');
+    const store = tx.objectStore('recurring_subscriptions');
+    const getReq = store.get(id);
+    
+    getReq.onsuccess = () => {
+      const existing = getReq.result;
+      if (!existing) {
+        reject(new Error('Assinatura não encontrada.'));
+        return;
+      }
+      
+      const updated = {
+        ...existing,
+        ...data,
+        updatedAt: new Date().toISOString()
+      };
+      
+      const putReq = store.put(updated);
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => reject(putReq.error);
+    };
+    
+    getReq.onerror = () => reject(getReq.error);
+  });
+}
+
+export async function deleteRecurringSubscription(id: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('recurring_subscriptions', 'readwrite');
+    const store = tx.objectStore('recurring_subscriptions');
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
 }
