@@ -377,7 +377,7 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
             amount: 150.00,
             method: 'Pix',
             status: 'Confirmada',
-            date: '2026-05-12T11:00:00.000Z',
+            date: '2025-05-12T11:00:00.000Z',
             type: 'single',
             hash: 'E2E-PIX-MOCK-1'
           },
@@ -387,7 +387,7 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
             amount: 50.00,
             method: 'Cartão de Crédito',
             status: 'Confirmada',
-            date: '2026-05-05T09:00:00.000Z',
+            date: '2025-05-05T09:00:00.000Z',
             type: 'recurring',
             hash: 'TX-CARD-MOCK-2'
           }
@@ -960,14 +960,19 @@ export async function addDonorPoints(cpf: string, points: number): Promise<void>
   const multiplier = 1 + (prestige * 0.10);
   
   const balance = (currentPoints?.balance || 0) + points;
+  const spentPoints = currentPoints?.redeemedBadges
+    ?.filter((b) => b.prestigeAtAcquisition === prestige)
+    ?.reduce((sum, b) => sum + b.cost, 0) || 0;
+  const rankPoints = balance + spentPoints;
+
   let level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante' = 'Bronze';
-  if (balance >= 30000 * multiplier) {
+  if (rankPoints >= 30000 * multiplier) {
     level = 'Diamante';
-  } else if (balance >= 15000 * multiplier) {
+  } else if (rankPoints >= 15000 * multiplier) {
     level = 'Platina';
-  } else if (balance >= 5000 * multiplier) {
+  } else if (rankPoints >= 5000 * multiplier) {
     level = 'Ouro';
-  } else if (balance >= 1000 * multiplier) {
+  } else if (rankPoints >= 1000 * multiplier) {
     level = 'Prata';
   }
 
@@ -1007,6 +1012,12 @@ export async function redeemDonorBadge(cpf: string, badgeId: string, badgeName: 
   };
   
   const badgesList = currentPoints.redeemedBadges || [];
+  const currentPrestige = currentPoints.prestige || 0;
+  const alreadyRedeemed = badgesList.some(
+    (b) => b.badgeId === badgeId && b.prestigeAtAcquisition === currentPrestige
+  );
+  if (alreadyRedeemed) throw new Error("Este selo já foi resgatado no nível de prestígio atual.");
+
   const updatedPoints: DonorPoints = {
     ...currentPoints,
     balance,
