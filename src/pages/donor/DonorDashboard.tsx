@@ -396,7 +396,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                   )}
                 </div>
               </div>
-              <Trophy className="w-8 h-8 text-zinc-200 dark:text-zinc-800" />
+              {!isEligibleForPrestige && <Trophy className="w-8 h-8 text-zinc-200 dark:text-zinc-800" />}
             </div>
 
             <div className="space-y-2">
