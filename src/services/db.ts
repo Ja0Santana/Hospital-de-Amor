@@ -360,7 +360,9 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
         donorPointsStore.put({
           donorCpf: '98765432100',
           balance: 3450,
-          level: 'Prata'
+          level: 'Prata',
+          prestige: 0,
+          redeemedBadges: []
         });
       }
     };
@@ -937,7 +939,14 @@ export async function getDonorPoints(cpf: string): Promise<DonorPoints | null> {
     const tx = db.transaction('donor_points', 'readonly');
     const store = tx.objectStore('donor_points');
     const request = store.get(cleanCpf);
-    request.onsuccess = () => resolve(request.result || null);
+    request.onsuccess = () => {
+      const res = request.result;
+      if (res) {
+        if (res.prestige === undefined) res.prestige = 0;
+        if (!res.redeemedBadges) res.redeemedBadges = [];
+      }
+      resolve(res || null);
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -947,24 +956,86 @@ export async function addDonorPoints(cpf: string, points: number): Promise<void>
   const cleanCpf = cpf.replace(/\D/g, "");
   const currentPoints = await getDonorPoints(cleanCpf);
   
+  const prestige = currentPoints?.prestige || 0;
+  const multiplier = 1 + (prestige * 0.10);
+  
   const balance = (currentPoints?.balance || 0) + points;
   let level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante' = 'Bronze';
-  if (balance > 30000) {
+  if (balance >= 30000 * multiplier) {
     level = 'Diamante';
-  } else if (balance > 15000) {
+  } else if (balance >= 15000 * multiplier) {
     level = 'Platina';
-  } else if (balance > 5000) {
+  } else if (balance >= 5000 * multiplier) {
     level = 'Ouro';
-  } else if (balance > 1000) {
+  } else if (balance >= 1000 * multiplier) {
     level = 'Prata';
   }
 
   const updatedPoints: DonorPoints = {
     donorCpf: cleanCpf,
     balance,
-    level
+    level,
+    prestige,
+    redeemedBadges: currentPoints?.redeemedBadges || []
   };
 
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('donor_points', 'readwrite');
+    const store = tx.objectStore('donor_points');
+    const request = store.put(updatedPoints);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function redeemDonorBadge(cpf: string, badgeId: string, badgeName: string, cost: number): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  const currentPoints = await getDonorPoints(cleanCpf);
+  if (!currentPoints) throw new Error("Pontos não encontrados.");
+  
+  const balance = currentPoints.balance - cost;
+  if (balance < 0) throw new Error("Pontos insuficientes para o resgate.");
+  
+  const newBadge = {
+    id: 'badge-' + crypto.randomUUID().slice(0, 8),
+    badgeId,
+    name: badgeName,
+    cost,
+    date: new Date().toISOString(),
+    prestigeAtAcquisition: currentPoints.prestige || 0
+  };
+  
+  const badgesList = currentPoints.redeemedBadges || [];
+  const updatedPoints: DonorPoints = {
+    ...currentPoints,
+    balance,
+    redeemedBadges: [...badgesList, newBadge]
+  };
+  
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('donor_points', 'readwrite');
+    const store = tx.objectStore('donor_points');
+    const request = store.put(updatedPoints);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function triggerDonorPrestige(cpf: string): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  const currentPoints = await getDonorPoints(cleanCpf);
+  if (!currentPoints) throw new Error("Pontos não encontrados.");
+  
+  const prestige = (currentPoints.prestige || 0) + 1;
+  const updatedPoints: DonorPoints = {
+    ...currentPoints,
+    balance: 0,
+    level: 'Bronze',
+    prestige
+  };
+  
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction('donor_points', 'readwrite');
     const store = tx.objectStore('donor_points');

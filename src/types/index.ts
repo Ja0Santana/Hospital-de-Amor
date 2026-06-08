@@ -123,10 +123,21 @@ export interface RecurringSubscription {
   updatedAt?: string;
 }
 
+export interface RedeemedBadge {
+  id: string;
+  badgeId: string;
+  name: string;
+  cost: number;
+  date: string;
+  prestigeAtAcquisition: number;
+}
+
 export interface DonorPoints {
   donorCpf: string;
   balance: number;
   level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante';
+  prestige?: number;
+  redeemedBadges?: RedeemedBadge[];
 }
 
 export interface SupportMessage {
