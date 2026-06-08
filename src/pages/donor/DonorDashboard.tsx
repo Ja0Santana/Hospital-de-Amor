@@ -926,16 +926,16 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <div className="flex justify-between items-start border-b border-zinc-200 pb-4">
                 <div className="space-y-1">
                   <h3 className="font-black text-sm uppercase text-primary">Hospital de Amor</h3>
-                  <p className="text-[10px] text-zinc-550 dark:text-zinc-400">Fundação Pio XII — CNPJ: 60.102.102/0001-10</p>
-                  <p className="text-[9px] text-zinc-450 dark:text-zinc-505">Rua Antenor Duarte Villela, 1331 — Barretos/SP</p>
+                  <p className="text-[0.625rem] text-zinc-550 dark:text-zinc-400">Fundação Pio XII — CNPJ: 60.102.102/0001-10</p>
+                  <p className="text-[0.5625rem] text-zinc-450 dark:text-zinc-505">Rua Antenor Duarte Villela, 1331 — Barretos/SP</p>
                 </div>
-                <div className="text-right text-[10px] text-zinc-400">
+                <div className="text-right text-[0.625rem] text-zinc-400">
                   <span className="font-bold block">Documento de Comprovação</span>
                   <span>Emitido em: {new Date().toLocaleDateString('pt-BR')}</span>
                 </div>
               </div>
 
-              <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-150 dark:border-zinc-800 p-4 rounded-xl space-y-2 text-[10px]">
+              <div className="bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-150 dark:border-zinc-800 p-4 rounded-xl space-y-2 text-[0.625rem]">
                 <h4 className="font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Identificação do Doador</h4>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -952,11 +952,11 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               </div>
 
               <div className="space-y-2">
-                <h4 className="text-[10px] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Doações Recebidas em {selectedTaxYear}</h4>
+                <h4 className="text-[0.625rem] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Doações Recebidas em {selectedTaxYear}</h4>
                 <div className="border border-zinc-150 dark:border-zinc-800 rounded-xl overflow-hidden">
-                  <table className="w-full text-[10px] text-left">
+                  <table className="w-full text-[0.625rem] text-left">
                     <thead>
-                      <tr className="bg-zinc-50 dark:bg-zinc-900/40 text-zinc-500 border-b border-zinc-150 dark:border-zinc-800 font-bold uppercase tracking-wider text-[9px]">
+                      <tr className="bg-zinc-50 dark:bg-zinc-900/40 text-zinc-500 border-b border-zinc-150 dark:border-zinc-800 font-bold uppercase tracking-wider text-[0.5625rem]">
                         <th className="py-2 px-3">Data</th>
                         <th className="py-2 px-3">Método</th>
                         <th className="py-2 px-3">ID da Transação</th>
@@ -985,7 +985,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               </div>
 
               <div className="flex justify-between items-center pt-2 border-t border-zinc-200">
-                <span className="text-[11px] font-black uppercase text-zinc-500">Valor Total Consolidado em {selectedTaxYear}:</span>
+                <span className="text-[0.6875rem] font-black uppercase text-zinc-500">Valor Total Consolidado em {selectedTaxYear}:</span>
                 <span className="text-sm font-black text-brand-pink font-mono">
                   R$ {donations
                     .filter((d) => d.status === 'Confirmada' && new Date(d.date).getFullYear().toString() === selectedTaxYear)
@@ -994,7 +994,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                 </span>
               </div>
 
-              <div className="text-[9px] text-zinc-450 dark:text-zinc-400 leading-relaxed space-y-2 bg-zinc-50/50 dark:bg-zinc-900/30 p-3 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-850">
+              <div className="text-[0.5625rem] text-zinc-450 dark:text-zinc-400 leading-relaxed space-y-2 bg-zinc-50/50 dark:bg-zinc-900/30 p-3 rounded-lg border border-dashed border-zinc-200 dark:border-zinc-850">
                 <p>
                   Declaramos para os devidos fins de comprovação e dedução fiscal que a Fundação Pio XII (Hospital de Amor) é uma entidade filantrópica qualificada nos termos da legislação federal brasileira e que recebeu os valores acima identificados a título de doação espontânea, sem que tenha ocorrido qualquer contraprestação direta ou indireta de bens ou serviços.
                 </p>
@@ -1015,7 +1015,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                   <div>
                     <span className="font-bold block">Chave de Autenticação ICP-Brasil:</span>
                     <span className="font-mono text-zinc-500 break-all select-all block">HA{selectedTaxYear}-DF9A-87C2-E23B-98F1-44A9B8CE3A1D</span>
-                    <span className="text-[8px] text-zinc-400 block mt-0.5">Assinatura digitalizada e validada nos termos da Medida Provisória nº 2.200-2/2001.</span>
+                    <span className="text-[0.5rem] text-zinc-400 block mt-0.5">Assinatura digitalizada e validada nos termos da Medida Provisória nº 2.200-2/2001.</span>
                   </div>
                 </div>
               </div>

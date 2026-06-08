@@ -4,7 +4,7 @@ import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { getDonorPoints, redeemDonorBadge, triggerDonorPrestige } from '../../services/db';
 import type { DonorPoints } from '../../types';
-import { Trophy, Award, Star, Sparkles, X } from 'lucide-react';
+import { Award, Star, Sparkles, X } from 'lucide-react';
 
 const BADGE_STYLES: Record<string, { color: string; bg: string }> = {
   apoiador: { color: 'text-amber-700 dark:text-amber-505', bg: 'from-amber-600/20 to-amber-700/10 border-amber-600/30' },
@@ -159,89 +159,36 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
         <p className="text-zinc-500 mt-1">Troque seus pontos acumulados por selos de honra institucionais.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
-        <div className="md:col-span-6 flex flex-col">
-          <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex-1 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Nível do Doador</h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <Award className="w-6 h-6 text-secondary" />
-                  <span className="text-2xl font-black text-primary font-sans">
-                    {pointsInfo.level}
-                  </span>
-                  {prestige > 0 && (
-                    <span className="flex items-center gap-1 bg-brand-pink/10 border border-brand-pink/20 text-brand-pink text-[9px] font-black px-2 py-0.5 rounded-full uppercase ml-1 animate-pulse">
-                      <Star className="w-2.5 h-2.5 fill-brand-pink text-brand-pink shrink-0" />
-                      Prestígio {prestige}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <Trophy className="w-8 h-8 text-zinc-200 dark:text-zinc-800" />
-            </div>
-
-            <div className="space-y-2">
-              <div className="w-full bg-zinc-100 dark:bg-zinc-800 h-2.5 rounded-full overflow-hidden">
-                <div 
-                  className="bg-secondary h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${Math.min(100, Math.max(0, pointsInfo.progress))}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-zinc-400 font-semibold">{pointsInfo.label}</p>
-            </div>
-
-            <div className="flex justify-between items-center text-[10px] text-zinc-400 font-bold border-t border-zinc-100 dark:border-zinc-800 pt-3">
-              {['Bronze', 'Prata', 'Ouro', 'Platina', 'Diamante'].map((lvl) => (
-                <span
-                  key={lvl}
-                  className={
-                    pointsInfo.level === lvl
-                      ? 'text-brand-pink font-black text-xs scale-105 transition-all bg-brand-pink/5 px-2.5 py-0.5 rounded-full border border-brand-pink/20'
-                      : 'text-zinc-450 dark:text-zinc-500 font-semibold'
-                  }
-                >
-                  {lvl}
-                </span>
-              ))}
-            </div>
-
-            {isEligibleForPrestige && (
-              <div className="absolute top-2 right-2 animate-bounce">
-                <Button 
-                  onClick={() => setIsPrestigeModalOpen(true)}
-                  className="bg-gradient-to-r from-brand-pink to-primary hover:from-brand-pink/95 hover:to-primary/95 text-white font-black text-[9px] h-7 px-2.5 rounded-xl shadow-md uppercase tracking-wider gap-1 flex items-center"
-                >
-                  <Sparkles className="w-3 h-3 fill-white" />
-                  Ativar Prestígio
-                </Button>
-              </div>
-            )}
-          </Card>
-        </div>
-
-        <div className="md:col-span-6 flex flex-col">
-          <Card className="p-6 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex-1 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md transition-shadow">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Saldo de Pontos Disponíveis</h3>
-              <p className="text-4xl font-black text-brand-pink mt-2 font-mono">
-                {(points?.balance || 0).toLocaleString('pt-BR')} <span className="text-sm font-bold">pts</span>
-              </p>
-            </div>
-
-            <p className="text-[10px] text-zinc-400 leading-normal">
-              Acumule 10 pontos a cada R$ 1,00 doado e troque por selos de honra institucionais. Os pontos nunca expiram.
-            </p>
-
-            <div className="bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-800 p-3 rounded-xl">
-              <span className="text-[10px] font-bold text-zinc-400 block uppercase">Multiplicador de Custo</span>
-              <span className="text-xs font-extrabold text-zinc-800 dark:text-zinc-200 mt-1 block">
-                {prestige > 0 ? `+${(prestige * 10)}% devido ao Prestígio ${prestige}` : 'Sem acréscimos (1.0x)'}
+      {createPortal(
+        <div
+          onClick={isEligibleForPrestige ? () => setIsPrestigeModalOpen(true) : undefined}
+          className={`fixed top-4 left-1/2 -translate-x-1/2 z-[9990] flex items-center gap-2 bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 shadow-lg backdrop-blur-md px-4 py-2 rounded-full text-xs font-black animate-in slide-in-from-top duration-300 select-none ${isEligibleForPrestige ? 'cursor-pointer hover:shadow-xl hover:border-brand-pink/40 transition-all' : 'pointer-events-none'}`}
+        >
+          <Award className="w-3.5 h-3.5 text-secondary shrink-0" />
+          <span className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-bold">{pointsInfo.level}</span>
+          {prestige > 0 && (
+            <span className="flex items-center gap-0.5 text-brand-pink">
+              <Star className="w-2.5 h-2.5 fill-brand-pink shrink-0" />
+              P{prestige}
+            </span>
+          )}
+          <span className="w-px h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+          <span className="text-brand-pink font-mono">{(points?.balance || 0).toLocaleString('pt-BR')}</span>
+          <span className="text-zinc-400 font-semibold">pts</span>
+          {isEligibleForPrestige && (
+            <>
+              <span className="w-px h-3 bg-zinc-200 dark:bg-zinc-700 mx-0.5" />
+              <span className="flex items-center gap-1 text-brand-pink animate-pulse text-[10px] uppercase tracking-wider font-black">
+                <Sparkles className="w-3 h-3 fill-brand-pink shrink-0" />
+                Ativar Prestígio
               </span>
-            </div>
-          </Card>
-        </div>
-      </div>
+            </>
+          )}
+        </div>,
+        document.body
+      )}
+
+
 
       <Card className="border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-3xl overflow-hidden shadow-sm flex flex-col">
         <div className="flex border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40 px-6">
