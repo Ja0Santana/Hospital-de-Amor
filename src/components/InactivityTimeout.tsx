@@ -63,6 +63,20 @@ export function InactivityTimeout({ onLogout, children }: InactivityTimeoutProps
     return () => clearInterval(interval);
   }, [showWarning]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleKeepSessionActive();
+      }
+    };
+    if (showWarning) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showWarning]);
+
   const handleTimeoutLogout = () => {
     setShowWarning(false);
     onLogout();
@@ -77,8 +91,9 @@ export function InactivityTimeout({ onLogout, children }: InactivityTimeoutProps
       {children}
 
       {showWarning && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
+        <div onClick={handleKeepSessionActive} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
           <div
+            onClick={(e) => e.stopPropagation()}
             className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5 animate-in zoom-in-95 duration-200"
             role="dialog"
             aria-modal="true"

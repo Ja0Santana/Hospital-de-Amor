@@ -82,6 +82,33 @@ function App() {
     };
   }, []);
 
+  const getRouteFromHash = () => {
+    const hash = window.location.hash;
+    if (!hash || hash === '#/' || hash === '#' || hash === '#/login') {
+      return { role: userRole, page: 'dashboard', protocol: '' };
+    }
+    const parts = hash.slice(2).split('/');
+    const userType = parts[0] === 'doador' ? 'donor' : 'patient';
+    const page = parts[1] || 'dashboard';
+    const protocol = parts[2] || '';
+    const routeMap: Record<string, string> = {
+      'dashboard': 'dashboard',
+      'diario-sintomas': 'symptoms',
+      'historico-clinico': 'clinical-history',
+      'novo-agendamento': 'new-request',
+      'acompanhar-agendamento': 'status-check',
+      'perfil': 'profile',
+      'central-ajuda': 'help-center',
+      'nossas-unidades': 'units',
+      'simulador-emails': 'email-simulator'
+    };
+    return {
+      role: userType as 'patient' | 'donor',
+      page: routeMap[page] || 'dashboard',
+      protocol: protocol
+    };
+  };
+
   const handleLoginSuccess = async (cpf: string, loggedRole: 'patient' | 'donor') => {
     setPatientCpf(cpf);
     try {
@@ -106,7 +133,16 @@ function App() {
       setUserRole(loggedRole);
     }
     setIsAuthenticated(true);
-    setCurrentPage('dashboard');
+    const { role, page, protocol } = getRouteFromHash();
+    if (role === loggedRole && page && page !== 'login') {
+      setCurrentPage(page);
+      setSelectedProtocol(protocol || '');
+    } else {
+      const rolePath = loggedRole === 'donor' ? 'doador' : 'paciente';
+      window.location.hash = `#/${rolePath}/dashboard`;
+      setCurrentPage('dashboard');
+      setSelectedProtocol('');
+    }
   };
 
   const handleLogout = () => {
@@ -119,6 +155,7 @@ function App() {
     setSelectedProtocol('');
     setUserRole('patient');
     setCurrentPage('dashboard');
+    window.location.hash = '#/login';
   };
 
   const PAGE_TITLES: Record<string, string> = {
@@ -136,16 +173,60 @@ function App() {
     document.title = PAGE_TITLES[currentPage] ?? 'Hospital de Amor';
   }, [currentPage]);
 
+  useEffect(() => {
+    const handleHashChange = () => {
+      if (!isAuthenticated) {
+        if (window.location.hash !== '#/login') {
+          window.location.hash = '#/login';
+        }
+        return;
+      }
+      const { role, page, protocol } = getRouteFromHash();
+      setUserRole(role as 'patient' | 'donor');
+      setCurrentPage(page);
+      setSelectedProtocol(protocol || '');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    if (isAuthenticated) {
+      handleHashChange();
+    } else {
+      if (window.location.hash !== '#/login' && window.location.hash !== '') {
+        // preserve
+      } else {
+        window.location.hash = '#/login';
+      }
+    }
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, [isAuthenticated, userRole]);
+
   const navigateTo = (path: string) => {
     setIsSidebarOpen(false);
+    let rolePath = userRole === 'donor' ? 'doador' : 'paciente';
+    let targetPage = path;
+    let protocol = '';
     if (path.startsWith('status-')) {
-      const protocol = path.replace('status-', '');
-      setSelectedProtocol(protocol);
-      setCurrentPage('status-check');
+      protocol = path.replace('status-', '');
+      targetPage = 'acompanhar-agendamento';
     } else {
-      setSelectedProtocol('');
-      setCurrentPage(path);
+      const reverseRouteMap: Record<string, string> = {
+        'dashboard': 'dashboard',
+        'symptoms': 'diario-sintomas',
+        'clinical-history': 'historico-clinico',
+        'new-request': 'novo-agendamento',
+        'status-check': 'acompanhar-agendamento',
+        'profile': 'perfil',
+        'help-center': 'central-ajuda',
+        'units': 'nossas-unidades',
+        'email-simulator': 'simulador-emails'
+      };
+      targetPage = reverseRouteMap[path] || path;
     }
+    const newHash = protocol 
+      ? `#/${rolePath}/${targetPage}/${protocol}` 
+      : `#/${rolePath}/${targetPage}`;
+    window.location.hash = newHash;
   };
 
   if (!isAuthenticated) {
@@ -448,7 +529,6 @@ function App() {
                 <DonorDashboard
                   donorCpf={patientCpf}
                   donorName={patientName}
-                  onLogout={handleLogout}
                   updateTrigger={donationsTrigger}
                 />
               ) : (
