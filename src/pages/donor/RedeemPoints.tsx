@@ -162,7 +162,7 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
       {createPortal(
         <div
           onClick={isEligibleForPrestige ? () => setIsPrestigeModalOpen(true) : undefined}
-          className={`fixed top-4 left-1/2 -translate-x-1/2 z-[9990] flex items-center gap-2 bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 shadow-lg backdrop-blur-md px-4 py-2 rounded-full text-xs font-black animate-in slide-in-from-top duration-300 select-none ${isEligibleForPrestige ? 'cursor-pointer hover:shadow-xl hover:border-brand-pink/40 transition-all' : 'pointer-events-none'}`}
+          className={`fixed bottom-6 right-6 z-[9990] flex items-center gap-2 bg-white/90 dark:bg-zinc-900/90 border border-zinc-200 dark:border-zinc-800 shadow-lg backdrop-blur-md px-4 py-2 rounded-full text-xs font-black animate-in slide-in-from-bottom duration-300 select-none ${isEligibleForPrestige ? 'cursor-pointer hover:shadow-xl hover:border-brand-pink/40 transition-all' : 'pointer-events-none'}`}
         >
           <Award className="w-3.5 h-3.5 text-secondary shrink-0" />
           <span className="text-zinc-500 dark:text-zinc-400 uppercase tracking-wider font-bold">{pointsInfo.level}</span>
