@@ -7,7 +7,7 @@ import Login from './pages/Login';
 import SymptomsDiary from './pages/patient/SymptomsDiary';
 import SymptomFloatingWidget from './components/SymptomFloatingWidget';
 import { Button } from './components/ui/button';
-import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin, Sun, Moon, Eye, Mail } from 'lucide-react';
+import { LayoutGrid, PlusCircle, Calendar, Heart, Settings, HelpCircle, LogOut, Menu, X, Activity, FileText, MapPin, Sun, Moon, Eye, Mail, Award } from 'lucide-react';
 import { getUserByCpf } from './services/db';
 import logoHospitalDeAmor from './assets/logoHospitalDeAmor.png';
 import { InactivityTimeout } from './components/InactivityTimeout';
@@ -19,6 +19,7 @@ import DigitalCard from './components/DigitalCard';
 import EmailSimulator from './pages/patient/EmailSimulator';
 import DonorDashboard from './pages/donor/DonorDashboard';
 import DonationModal from './components/donor/DonationModal';
+import RedeemPoints from './pages/donor/RedeemPoints';
 
 
 function App() {
@@ -100,7 +101,8 @@ function App() {
       'perfil': 'profile',
       'central-ajuda': 'help-center',
       'nossas-unidades': 'units',
-      'simulador-emails': 'email-simulator'
+      'simulador-emails': 'email-simulator',
+      'fidelidade': 'fidelidade'
     };
     return {
       role: userType as 'patient' | 'donor',
@@ -181,6 +183,12 @@ function App() {
         }
         return;
       }
+      const hash = window.location.hash;
+      if (!hash || hash === '#/' || hash === '#' || hash === '#/login') {
+        const rolePath = userRole === 'donor' ? 'doador' : 'paciente';
+        window.location.hash = `#/${rolePath}/dashboard`;
+        return;
+      }
       const { role, page, protocol } = getRouteFromHash();
       setUserRole(role as 'patient' | 'donor');
       setCurrentPage(page);
@@ -219,7 +227,8 @@ function App() {
         'profile': 'perfil',
         'help-center': 'central-ajuda',
         'units': 'nossas-unidades',
-        'email-simulator': 'simulador-emails'
+        'email-simulator': 'simulador-emails',
+        'fidelidade': 'fidelidade'
       };
       targetPage = reverseRouteMap[path] || path;
     }
@@ -283,6 +292,14 @@ function App() {
                   >
                     <LayoutGrid className="w-4 h-4" />
                     Início
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('fidelidade')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'fidelidade' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <Award className="w-4 h-4" />
+                    Fidelidade
                   </Button>
                   <Button
                     variant="ghost"
@@ -541,6 +558,13 @@ function App() {
               )
             )}
             {currentPage === 'symptoms' && userRole === 'patient' && <SymptomsDiary patientCpf={patientCpf} />}
+            {currentPage === 'fidelidade' && userRole === 'donor' && (
+              <RedeemPoints 
+                donorCpf={patientCpf} 
+                updateTrigger={donationsTrigger}
+                onPointsUpdated={() => setDonationsTrigger((prev) => prev + 1)}
+              />
+            )}
             {currentPage === 'clinical-history' && userRole === 'patient' && <ClinicalHistory patientCpf={patientCpf} onNavigate={navigateTo} />}
             {currentPage === 'new-request' && userRole === 'patient' && <NewRequest onNavigate={navigateTo} patientCpf={patientCpf} />}
             {currentPage === 'status-check' && userRole === 'patient' && (
