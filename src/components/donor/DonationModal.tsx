@@ -296,7 +296,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
           <div className="p-6 overflow-y-auto space-y-6 text-left flex-1">
             <div className="space-y-2.5">
               <Label className="text-xs font-bold text-zinc-650 dark:text-zinc-350">Selecione o valor da doação</Label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-2">
                 {PRESET_VALUES.map((val) => (
                   <Button
                     key={val}
@@ -315,15 +315,17 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                     R$ {val}
                   </Button>
                 ))}
-              </div>
-              <div className="pt-1">
                 <Button
                   type="button"
-                  variant="link"
-                  onClick={() => setIsCustom(!isCustom)}
-                  className="text-primary text-xs font-bold p-0 h-auto"
+                  variant={isCustom ? 'default' : 'outline'}
+                  onClick={() => setIsCustom(true)}
+                  className={`h-10 text-xs font-bold rounded-xl transition-all ${
+                    isCustom
+                      ? 'bg-brand-pink hover:bg-brand-pink/95 text-white shadow-md shadow-brand-pink/10'
+                      : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'
+                  }`}
                 >
-                  {isCustom ? '← Escolher valores pré-definidos' : 'Ou doar outro valor customizado...'}
+                  Outro
                 </Button>
               </div>
 
@@ -332,7 +334,7 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                   <span className="absolute left-3 top-2.5 text-zinc-400 font-bold text-xs">R$</span>
                   <Input
                     type="number"
-                    placeholder="Digite o valor"
+                    placeholder="Digite o valor personalizado"
                     value={customAmount}
                     onChange={(e) => setCustomAmount(e.target.value)}
                     className="pl-8 h-10 border-zinc-200 focus-visible:ring-brand-pink rounded-xl text-xs"
