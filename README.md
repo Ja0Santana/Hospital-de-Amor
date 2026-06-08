@@ -64,6 +64,8 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **RF94 – Simulador de Doações Multimeios (Must Have)**: Modal interativo com suporte a Pix (com cópia de chave e simulação de QR Code), Boleto (com geração de linha digitável simulada e botão de copiar) e Cartão de Crédito (com design animado responsivo e reconhecimento visual de bandeiras).
 *   **RF95 – Mural de Mensagens de Apoio (Should Have)**: Sistema integrado para envio de mensagens motivacionais por doadores que são exibidas dinamicamente em carrossel na Dashboard dos Pacientes.
 *   **RF96 – Gestão de Foto de Perfil (Should Have)**: Permite que o usuário faça upload de uma foto de perfil pessoal (JPG, PNG ou WEBP de até 2MB). A imagem é processada e persistida em Base64 no IndexedDB local e sincronizada automaticamente em tempo real com o avatar da Sidebar.
+*   **RF97 – Destinação de Recursos (Must Have)**: Permite direcionar as doações a campanhas específicas (Geral, Ala Infantil, Prevenção Móvel, Pesquisa Científica) no modal de pagamentos, persistindo o projeto escolhido e exibindo-o na tabela do histórico de contribuições.
+*   **RF100 – Gestão de Assinaturas Recorrentes (Must Have)**: Cria a seção de assinaturas recorrentes locais na dashboard, exibindo status (Ativa, Pausada, Cancelada), valor mensal, projeto de destino e cartão mascarado. Permite pausar/reativar, cancelar (com diálogo de confirmação) e redefinir o valor mensal da assinatura com validação de limite mínimo de R$ 10,00.
 
 
 
@@ -80,6 +82,7 @@ Este repositório contém o front-end do MVP (Minimum Viable Product) do **Porta
 *   **RNF84 – Ajuda Contextual com Tooltips (Must Have)**: Dicas flutuantes acessíveis (ativadas por hover ou foco do teclado/touch) nos principais campos de formulário de agendamento, orientando o usuário e conectando com o link de "Saiba mais" para a Central de Ajuda.
 *   **RNF86 – Acessibilidade de Fontes (Must Have)**: Opção de acessibilidade visual na qual o usuário pode aumentar ou diminuir a escala de tamanho das fontes de texto do portal (Menor, Padrão, Médio, Grande, G+), com persistência de preferências no `localStorage` e aumento de 6.25% (17px) no tamanho base padrão para melhor legibilidade.
 *   **RNF87 – Bloqueio de Rolagem do Fundo do Site (Must Have)**: Trava o scroll vertical da página principal quando qualquer modal ou overlay de janela estiver aberto (como carteira digital ou avisos), liberando-o de forma reativa após o fechamento.
+*   **RNF89 – Mascaramento de Cartão de Crédito (Must Have)**: Mascara proativamente no cliente os dados sensíveis do cartão inserido (salvando apenas o número final no formato `•••• •••• •••• 1234` na store `recurring_subscriptions`), expurgando do IndexedDB local dados como CVV, validade completa e número inteiro para total conformidade de privacidade financeira (PCI/LGPD).
 
 ---
 

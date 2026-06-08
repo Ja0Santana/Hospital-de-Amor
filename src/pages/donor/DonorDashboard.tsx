@@ -161,12 +161,19 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <p className="text-[10px] text-zinc-400 font-semibold">{pointsInfo.label}</p>
             </div>
 
-            <div className="flex justify-between text-[10px] text-zinc-400 font-bold border-t border-zinc-100 dark:border-zinc-800 pt-3">
-              <span>Bronze</span>
-              <span>Prata</span>
-              <span>Ouro</span>
-              <span>Platina</span>
-              <span>Diamante</span>
+            <div className="flex justify-between items-center text-[10px] text-zinc-400 font-bold border-t border-zinc-100 dark:border-zinc-800 pt-3">
+              {['Bronze', 'Prata', 'Ouro', 'Platina', 'Diamante'].map((lvl) => (
+                <span
+                  key={lvl}
+                  className={
+                    pointsInfo.level === lvl
+                      ? 'text-brand-pink font-black text-xs scale-105 transition-all bg-brand-pink/5 px-2.5 py-0.5 rounded-full border border-brand-pink/20'
+                      : 'text-zinc-450 dark:text-zinc-500 font-semibold'
+                  }
+                >
+                  {lvl}
+                </span>
+              ))}
             </div>
           </Card>
         </div>
