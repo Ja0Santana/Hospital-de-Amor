@@ -5,6 +5,14 @@ import { getDonorPoints, redeemDonorBadge, triggerDonorPrestige } from '../../se
 import type { DonorPoints } from '../../types';
 import { Trophy, Award, Star, Sparkles } from 'lucide-react';
 
+const BADGE_STYLES: Record<string, { color: string; bg: string }> = {
+  apoiador: { color: 'text-amber-700 dark:text-amber-505', bg: 'from-amber-600/20 to-amber-700/10 border-amber-600/30' },
+  anjo: { color: 'text-zinc-500 dark:text-zinc-400', bg: 'from-zinc-400/20 to-zinc-500/10 border-zinc-400/30' },
+  defensor: { color: 'text-yellow-600 dark:text-yellow-500', bg: 'from-yellow-500/20 to-yellow-600/10 border-yellow-500/30' },
+  guardiao: { color: 'text-cyan-650 dark:text-cyan-500', bg: 'from-cyan-500/20 to-cyan-600/10 border-cyan-500/30' },
+  pilar: { color: 'text-brand-pink', bg: 'from-pink-500/20 to-indigo-650/20 border-pink-500/30' }
+};
+
 interface RedeemPointsProps {
   donorCpf: string;
   updateTrigger?: number;
@@ -289,43 +297,46 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
               })}
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div>
               {!points?.redeemedBadges || points.redeemedBadges.length === 0 ? (
                 <div className="text-center py-12 text-zinc-400 text-xs">Você ainda não resgatou nenhum selo. Apoie e acumule pontos!</div>
               ) : (
-                <table className="w-full text-xs text-left">
-                  <thead>
-                    <tr className="text-zinc-400 border-b border-zinc-150 dark:border-zinc-850 font-bold uppercase tracking-wider text-[0.5625rem] pb-2">
-                      <th className="py-2">Selo</th>
-                      <th className="py-2 text-center">Prestígio</th>
-                      <th className="py-2 text-center">Pontos Pagos</th>
-                      <th className="py-2 text-right">Data de Resgate</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-50 dark:divide-zinc-900">
-                    {points.redeemedBadges.map((b, idx) => (
-                      <tr key={idx} className="text-zinc-700 dark:text-zinc-300">
-                        <td className="py-3 font-extrabold flex items-center gap-2">
-                          <Award className="w-4 h-4 text-brand-pink" />
-                          {b.name}
-                        </td>
-                        <td className="py-3 text-center font-bold">
-                          {b.prestigeAtAcquisition > 0 ? (
-                            <span className="bg-brand-pink/5 text-brand-pink text-[0.5625rem] px-2 py-0.5 rounded-full border border-brand-pink/20 font-black uppercase">
-                              Prestígio {b.prestigeAtAcquisition}
-                            </span>
-                          ) : (
-                            <span className="text-zinc-400">Regular</span>
-                          )}
-                        </td>
-                        <td className="py-3 text-center font-mono font-bold text-zinc-900 dark:text-zinc-50">{b.cost} pts</td>
-                        <td className="py-3 text-right font-mono text-zinc-450">
-                          {new Date(b.date).toLocaleDateString('pt-BR')} às {new Date(b.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {points.redeemedBadges.map((b, idx) => {
+                    const style = BADGE_STYLES[b.badgeId] || { color: 'text-zinc-500', bg: 'from-zinc-450/20 to-zinc-500/10 border-zinc-400/30' };
+                    return (
+                      <Card key={idx} className="p-4 border border-zinc-150 dark:border-zinc-800 bg-zinc-50/25 dark:bg-zinc-900/5 rounded-2xl flex flex-col justify-between space-y-4 shadow-xs">
+                        <div className="flex gap-3 items-start">
+                          <div className={`p-3 bg-gradient-to-br ${style.bg} rounded-2xl border shrink-0 ${style.color}`}>
+                            <Award className="w-6 h-6" />
+                          </div>
+                          <div className="space-y-1 min-w-0">
+                            <h4 className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50 truncate leading-none">{b.name}</h4>
+                            <p className="text-[0.625rem] text-zinc-400 leading-normal mt-1">
+                              Resgatado em: {new Date(b.date).toLocaleDateString('pt-BR')} às {new Date(b.date).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            {b.prestigeAtAcquisition > 0 ? (
+                              <span className="inline-block bg-brand-pink/5 text-brand-pink text-[0.5625rem] px-2 py-0.5 rounded-full border border-brand-pink/20 font-black uppercase mt-1">
+                                Prestígio {b.prestigeAtAcquisition}
+                              </span>
+                            ) : (
+                              <span className="inline-block text-[0.5625rem] font-bold uppercase tracking-wider text-zinc-400 mt-1">
+                                Regular
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-850">
+                          <div>
+                            <span className="text-[0.5625rem] text-zinc-400 block uppercase font-bold tracking-wider">Pontos Pagos</span>
+                            <span className="text-xs font-black text-brand-pink font-mono">{b.cost} pts</span>
+                          </div>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}
