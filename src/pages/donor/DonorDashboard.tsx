@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, redeemDonorBadge, triggerDonorPrestige } from '../../services/db';
@@ -630,8 +631,8 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
         </div>
       </div>
 
-      {isPrestigeModalOpen && (
-        <div onClick={() => setIsPrestigeModalOpen(false)} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      {isPrestigeModalOpen && createPortal(
+        <div onClick={() => setIsPrestigeModalOpen(false)} className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
           <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-md border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl p-6 space-y-5 text-left">
             <div className="flex gap-4 items-start animate-in zoom-in-95 duration-200">
               <div className="p-3 bg-brand-pink/10 text-brand-pink rounded-full shrink-0 border border-brand-pink/20 animate-pulse">
@@ -644,7 +645,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                   Parabéns por alcançar o nível Diamante! Ao ativar o prestígio:
                 </p>
-                <ul className="list-disc pl-4 text-[11px] text-zinc-505 dark:text-zinc-400 space-y-1 leading-normal">
+                <ul className="list-disc pl-4 text-[0.6875rem] text-zinc-505 dark:text-zinc-400 space-y-1 leading-normal">
                   <li>Seu saldo de pontos atual será redefinido para <strong>0</strong>.</li>
                   <li>Seu nível voltará para o rank <strong>Bronze</strong>, permitindo que você resgate novamente os selos do catálogo.</li>
                   <li>Você ganhará <strong>1 Ponto de Prestígio</strong> permanente.</li>
@@ -661,16 +662,17 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               </Button>
             </div>
           </Card>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {isCatalogOpen && (
-        <div onClick={() => setIsCatalogOpen(false)} className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      {isCatalogOpen && createPortal(
+        <div onClick={() => setIsCatalogOpen(false)} className="fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4 backdrop-blur-sm">
           <Card onClick={(e) => e.stopPropagation()} className="w-full max-w-3xl border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/40">
               <div>
                 <h2 className="text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Catálogo & Conquistas</h2>
-                <p className="text-[10px] text-zinc-400">Resgate selos institucionais usando seus pontos de fidelidade</p>
+                <p className="text-[0.625rem] text-zinc-400">Resgate selos institucionais usando seus pontos de fidelidade</p>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setIsCatalogOpen(false)} className="h-8 w-8 rounded-xl hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50">
                 <X className="w-4 h-4 text-zinc-500" />
@@ -715,24 +717,24 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                             <div className="flex items-center gap-1.5">
                               <h4 className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50 truncate leading-none">{badge.name}</h4>
                             </div>
-                            <p className="text-[10px] text-zinc-400 leading-normal">{badge.desc}</p>
-                            <span className="inline-block text-[8px] font-bold uppercase tracking-wider text-zinc-450 mt-1">Requisito: {badge.levelReq}</span>
+                            <p className="text-[0.625rem] text-zinc-400 leading-normal">{badge.desc}</p>
+                            <span className="inline-block text-[0.5rem] font-bold uppercase tracking-wider text-zinc-450 mt-1">Requisito: {badge.levelReq}</span>
                           </div>
                         </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-zinc-100 dark:border-zinc-850">
                           <div>
-                            <span className="text-[9px] text-zinc-400 block uppercase font-bold tracking-wider">Custo</span>
+                            <span className="text-[0.5625rem] text-zinc-400 block uppercase font-bold tracking-wider">Custo</span>
                             <span className="text-xs font-black text-brand-pink font-mono">{finalCost} pts</span>
                           </div>
 
                           {redeemSuccess === badge.id ? (
-                            <span className="text-[10px] font-black text-green-600 dark:text-green-400 uppercase tracking-wider bg-green-50 dark:bg-green-950/20 border border-green-200/30 px-3 py-1 rounded-xl">Resgatado!</span>
+                            <span className="text-[0.625rem] font-black text-green-600 dark:text-green-400 uppercase tracking-wider bg-green-50 dark:bg-green-950/20 border border-green-200/30 px-3 py-1 rounded-xl">Resgatado!</span>
                           ) : (
                             <Button
                               onClick={() => handleRedeemBadge(badge.id, badge.name, badge.cost)}
                               disabled={!canRedeem}
-                              className={`h-8 px-4 rounded-xl text-[10px] font-bold ${canRedeem ? 'bg-primary hover:bg-primary/90 text-white' : 'bg-zinc-100 text-zinc-300 border-zinc-100 pointer-events-none'}`}
+                              className={`h-8 px-4 rounded-xl text-[0.625rem] font-bold ${canRedeem ? 'bg-primary hover:bg-primary/90 text-white' : 'bg-zinc-100 text-zinc-300 border-zinc-100 pointer-events-none'}`}
                             >
                               Resgatar Selo
                             </Button>
@@ -749,7 +751,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                   ) : (
                     <table className="w-full text-xs text-left">
                       <thead>
-                        <tr className="text-zinc-400 border-b border-zinc-150 dark:border-zinc-850 font-bold uppercase tracking-wider text-[9px] pb-2">
+                        <tr className="text-zinc-400 border-b border-zinc-150 dark:border-zinc-850 font-bold uppercase tracking-wider text-[0.5625rem] pb-2">
                           <th className="py-2">Selo</th>
                           <th className="py-2 text-center">Prestígio</th>
                           <th className="py-2 text-center">Pontos Pagos</th>
@@ -765,7 +767,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                             </td>
                             <td className="py-3 text-center font-bold">
                               {b.prestigeAtAcquisition > 0 ? (
-                                <span className="bg-brand-pink/5 text-brand-pink text-[9px] px-2 py-0.5 rounded-full border border-brand-pink/20 font-black uppercase">
+                                <span className="bg-brand-pink/5 text-brand-pink text-[0.5625rem] px-2 py-0.5 rounded-full border border-brand-pink/20 font-black uppercase">
                                   Prestígio {b.prestigeAtAcquisition}
                                 </span>
                               ) : (
@@ -785,7 +787,8 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               )}
             </div>
           </Card>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

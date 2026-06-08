@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent, CardFooter } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../../components/ui/alert';
@@ -389,8 +390,8 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
         </CardFooter>
       </Card>
 
-      {showRestoreModal && (
-        <div onClick={() => { setShowRestoreModal(false); setIsReadyToSave(true); }} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in">
+      {showRestoreModal && createPortal(
+        <div onClick={() => { setShowRestoreModal(false); setIsReadyToSave(true); }} className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[9999] animate-in fade-in">
           <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5">
             <div className="flex gap-4 items-start text-left">
               <div className="p-3 bg-primary/10 text-primary rounded-full shrink-0 border border-primary/20">
@@ -424,7 +425,8 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

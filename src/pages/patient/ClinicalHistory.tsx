@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
@@ -425,8 +426,8 @@ export default function ClinicalHistory({ patientCpf, onNavigate }: ClinicalHist
         </div>
       </div>
 
-      {previewRecord && (
-        <div onClick={() => setPreviewRecord(null)} className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+      {previewRecord && createPortal(
+        <div onClick={() => setPreviewRecord(null)} className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
           <Card onClick={(e) => e.stopPropagation()} className="max-w-3xl w-full h-[80vh] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
             <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 p-5 flex flex-row items-center justify-between shrink-0">
               <div>
@@ -455,11 +456,12 @@ export default function ClinicalHistory({ patientCpf, onNavigate }: ClinicalHist
               />
             </div>
           </Card>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {deleteConfirmId && (
-        <div onClick={() => setDeleteConfirmId(null)} className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+      {deleteConfirmId && createPortal(
+        <div onClick={() => setDeleteConfirmId(null)} className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
           <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-4 text-left">
             <div className="flex gap-3.5 items-start">
               <div className="p-2.5 bg-red-100 text-red-600 rounded-full shrink-0 border border-red-200">
@@ -490,7 +492,8 @@ export default function ClinicalHistory({ patientCpf, onNavigate }: ClinicalHist
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

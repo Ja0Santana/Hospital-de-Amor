@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
@@ -852,8 +853,8 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
         </div>
       )}
 
-      {isRescheduleOpen && (
-        <div onClick={() => setIsRescheduleOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+      {isRescheduleOpen && createPortal(
+        <div onClick={() => setIsRescheduleOpen(false)} className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in duration-200">
           <Card onClick={(e) => e.stopPropagation()} className="max-w-md w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden animate-in zoom-in-95 duration-200">
             <CardHeader className="border-b border-zinc-100 dark:border-zinc-800 p-5 flex flex-row items-center justify-between">
               <div>
@@ -871,7 +872,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
             </CardHeader>
             <CardContent className="p-5 space-y-4">
               <div className="space-y-2">
-                <span className="text-[10px] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Dia</span>
+                <span className="text-[0.625rem] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Dia</span>
                 <div className="grid grid-cols-5 gap-2">
                   {getNext5BusinessDays().map((date, idx) => {
                     const isSelected = selectedDate?.toDateString() === date.toDateString();
@@ -886,13 +887,13 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                             : 'bg-zinc-50 border-zinc-150 text-zinc-700 hover:border-primary/30 dark:bg-zinc-950 dark:border-zinc-850 dark:text-zinc-400'
                         }`}
                       >
-                        <span className="text-[8px] font-bold uppercase tracking-wider block opacity-75">
+                        <span className="text-[0.5rem] font-bold uppercase tracking-wider block opacity-75">
                           {date.toLocaleDateString('pt-BR', { weekday: 'short' }).slice(0, 3)}
                         </span>
                         <span className="text-sm font-extrabold block mt-0.5">
                           {date.getDate()}
                         </span>
-                        <span className="text-[8px] font-bold block mt-0.5">
+                        <span className="text-[0.5rem] font-bold block mt-0.5">
                           {date.toLocaleDateString('pt-BR', { month: 'short' }).slice(0, 3)}
                         </span>
                       </button>
@@ -902,7 +903,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
               </div>
 
               <div className="space-y-2">
-                <span className="text-[10px] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Horário</span>
+                <span className="text-[0.625rem] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Horário</span>
                 <div className="grid grid-cols-4 gap-2">
                   {['08:30', '10:00', '13:30', '15:00'].map((time) => {
                     const isSelected = selectedTime === time;
@@ -944,7 +945,8 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
               </div>
             </CardContent>
           </Card>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

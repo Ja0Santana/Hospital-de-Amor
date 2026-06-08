@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -880,8 +881,8 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
         </div>
       </div>
 
-      {showBlockedModal && (
-        <div onClick={() => setShowBlockedModal(false)} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in">
+      {showBlockedModal && createPortal(
+        <div onClick={() => setShowBlockedModal(false)} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[9999] animate-in fade-in">
           <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5">
             <div className="flex gap-3 items-start">
               <div className="p-2.5 bg-yellow-100 dark:bg-yellow-950/20 text-yellow-600 dark:text-yellow-400 rounded-full shrink-0 border border-yellow-200/20">
@@ -900,9 +901,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                 <li key={app.id} className="flex items-center justify-between gap-3 p-3 bg-zinc-50 dark:bg-zinc-900/40 rounded-xl border border-zinc-100 dark:border-zinc-800 text-xs">
                   <div className="space-y-0.5">
                     <p className="font-bold text-zinc-800 dark:text-zinc-200">{app.examName}</p>
-                    <p className="text-zinc-400 text-[10px]">Protocolo: {app.protocol}</p>
+                    <p className="text-zinc-400 text-[0.625rem]">Protocolo: {app.protocol}</p>
                   </div>
-                  <span className={`shrink-0 font-semibold text-[10px] px-2 py-0.5 rounded-full border ${
+                  <span className={`shrink-0 font-semibold text-[0.625rem] px-2 py-0.5 rounded-full border ${
                     app.status === 'Confirmado' ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-950/20 dark:text-green-400' :
                     app.status === 'Em análise' ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/20 dark:text-blue-400' :
                     'bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-950/20 dark:text-yellow-400'
@@ -929,11 +930,12 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
-      {showDeleteModal && (
-        <div onClick={() => setShowDeleteModal(false)} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in">
+      {showDeleteModal && createPortal(
+        <div onClick={() => setShowDeleteModal(false)} className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[9999] animate-in fade-in">
           <div onClick={(e) => e.stopPropagation()} className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-md w-full shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-6">
             <div className="flex gap-3 items-start">
               <div className="p-2.5 bg-red-100 dark:bg-red-950/20 text-red-600 dark:text-red-400 rounded-full shrink-0 border border-red-200/20">
@@ -956,7 +958,8 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
