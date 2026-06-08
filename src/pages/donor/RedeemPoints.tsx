@@ -38,40 +38,44 @@ export default function RedeemPoints({ donorCpf, updateTrigger, onPointsUpdated 
     const balance = points?.balance || 0;
     const prestige = points?.prestige || 0;
     const multiplier = 1 + (prestige * 0.1);
+    const spentPoints = points?.redeemedBadges
+      ?.filter((b) => b.prestigeAtAcquisition === prestige)
+      ?.reduce((sum, b) => sum + b.cost, 0) || 0;
+    const rankPoints = balance + spentPoints;
     
     let level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante' = 'Bronze';
-    if (balance >= 30000 * multiplier) {
+    if (rankPoints >= 30000 * multiplier) {
       level = 'Diamante';
-    } else if (balance >= 15000 * multiplier) {
+    } else if (rankPoints >= 15000 * multiplier) {
       level = 'Platina';
-    } else if (balance >= 5000 * multiplier) {
+    } else if (rankPoints >= 5000 * multiplier) {
       level = 'Ouro';
-    } else if (balance >= 1000 * multiplier) {
+    } else if (rankPoints >= 1000 * multiplier) {
       level = 'Prata';
     }
     
     if (level === 'Bronze') {
       const nextLimit = 1000 * multiplier;
-      const progress = (balance / nextLimit) * 100;
-      const remaining = Math.max(0, nextLimit - balance);
+      const progress = (rankPoints / nextLimit) * 100;
+      const remaining = Math.max(0, nextLimit - rankPoints);
       return { level, progress, label: `Faltam ${Math.round(remaining)} pontos para o nível Prata`, nextLevel: 'Prata', maxLimit: nextLimit };
     } else if (level === 'Prata') {
       const nextLimit = 5000 * multiplier;
       const baseLimit = 1000 * multiplier;
-      const progress = ((balance - baseLimit) / (nextLimit - baseLimit)) * 100;
-      const remaining = Math.max(0, nextLimit - balance);
+      const progress = ((rankPoints - baseLimit) / (nextLimit - baseLimit)) * 100;
+      const remaining = Math.max(0, nextLimit - rankPoints);
       return { level, progress, label: `Faltam ${Math.round(remaining)} pontos para o nível Ouro`, nextLevel: 'Ouro', maxLimit: nextLimit };
     } else if (level === 'Ouro') {
       const nextLimit = 15000 * multiplier;
       const baseLimit = 5000 * multiplier;
-      const progress = ((balance - baseLimit) / (nextLimit - baseLimit)) * 100;
-      const remaining = Math.max(0, nextLimit - balance);
+      const progress = ((rankPoints - baseLimit) / (nextLimit - baseLimit)) * 100;
+      const remaining = Math.max(0, nextLimit - rankPoints);
       return { level, progress, label: `Faltam ${Math.round(remaining)} pontos para o nível Platina`, nextLevel: 'Platina', maxLimit: nextLimit };
     } else if (level === 'Platina') {
       const nextLimit = 30000 * multiplier;
       const baseLimit = 15000 * multiplier;
-      const progress = ((balance - baseLimit) / (nextLimit - baseLimit)) * 100;
-      const remaining = Math.max(0, nextLimit - balance);
+      const progress = ((rankPoints - baseLimit) / (nextLimit - baseLimit)) * 100;
+      const remaining = Math.max(0, nextLimit - rankPoints);
       return { level, progress, label: `Faltam ${Math.round(remaining)} pontos para o nível Diamante`, nextLevel: 'Diamante', maxLimit: nextLimit };
     } else {
       return { level, progress: 100, label: 'Nível máximo atingido! Obrigado pelo seu apoio extraordinário.', nextLevel: null, maxLimit: 30000 * multiplier };

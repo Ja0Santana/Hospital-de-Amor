@@ -960,14 +960,19 @@ export async function addDonorPoints(cpf: string, points: number): Promise<void>
   const multiplier = 1 + (prestige * 0.10);
   
   const balance = (currentPoints?.balance || 0) + points;
+  const spentPoints = currentPoints?.redeemedBadges
+    ?.filter((b) => b.prestigeAtAcquisition === prestige)
+    ?.reduce((sum, b) => sum + b.cost, 0) || 0;
+  const rankPoints = balance + spentPoints;
+
   let level: 'Bronze' | 'Prata' | 'Ouro' | 'Platina' | 'Diamante' = 'Bronze';
-  if (balance >= 30000 * multiplier) {
+  if (rankPoints >= 30000 * multiplier) {
     level = 'Diamante';
-  } else if (balance >= 15000 * multiplier) {
+  } else if (rankPoints >= 15000 * multiplier) {
     level = 'Platina';
-  } else if (balance >= 5000 * multiplier) {
+  } else if (rankPoints >= 5000 * multiplier) {
     level = 'Ouro';
-  } else if (balance >= 1000 * multiplier) {
+  } else if (rankPoints >= 1000 * multiplier) {
     level = 'Prata';
   }
 
