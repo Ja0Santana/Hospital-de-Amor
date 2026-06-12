@@ -33,6 +33,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [presenceSuccess, setPresenceSuccess] = useState(false);
   const [rescheduleSuccess, setRescheduleSuccess] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState('');
 
   const [selectedFile, setSelectedFile] = useState<any | null>(null);
   const [submittingFile, setSubmittingFile] = useState(false);
@@ -91,6 +92,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const analysisCount = appointments.filter((a) => a.status === 'Em análise').length;
   const confirmedCount = appointments.filter((a) => a.status === 'Confirmado').length;
   const cancelledCount = appointments.filter((a) => a.status === 'Cancelado').length;
+  const reschedulePendingCount = appointments.filter((a) => a.status === 'Reagendamento Pendente').length;
 
   const filteredAppointments = appointments.filter((app) => {
     const matchesText = app.examName.toLowerCase().includes(filterText.toLowerCase()) ||
@@ -168,10 +170,12 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
 
   const handleRescheduleSubmit = async () => {
     if (!appointment || !selectedDate || !selectedTime) return;
+    setRescheduleError('');
     try {
       const formattedDate = selectedDate.toISOString().split('T')[0];
       const updatedApp: Appointment = {
         ...appointment,
+        status: 'Reagendamento Pendente',
         rescheduledDate: formattedDate,
         rescheduledTime: selectedTime
       };
@@ -181,8 +185,9 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
       setRescheduleSuccess(true);
       setTimeout(() => setRescheduleSuccess(false), 5000);
       window.dispatchEvent(new CustomEvent('appointment-updated'));
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
+      setRescheduleError(error.message || 'Erro ao solicitar reagendamento.');
     }
   };
 
@@ -294,7 +299,9 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
       'Pendente': { color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400', icon: Clock, desc: 'Sua solicitação está na fila de espera e será revisada por nossa equipe médica em até 48 horas úteis.' },
       'Em análise': { color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400', icon: Clock, desc: 'Nossos recepcionistas estão revisando o documento e o encaminhamento enviado. Estimativa de resposta: 24 horas úteis.' },
       'Confirmado': { color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle2, desc: 'Parabéns! Sua triagem foi concluída e sua consulta/exame está agendado e confirmado.' },
-      'Cancelado': { color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400', icon: XCircle, desc: 'Sua solicitação de agendamento foi cancelada pela triagem administrativa.' }
+      'Cancelado': { color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400', icon: XCircle, desc: 'Sua solicitação de agendamento foi cancelada pela triagem administrativa.' },
+      'Reagendamento Pendente': { color: 'bg-amber-100 text-amber-800 border-amber-250 dark:bg-amber-900/30 dark:text-amber-400', icon: Clock, desc: 'Sua solicitação de alteração de horário foi enviada para a triagem e está sob análise administrativa.' },
+      'Aguardando Follow-up': { color: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400', icon: Clock, desc: 'Sua solicitação possui pendências sob acompanhamento. Aguarde contato da nossa equipe.' }
     };
     return config[status] || config['Pendente'];
   };
@@ -385,6 +392,15 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
               >
                 Cancelado ({cancelledCount})
               </button>
+              {reschedulePendingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('Reagendamento Pendente')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${statusFilter === 'Reagendamento Pendente' ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm' : 'bg-white border-zinc-200 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400'}`}
+                >
+                  Reagendamento ({reschedulePendingCount})
+                </button>
+              )}
             </div>
           </div>
 
@@ -477,14 +493,14 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                                 <span className="text-[10px] uppercase font-bold text-zinc-400 block">Profissional Responsável</span>
                                 <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                                   <User className="w-4 h-4 text-primary" />
-                                  Dra. Patrícia Arantes (Mastologista)
+                                  {appointment.scheduledDoctor || 'Dra. Patrícia Arantes (Mastologista)'}
                                 </p>
                               </div>
                               <div className="space-y-1 sm:col-span-2">
                                 <span className="text-[10px] uppercase font-bold text-zinc-400 block">Local do Atendimento</span>
                                 <p className="font-semibold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
                                   <MapPin className="w-4 h-4 text-primary" />
-                                  Unidade Principal - Bloco B, Sala de Exames 03 (Mamógrafo 01)
+                                  {appointment.scheduledRoom || 'Unidade Principal - Bloco B, Sala de Exames 03 (Mamógrafo 01)'}
                                 </p>
                               </div>
                             </div>
@@ -524,6 +540,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                                 onClick={() => {
                                   setSelectedDate(getNext5BusinessDays()[0]);
                                   setSelectedTime('08:30');
+                                  setRescheduleError('');
                                   setIsRescheduleOpen(true);
                                 }}
                                 className="border-zinc-200/80 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 font-bold h-9 px-4 rounded-xl text-xs flex items-center gap-1.5 transition-all active:scale-95 bg-white dark:bg-zinc-950"
@@ -871,6 +888,12 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
               </Button>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
+              {rescheduleError && (
+                <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 text-red-850 dark:text-red-400 rounded-2xl text-[11px] font-semibold flex items-center gap-1.5 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{rescheduleError}</span>
+                </div>
+              )}
               <div className="space-y-2">
                 <span className="text-[0.625rem] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Dia</span>
                 <div className="grid grid-cols-5 gap-2">
