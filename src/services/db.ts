@@ -1,7 +1,7 @@
-import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription } from '../types';
+import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 7;
+const DB_VERSION = 9;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -125,6 +125,18 @@ export function initDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('recurring_subscriptions')) {
         db.createObjectStore('recurring_subscriptions', { keyPath: 'id' });
       }
+
+      if (!db.objectStoreNames.contains('audit_logs')) {
+        db.createObjectStore('audit_logs', { keyPath: 'id' });
+      }
+
+      if (!db.objectStoreNames.contains('calendar_blocks')) {
+        db.createObjectStore('calendar_blocks', { keyPath: 'date' });
+      }
+
+      if (!db.objectStoreNames.contains('capacity_limits')) {
+        db.createObjectStore('capacity_limits', { keyPath: 'examId' });
+      }
     };
   }).then((db) => {
     return seedData(db);
@@ -133,7 +145,7 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'audit_logs', 'calendar_blocks', 'capacity_limits'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
@@ -144,12 +156,23 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
     const donorPointsStore = tx.objectStore('donor_points');
     const supportMessagesStore = tx.objectStore('support_messages');
     const recurringSubscriptionsStore = tx.objectStore('recurring_subscriptions');
+    const auditLogsStore = tx.objectStore('audit_logs');
 
-    specStore.clear();
-    cityStore.clear();
+    const specCountReq = specStore.count();
+    specCountReq.onsuccess = () => {
+      if (specCountReq.result === 0) {
+        DEFAULT_SPECIALTIES.forEach((spec) => specStore.put(spec));
+      }
+    };
 
-    DEFAULT_SPECIALTIES.forEach((spec) => specStore.put(spec));
-    DEFAULT_CITIES.forEach((city) => cityStore.put(city));
+    const cityCountReq = cityStore.count();
+    cityCountReq.onsuccess = () => {
+      if (cityCountReq.result === 0) {
+        DEFAULT_CITIES.forEach((city) => cityStore.put(city));
+      }
+    };
+
+    auditLogsStore.clear();
 
     const userReq = userStore.get('12345678900');
     userReq.onsuccess = () => {
@@ -187,6 +210,57 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
           passwordHash: '123456',
           role: 'donor',
           createdAt: '2026-05-12T10:00:00.000Z'
+        });
+      }
+    };
+
+    const receptionistReq = userStore.get('11122233344');
+    receptionistReq.onsuccess = () => {
+      if (!receptionistReq.result) {
+        userStore.put({
+          cpf: '11122233344',
+          name: 'Fernanda Recepcionista',
+          birthDate: '1990-01-01',
+          email: 'fernanda.recepcao@hospitalamor.org.br',
+          phone: '(79) 98888-1111',
+          passwordHash: '123456',
+          role: 'recepcionista',
+          isActive: true,
+          createdAt: new Date().toISOString()
+        });
+      }
+    };
+
+    const managerReq = userStore.get('22233344455');
+    managerReq.onsuccess = () => {
+      if (!managerReq.result) {
+        userStore.put({
+          cpf: '22233344455',
+          name: 'Acácio Gestor',
+          birthDate: '1980-01-01',
+          email: 'acacio.gestao@hospitalamor.org.br',
+          phone: '(79) 98888-2222',
+          passwordHash: '123456',
+          role: 'gestor',
+          isActive: true,
+          createdAt: new Date().toISOString()
+        });
+      }
+    };
+
+    const auditorReq = userStore.get('33344455566');
+    auditorReq.onsuccess = () => {
+      if (!auditorReq.result) {
+        userStore.put({
+          cpf: '33344455566',
+          name: 'João Auditor',
+          birthDate: '1975-01-01',
+          email: 'joao.auditoria@hospitalamor.org.br',
+          phone: '(79) 98888-3333',
+          passwordHash: '123456',
+          role: 'auditor',
+          isActive: true,
+          createdAt: new Date().toISOString()
         });
       }
     };
@@ -549,11 +623,67 @@ export async function getAppointmentByCpf(cpf: string): Promise<Appointment[]> {
 export async function updateAppointment(appointment: Appointment): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('appointments', 'readwrite');
-    const store = tx.objectStore('appointments');
-    const request = store.put(appointment);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    const tx = db.transaction(['appointments', 'calendar_blocks', 'capacity_limits'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+
+    if (appointment.status === 'Reagendamento Pendente' && appointment.rescheduledDate) {
+      const date = appointment.rescheduledDate;
+      const dateObj = new Date(date + 'T12:00:00');
+      const dayOfWeek = dateObj.getDay();
+
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        reject(new Error('Agendamentos não são permitidos nos finais de semana.'));
+        return;
+      }
+
+      const calStore = tx.objectStore('calendar_blocks');
+      const calReq = calStore.get(date);
+      calReq.onsuccess = () => {
+        const block = calReq.result as CalendarDay | undefined;
+        if (block && !block.isWorkingDay) {
+          reject(new Error(`A data selecionada está bloqueada no calendário: ${block.label}`));
+          return;
+        }
+
+        const limitStore = tx.objectStore('capacity_limits');
+        const limitReq = limitStore.get(appointment.examId);
+        limitReq.onsuccess = () => {
+          const limitConfig = limitReq.result as CapacityLimit | undefined;
+          if (limitConfig) {
+            const dailyLimit = limitConfig.dailyLimit;
+            const getAllReq = appStore.getAll();
+            getAllReq.onsuccess = () => {
+              const appointments = getAllReq.result as Appointment[];
+              const count = appointments.filter(app => {
+                if (app.id === appointment.id) return false;
+                if (app.examId !== appointment.examId) return false;
+                const appDate = app.rescheduledDate || '';
+                return (app.status === 'Confirmado' || app.status === 'Reagendamento Pendente') && appDate === date;
+              }).length;
+
+              if (count >= dailyLimit) {
+                reject(new Error(`Capacidade máxima atingida para o exame "${appointment.examName}" no dia ${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}. Limite: ${dailyLimit} vagas.`));
+                return;
+              }
+
+              const request = appStore.put(appointment);
+              request.onsuccess = () => resolve();
+              request.onerror = () => reject(request.error);
+            };
+          } else {
+            const request = appStore.put(appointment);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+          }
+        };
+      };
+    } else {
+      const request = appStore.put(appointment);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    }
+
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -1148,3 +1278,596 @@ export async function deleteRecurringSubscription(id: string): Promise<void> {
     request.onerror = () => reject(request.error);
   });
 }
+
+export async function getAppointmentsForAdmin(): Promise<Appointment[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('appointments', 'readonly');
+    const store = tx.objectStore('appointments');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function createAuditLog(log: Omit<AuditLog, 'id' | 'timestamp'>): Promise<void> {
+  const db = await initDb();
+  const newLog: AuditLog = {
+    ...log,
+    id: 'log-' + crypto.randomUUID().slice(0, 8),
+    timestamp: new Date().toISOString()
+  };
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('audit_logs', 'readwrite');
+    const store = tx.objectStore('audit_logs');
+    const request = store.add(newLog);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getAuditLogs(): Promise<AuditLog[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('audit_logs', 'readonly');
+    const store = tx.objectStore('audit_logs');
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const sorted = (request.result || []).sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      resolve(sorted);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getAllUsersForAdmin(): Promise<PatientUser[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('users', 'readonly');
+    const store = tx.objectStore('users');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteUserAdmin(cpf: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('users', 'readwrite');
+    const store = tx.objectStore('users');
+    const request = store.delete(cpf);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function updateAppointmentStatus(
+  id: string,
+  status: AppointmentStatus,
+  observations: string,
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = appStore.get(id);
+    getReq.onsuccess = () => {
+      const app = getReq.result as Appointment | undefined;
+      if (!app) {
+        reject(new Error('Agendamento não encontrado.'));
+        return;
+      }
+      const oldStatus = app.status;
+      app.status = status;
+      app.observations = observations;
+      app.assignedTo = employeeName;
+
+      appStore.put(app);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: employeeCpf,
+        userName: employeeName,
+        action: `Alteração de status do agendamento ${app.protocol} de ${oldStatus} para ${status}`,
+        module: 'Triagem',
+        ipAddress: '192.168.1.100',
+        details: `Observações: ${observations}`
+      };
+      auditStore.add(log);
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function confirmAppointmentSchedule(
+  id: string,
+  date: string,
+  time: string,
+  room: string,
+  doctor: string,
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs', 'calendar_blocks', 'capacity_limits'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+    const calStore = tx.objectStore('calendar_blocks');
+    const limitStore = tx.objectStore('capacity_limits');
+
+    // 1. Finais de semana
+    const dateObj = new Date(date + 'T12:00:00');
+    const dayOfWeek = dateObj.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      reject(new Error('Agendamentos não são permitidos nos finais de semana.'));
+      return;
+    }
+
+    // 2. Feriados / Bloqueios
+    const calReq = calStore.get(date);
+    calReq.onsuccess = () => {
+      const block = calReq.result as CalendarDay | undefined;
+      if (block && !block.isWorkingDay) {
+        reject(new Error(`A data selecionada está bloqueada no calendário: ${block.label}`));
+        return;
+      }
+
+      // 3. Capacidade e Conflitos
+      const getAllReq = appStore.getAll();
+      getAllReq.onsuccess = () => {
+        const appointments = getAllReq.result as Appointment[];
+
+        const getCurReq = appStore.get(id);
+        getCurReq.onsuccess = () => {
+          const currentApp = getCurReq.result as Appointment | undefined;
+          if (!currentApp) {
+            reject(new Error('Agendamento não encontrado.'));
+            return;
+          }
+
+          // Validação estrita (RF90) contra sobreposição de horário:
+          // Mesma data, mesmo horário, e o mesmo médico ou mesma sala.
+          // Ignora o próprio agendamento atual se ele já tiver sido gravado.
+          const hasConflict = appointments.some(app => {
+            if (app.id === id) return false;
+            if (app.status !== 'Confirmado') return false;
+
+            const appDate = app.rescheduledDate || '';
+            const appTime = app.rescheduledTime || '';
+            
+            const isSameDateTime = appDate === date && appTime === time;
+            if (!isSameDateTime) return false;
+
+            const isSameDoctor = app.scheduledDoctor && app.scheduledDoctor.trim().toLowerCase() === doctor.trim().toLowerCase();
+            const isSameRoom = app.scheduledRoom && app.scheduledRoom.trim().toLowerCase() === room.trim().toLowerCase();
+
+            return isSameDoctor || isSameRoom;
+          });
+
+          if (hasConflict) {
+            reject(new Error('Conflito de agenda detectado: O médico ou a sala já possuem um agendamento confirmado neste mesmo dia e horário.'));
+            return;
+          }
+
+          // Verificar capacidade
+          const limitReq = limitStore.get(currentApp.examId);
+          limitReq.onsuccess = () => {
+            const limitConfig = limitReq.result as CapacityLimit | undefined;
+            if (limitConfig) {
+              const dailyLimit = limitConfig.dailyLimit;
+              const count = appointments.filter(app => {
+                if (app.id === id) return false;
+                if (app.examId !== currentApp.examId) return false;
+                const appDate = app.rescheduledDate || '';
+                return (app.status === 'Confirmado' || app.status === 'Reagendamento Pendente') && appDate === date;
+              }).length;
+
+              if (count >= dailyLimit) {
+                reject(new Error(`Capacidade máxima atingida para o exame "${currentApp.examName}" no dia ${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}. Limite: ${dailyLimit} vagas.`));
+                return;
+              }
+
+              const newCount = count + 1;
+              const usageRatio = newCount / dailyLimit;
+              if (usageRatio >= 0.8) {
+                const warnLog: AuditLog = {
+                  id: 'log-' + crypto.randomUUID().slice(0, 8),
+                  timestamp: new Date().toISOString(),
+                  userCpf: employeeCpf,
+                  userName: employeeName,
+                  action: `Alerta de Capacidade: Exame "${currentApp.examName}" atingiu ${Math.round(usageRatio * 100)}% da capacidade máxima no dia ${date} (${newCount}/${dailyLimit} vagas)`,
+                  module: 'Configurações',
+                  ipAddress: '192.168.1.100',
+                  details: `Aviso gerado automaticamente pelo sistema de capacidade.`
+                };
+                auditStore.add(warnLog);
+              }
+            }
+
+            const oldStatus = currentApp.status;
+            currentApp.status = 'Confirmado';
+            currentApp.rescheduledDate = date;
+            currentApp.rescheduledTime = time;
+            currentApp.scheduledRoom = room;
+            currentApp.scheduledDoctor = doctor;
+            currentApp.assignedTo = employeeName;
+
+            appStore.put(currentApp);
+
+            const log: AuditLog = {
+              id: 'log-' + crypto.randomUUID().slice(0, 8),
+              timestamp: new Date().toISOString(),
+              userCpf: employeeCpf,
+              userName: employeeName,
+              action: `Confirmação de agendamento ${currentApp.protocol} para ${date} às ${time} na sala ${room} com dr(a). ${doctor}`,
+              module: 'Agendamento',
+              ipAddress: '192.168.1.100',
+              details: `Status alterado de ${oldStatus} para Confirmado.`
+            };
+            auditStore.add(log);
+          };
+        };
+      };
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function updateUserStatusAdmin(
+  cpf: string,
+  active: boolean,
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['users', 'audit_logs'], 'readwrite');
+    const userStore = tx.objectStore('users');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = userStore.get(cpf);
+    getReq.onsuccess = () => {
+      const user = getReq.result as PatientUser | undefined;
+      if (!user) {
+        reject(new Error('Usuário não encontrado.'));
+        return;
+      }
+
+      user.isActive = active;
+      userStore.put(user);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: employeeCpf,
+        userName: employeeName,
+        action: `${active ? 'Ativação' : 'Desativação'} do usuário ${user.name} (CPF: ${cpf})`,
+        module: 'Controle de Usuários',
+        ipAddress: '192.168.1.100',
+        details: `Usuário administrativo atualizado pelo gestor.`
+      };
+      auditStore.add(log);
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function addInternalNote(
+  id: string,
+  text: string,
+  isUrgent: boolean,
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = appStore.get(id);
+    getReq.onsuccess = () => {
+      const app = getReq.result as Appointment | undefined;
+      if (!app) {
+        reject(new Error('Agendamento não encontrado.'));
+        return;
+      }
+
+      if (!app.internalNotes) {
+        app.internalNotes = [];
+      }
+
+      const newNote = {
+        id: 'note-' + crypto.randomUUID().slice(0, 8),
+        authorName: employeeName,
+        authorCpf: employeeCpf,
+        text: text.trim(),
+        timestamp: new Date().toISOString(),
+        isUrgent
+      };
+
+      app.internalNotes.push(newNote);
+      appStore.put(app);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: employeeCpf,
+        userName: employeeName,
+        action: `Adição de anotação interna ${newNote.isUrgent ? 'URGENTE ' : ''}no agendamento ${app.protocol}`,
+        module: 'Triagem',
+        ipAddress: '192.168.1.100',
+        details: `Conteúdo da nota: "${text.trim().slice(0, 60)}${text.length > 60 ? '...' : ''}"`
+      };
+      auditStore.add(log);
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function updateFollowUpStatus(
+  id: string,
+  date: string | null,
+  isSuspended: boolean,
+  reason: string,
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = appStore.get(id);
+    getReq.onsuccess = () => {
+      const app = getReq.result as Appointment | undefined;
+      if (!app) {
+        reject(new Error('Agendamento não encontrado.'));
+        return;
+      }
+
+      const oldStatus = app.status;
+      app.status = 'Aguardando Follow-up';
+      if (date) {
+        app.followUpDate = date;
+      }
+      app.followUpSuspended = isSuspended;
+
+      if (isSuspended && reason.trim()) {
+        app.observations = `Pendente suspenso: ${reason.trim()}`;
+      }
+
+      appStore.put(app);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: employeeCpf,
+        userName: employeeName,
+        action: `Alteração de status do agendamento ${app.protocol} de ${oldStatus} para Aguardando Follow-up ${isSuspended ? '(Suspenso)' : ''}`,
+        module: 'Triagem',
+        ipAddress: '192.168.1.100',
+        details: isSuspended ? `Motivo da suspensão: ${reason.trim()}` : `Data limite de retorno: ${date}`
+      };
+      auditStore.add(log);
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function setAppointmentPriority(
+  id: string,
+  priority: 'Baixa' | 'Média' | 'Alta',
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = appStore.get(id);
+    getReq.onsuccess = () => {
+      const app = getReq.result as Appointment | undefined;
+      if (!app) {
+        reject(new Error('Agendamento não encontrado.'));
+        return;
+      }
+
+      const oldPriority = app.priority || 'Não definida';
+      app.priority = priority;
+      appStore.put(app);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: employeeCpf,
+        userName: employeeName,
+        action: `Prioridade do agendamento ${app.protocol} alterada de ${oldPriority} para ${priority}`,
+        module: 'Triagem',
+        ipAddress: '192.168.1.100',
+        details: `Operação realizada pelo triador.`
+      };
+      auditStore.add(log);
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function updatePatientContactInfo(
+  cpf: string,
+  email: string,
+  phone: string,
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  const cleanCpf = cpf.replace(/\D/g, "");
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['users', 'appointments', 'audit_logs'], 'readwrite');
+    const userStore = tx.objectStore('users');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getUserReq = userStore.get(cleanCpf);
+    getUserReq.onsuccess = () => {
+      const user = getUserReq.result as PatientUser | undefined;
+      if (!user) {
+        reject(new Error('Paciente não encontrado.'));
+        return;
+      }
+
+      const oldEmail = user.email;
+      const oldPhone = user.phone;
+      user.email = email.trim();
+      user.phone = phone.trim();
+      userStore.put(user);
+
+      const getAppsReq = appStore.getAll();
+      getAppsReq.onsuccess = () => {
+        const appointments = getAppsReq.result as Appointment[];
+        const patientApps = appointments.filter(
+          app => app.patientCpf.replace(/\D/g, "") === cleanCpf
+        );
+
+        patientApps.forEach(app => {
+          app.patientEmail = email.trim();
+          app.patientPhone = phone.trim();
+          appStore.put(app);
+        });
+
+        const log: AuditLog = {
+          id: 'log-' + crypto.randomUUID().slice(0, 8),
+          timestamp: new Date().toISOString(),
+          userCpf: employeeCpf,
+          userName: employeeName,
+          action: `Contato do paciente ${user.name} atualizado (CPF: ${cpf})`,
+          module: 'Recepção Rápida',
+          ipAddress: '192.168.1.100',
+          details: `Telefone: ${oldPhone} -> ${phone.trim()} | E-mail: ${oldEmail} -> ${email.trim()}`
+        };
+        auditStore.add(log);
+      };
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function updateSpecialty(specialty: Specialty): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('specialties', 'readwrite');
+    const store = tx.objectStore('specialties');
+    const request = store.put(specialty);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getCalendarDays(): Promise<CalendarDay[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('calendar_blocks', 'readonly');
+    const store = tx.objectStore('calendar_blocks');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveCalendarDay(day: CalendarDay): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('calendar_blocks', 'readwrite');
+    const store = tx.objectStore('calendar_blocks');
+    const request = store.put(day);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteCalendarDay(date: string): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('calendar_blocks', 'readwrite');
+    const store = tx.objectStore('calendar_blocks');
+    const request = store.delete(date);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getCapacityLimits(): Promise<CapacityLimit[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('capacity_limits', 'readonly');
+    const store = tx.objectStore('capacity_limits');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveCapacityLimit(limit: CapacityLimit): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('capacity_limits', 'readwrite');
+    const store = tx.objectStore('capacity_limits');
+    const request = store.put(limit);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function addAuditLogAdmin(
+  action: string,
+  module: string,
+  details: string,
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('audit_logs', 'readwrite');
+    const store = tx.objectStore('audit_logs');
+    const log: AuditLog = {
+      id: 'log-' + crypto.randomUUID().slice(0, 8),
+      timestamp: new Date().toISOString(),
+      userCpf: employeeCpf,
+      userName: employeeName,
+      action,
+      module,
+      ipAddress: '192.168.1.100',
+      details
+    };
+    const request = store.add(log);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+
+
