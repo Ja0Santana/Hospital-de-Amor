@@ -2,6 +2,11 @@ export interface Exam {
   id: string;
   name: string;
   defaultPrepInstructions: string;
+  duration?: number;
+  room?: string;
+  cost?: number;
+  requiresEncaminhamento?: boolean;
+  isActive?: boolean;
 }
 
 export interface Specialty {
@@ -24,7 +29,7 @@ export interface FileAttachment {
   base64: string;
 }
 
-export type AppointmentStatus = 'Pendente' | 'Confirmado' | 'Cancelado' | 'Em análise';
+export type AppointmentStatus = 'Pendente' | 'Confirmado' | 'Cancelado' | 'Em análise' | 'Reagendamento Pendente' | 'Aguardando Follow-up';
 
 export interface Appointment {
   id: string;
@@ -50,6 +55,20 @@ export interface Appointment {
   presenceConfirmed?: boolean;
   rescheduledDate?: string;
   rescheduledTime?: string;
+  scheduledRoom?: string;
+  scheduledDoctor?: string;
+  assignedTo?: string;
+  priority?: 'Baixa' | 'Média' | 'Alta';
+  followUpDate?: string;
+  followUpSuspended?: boolean;
+  internalNotes?: Array<{
+    id: string;
+    authorName: string;
+    authorCpf: string;
+    text: string;
+    timestamp: string;
+    isUrgent?: boolean;
+  }>;
 }
 
 export interface PatientUser {
@@ -68,6 +87,7 @@ export interface PatientUser {
   emergencyContactPhone?: string;
   emergencyContactRelation?: string;
   photoUrl?: string;
+  isActive?: boolean;
 }
 
 export interface SymptomLog {
@@ -89,7 +109,7 @@ export interface ClinicalRecord {
   fileAttachment: FileAttachment;
   createdAt: string;
 }
-export type UserRole = 'patient' | 'donor' | 'both';
+export type UserRole = 'patient' | 'donor' | 'both' | 'recepcionista' | 'gestor' | 'auditor';
 
 export interface DonorUser {
   cpf: string;
@@ -147,4 +167,27 @@ export interface SupportMessage {
   date: string;
   isAuthorized: boolean;
 }
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  userCpf: string;
+  userName: string;
+  action: string;
+  module: string;
+  ipAddress: string;
+  details: string;
+}
+
+export interface CalendarDay {
+  date: string;
+  label: string;
+  isWorkingDay: boolean;
+}
+
+export interface CapacityLimit {
+  examId: string;
+  dailyLimit: number;
+}
+
 

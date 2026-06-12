@@ -75,9 +75,10 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
       'Pendente': { color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800/50', icon: Clock },
       'Em análise': { color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800/50', icon: Search },
       'Confirmado': { color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800/50', icon: CheckCircle2 },
-      'Cancelado': { color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50', icon: XCircle }
+      'Cancelado': { color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800/50', icon: XCircle },
+      'Reagendamento Pendente': { color: 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800/50', icon: Clock }
     };
-    const { color, icon: Icon } = config[status] || config['Pendente'];
+    const { color, icon: Icon } = (config as any)[status] || config['Pendente'];
     return (
       <Badge variant="outline" className={`${color} flex items-center gap-1 w-fit px-2.5 py-0.5 font-semibold text-[11px] rounded-full`}>
         <Icon className="w-3 h-3" aria-hidden="true" />
@@ -90,7 +91,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
     <div className="space-y-8 max-w-6xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans font-sans">Olá, {patientName}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Olá, {patientName}</h1>
           <p className="text-zinc-500 mt-1">Aqui está o resumo do seu cuidado hoje.</p>
         </div>
         <Button
