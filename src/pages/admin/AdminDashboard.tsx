@@ -1064,45 +1064,42 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                     </form>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-2 pt-2">
+                  <div className="flex flex-col gap-2 pt-2 border-t border-zinc-150 dark:border-zinc-800">
                     <button
-                      onClick={() => handleStatusChange('Em análise')}
-                      className="h-10 border border-zinc-200 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-950 dark:text-zinc-300 text-zinc-700 rounded-xl text-[10px] font-bold transition-all shadow-xs"
+                      onClick={handleSaveTriagemChanges}
+                      className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-pink-600/15"
                     >
-                      Em Análise
+                      Salvar Alterações
                     </button>
-                    <button
-                      onClick={() => handleStatusChange('Cancelado')}
-                      className="h-10 bg-red-650 hover:bg-red-700 text-white rounded-xl text-[10px] font-bold transition-all shadow-xs"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsSettingFollowUp(true);
-                        setFollowUpDateInput(activeApp.followUpDate || '');
-                        setFollowUpIsSuspended(activeApp.followUpSuspended || false);
-                        setFollowUpReason('');
-                      }}
-                      className="h-10 bg-purple-650 hover:bg-purple-755 text-white rounded-xl text-[10px] font-bold transition-all shadow-xs"
-                    >
-                      Follow-up
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsScheduling(true);
-                        if (activeApp.status === 'Reagendamento Pendente' && activeApp.rescheduledDate && activeApp.rescheduledTime) {
-                          setScheduleDate(activeApp.rescheduledDate);
-                          setScheduleTime(activeApp.rescheduledTime);
-                        } else {
-                          setScheduleDate(nextBusinessDays()[0]);
-                          setScheduleTime('08:30');
-                        }
-                      }}
-                      className="h-10 bg-pink-650 hover:bg-pink-755 text-white rounded-xl text-[10px] font-bold transition-all shadow-sm shadow-pink-600/15"
-                    >
-                      Agendar
-                    </button>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setIsSettingFollowUp(true);
+                          setFollowUpDateInput(activeApp.followUpDate || '');
+                          setFollowUpIsSuspended(activeApp.followUpSuspended || false);
+                          setFollowUpReason('');
+                        }}
+                        className="h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                      >
+                        Follow-up
+                      </button>
+                      <button
+                        onClick={() => {
+                          setIsScheduling(true);
+                          if (activeApp.status === 'Reagendamento Pendente' && activeApp.rescheduledDate && activeApp.rescheduledTime) {
+                            setScheduleDate(activeApp.rescheduledDate);
+                            setScheduleTime(activeApp.rescheduledTime);
+                          } else {
+                            setScheduleDate(nextBusinessDays()[0]);
+                            setScheduleTime('08:30');
+                          }
+                        }}
+                        className="h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15"
+                      >
+                        Agendar
+                      </button>
+                    </div>
                   </div>
                 </div>
               ) : isSettingFollowUp ? (
@@ -1162,7 +1159,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 h-10 bg-purple-650 hover:bg-purple-700 text-white rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                      className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[11px] font-bold transition-all shadow-sm"
                     >
                       Confirmar Follow-up
                     </button>
@@ -1171,7 +1168,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
               ) : (
                 <form onSubmit={handleConfirmSchedule} className="space-y-4 pt-4 border-t border-zinc-150 dark:border-zinc-800 animate-in slide-in-from-bottom-2">
                   <h4 className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50 flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-pink-650" />
+                    <Calendar className="w-4 h-4 text-pink-600" />
                     Alocação de Recurso & Horário (Confirmar Agendamento)
                   </h4>
 

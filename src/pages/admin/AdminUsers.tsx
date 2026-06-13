@@ -342,7 +342,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
               setErrorMsg('');
               setSuccessMsg('');
             }}
-            className="inline-flex items-center gap-2 h-10 px-5 bg-pink-650 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15 active:scale-95 shrink-0 self-start"
+            className="inline-flex items-center gap-2 h-10 px-5 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15 active:scale-95 shrink-0 self-start"
           >
             <UserPlus className="w-4 h-4" />
             {isAdding ? 'Cancelar Cadastro' : 'Cadastrar Colaborador'}
@@ -357,7 +357,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
             setErrorMsg('');
             setSuccessMsg('');
           }}
-          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'colaboradores' ? 'bg-pink-650 text-white shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-150/40 dark:hover:bg-zinc-900'}`}
+          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'colaboradores' ? 'bg-pink-600 text-white shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-150/40 dark:hover:bg-zinc-900'}`}
         >
           Colaboradores
         </button>
@@ -367,7 +367,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
             setErrorMsg('');
             setSuccessMsg('');
           }}
-          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'perfis' ? 'bg-pink-650 text-white shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-150/40 dark:hover:bg-zinc-900'}`}
+          className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all ${activeTab === 'perfis' ? 'bg-pink-600 text-white shadow-sm' : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-150/40 dark:hover:bg-zinc-900'}`}
         >
           Perfis e Permissões
         </button>
@@ -495,7 +495,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                   </button>
                   <button
                     type="submit"
-                    className="h-10 px-5 bg-green-650 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-green-600/15"
+                    className="h-10 px-5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-green-600/15"
                   >
                     Salvar Colaborador
                   </button>
@@ -544,7 +544,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                         <td className="py-4 px-4">
                           <div className="font-bold text-zinc-900 dark:text-zinc-100">{user.name}</div>
                           {user.cpf === loggedEmployee.cpf && (
-                            <span className="text-[9px] text-pink-650 bg-pink-50 dark:bg-pink-950/20 px-1 py-0.5 rounded border border-pink-200/10 font-bold mt-0.5 inline-block">
+                            <span className="text-[9px] text-pink-600 bg-pink-50 dark:bg-pink-950/20 px-1 py-0.5 rounded border border-pink-200/10 font-bold mt-0.5 inline-block">
                               Você (Logado)
                             </span>
                           )}
@@ -629,7 +629,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                       <div className="text-[10px] text-zinc-500 mt-0.5">Para: {email.recipient} | Enviado em: {email.date}</div>
                     </div>
                     <button 
-                      className="px-2.5 py-1 bg-pink-50 text-pink-650 hover:bg-pink-100 dark:bg-pink-950/20 dark:text-pink-400 rounded-lg text-[10px] font-bold transition-all"
+                      className="px-2.5 py-1 bg-pink-50 text-pink-600 hover:bg-pink-100 dark:bg-pink-950/20 dark:text-pink-400 rounded-lg text-[10px] font-bold transition-all"
                     >
                       Abrir E-mail
                     </button>
@@ -645,9 +645,8 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
             <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-sm space-y-4">
               <h2 className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
                 <Shield className="w-4 h-4 text-pink-600" />
-                Perfis e Acessos Cadastrados
+                Perfis e Acessos
               </h2>
-
               <div className="space-y-4 divide-y divide-zinc-150 dark:divide-zinc-800">
                 <div className="pt-4 first:pt-0 space-y-2">
                   <div className="flex items-center justify-between">
@@ -656,7 +655,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {ALL_PERMISSIONS.map(p => (
-                      <span key={p.id} className="px-2 py-0.5 bg-pink-50 text-pink-650 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-200/10 rounded-full text-[9px] font-extrabold">
+                      <span key={p.id} className="px-2 py-0.5 bg-pink-50 text-pink-600 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-200/10 rounded-full text-[9px] font-extrabold">
                         {p.label}
                       </span>
                     ))}
@@ -670,7 +669,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {ALL_PERMISSIONS.filter(p => p.id === 'view_appointments' || p.id === 'confirm_appointments').map(p => (
-                      <span key={p.id} className="px-2 py-0.5 bg-pink-50 text-pink-650 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-200/10 rounded-full text-[9px] font-extrabold">
+                      <span key={p.id} className="px-2 py-0.5 bg-pink-50 text-pink-600 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-200/10 rounded-full text-[9px] font-extrabold">
                         {p.label}
                       </span>
                     ))}
@@ -684,7 +683,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {ALL_PERMISSIONS.filter(p => p.id === 'view_appointments' || p.id === 'view_audit').map(p => (
-                      <span key={p.id} className="px-2 py-0.5 bg-pink-50 text-pink-650 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-200/10 rounded-full text-[9px] font-extrabold">
+                      <span key={p.id} className="px-2 py-0.5 bg-pink-50 text-pink-600 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-200/10 rounded-full text-[9px] font-extrabold">
                         {p.label}
                       </span>
                     ))}
@@ -707,7 +706,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                       {role.permissions.map(pId => {
                         const info = ALL_PERMISSIONS.find(p => p.id === pId);
                         return (
-                          <span key={pId} className="px-2 py-0.5 bg-pink-50 text-pink-650 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-200/10 rounded-full text-[9px] font-extrabold">
+                          <span key={pId} className="px-2 py-0.5 bg-pink-50 text-pink-600 dark:bg-pink-950/20 dark:text-pink-400 border border-pink-200/10 rounded-full text-[9px] font-extrabold">
                             {info ? info.label : pId}
                           </span>
                         );
@@ -758,7 +757,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
 
               <button
                 type="submit"
-                className="w-full h-11 bg-pink-650 hover:bg-pink-700 text-white font-bold text-xs rounded-2xl transition-all shadow-sm shadow-pink-600/20 active:scale-[0.98]"
+                className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs rounded-2xl transition-all shadow-sm shadow-pink-600/20 active:scale-[0.98]"
               >
                 Criar Perfil
               </button>
