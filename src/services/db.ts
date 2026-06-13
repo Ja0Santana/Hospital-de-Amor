@@ -54,12 +54,11 @@ const DEFAULT_CITIES: City[] = [
 ];
 
 export function initDb(): Promise<IDBDatabase> {
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    if (dbInstance) {
-      resolve(dbInstance);
-      return;
-    }
+  if (dbInstance) {
+    return Promise.resolve(dbInstance);
+  }
 
+  return new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onerror = () => reject(request.error);
@@ -176,7 +175,6 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
       }
     };
 
-    auditLogsStore.clear();
 
     const userReq = userStore.get('12345678900');
     userReq.onsuccess = () => {

@@ -67,6 +67,16 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
     loadSimulatedEmails();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedEmail) {
+        setSelectedEmail(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedEmail]);
+
   const loadUsers = async () => {
     try {
       const allUsers = await getAllUsersForAdmin();
@@ -327,7 +337,8 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in">
+    <>
+      <div className="space-y-8 animate-in fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-sans">Gestão da Equipe</h1>
@@ -765,10 +776,17 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
           </div>
         </div>
       )}
+      </div>
 
       {selectedEmail && (
-        <div className="fixed inset-0 bg-black/55 z-55 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in scale-in">
+        <div 
+          onClick={() => setSelectedEmail(null)}
+          className="fixed inset-0 bg-black/55 z-55 flex items-center justify-center p-4 backdrop-blur-xs"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in scale-in"
+          >
             <div className="px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950/40">
               <div>
                 <h3 className="font-extrabold text-zinc-900 dark:text-zinc-50 text-xs">Visualização de Sandbox Inbox</h3>
@@ -802,6 +820,6 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

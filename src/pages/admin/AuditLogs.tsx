@@ -21,6 +21,16 @@ export default function AuditLogs() {
     loadLogs();
   }, []);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selectedChanges) {
+        setSelectedChanges(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedChanges]);
+
   const loadLogs = async () => {
     setLoading(true);
     try {
@@ -34,21 +44,22 @@ export default function AuditLogs() {
   };
 
   const filteredLogs = logs.filter(log => {
+    if (!log) return false;
     const matchesSearch = 
-      log.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.userCpf.includes(searchQuery) ||
-      log.action.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.module.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      log.ipAddress.includes(searchQuery);
+      (log.userName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.userCpf || '').includes(searchQuery) ||
+      (log.action || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.module || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (log.ipAddress || '').includes(searchQuery);
 
     if (startDate) {
-      const logTime = new Date(log.timestamp).getTime();
+      const logTime = log.timestamp ? new Date(log.timestamp).getTime() : 0;
       const startLimit = new Date(startDate + 'T00:00:00').getTime();
       if (logTime < startLimit) return false;
     }
 
     if (endDate) {
-      const logTime = new Date(log.timestamp).getTime();
+      const logTime = log.timestamp ? new Date(log.timestamp).getTime() : 0;
       const startLimit = new Date(endDate + 'T23:59:59').getTime();
       if (logTime > startLimit) return false;
     }
@@ -57,7 +68,9 @@ export default function AuditLogs() {
   });
 
   const formatDateTime = (isoString: string) => {
+    if (!isoString) return '';
     const date = new Date(isoString);
+    if (isNaN(date.getTime())) return '';
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
@@ -91,7 +104,8 @@ export default function AuditLogs() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in">
+    <>
+      <div className="space-y-8 animate-in fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-sans">Histórico de Auditoria</h1>
@@ -169,22 +183,22 @@ export default function AuditLogs() {
                     className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10 text-xs text-zinc-700 dark:text-zinc-355 transition-colors"
                   >
                     <td className="py-4 px-4 font-semibold text-zinc-900 dark:text-zinc-100 whitespace-nowrap">
-                      {formatDateTime(log.timestamp)}
+                      {log.timestamp ? formatDateTime(log.timestamp) : ''}
                     </td>
                     <td className="py-4 px-4">
-                      <div className="font-bold text-zinc-955 dark:text-zinc-50">{log.userName}</div>
+                      <div className="font-bold text-zinc-955 dark:text-zinc-50">{log.userName || 'Sistema'}</div>
                       <div className="text-[10px] text-zinc-400 font-mono mt-0.5">
-                        {log.userCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
+                        {(log.userCpf || '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}
                       </div>
                     </td>
                     <td className="py-4 px-4 whitespace-nowrap">
                       <span className="inline-flex items-center gap-1 font-semibold text-zinc-800 dark:text-zinc-200">
                         <Terminal className="w-3.5 h-3.5 text-pink-650" />
-                        {log.module}
+                        {log.module || 'Geral'}
                       </span>
                     </td>
-                    <td className="py-4 px-4 max-w-[220px] font-medium leading-relaxed">{log.action}</td>
-                    <td className="py-4 px-4 font-mono text-zinc-500">{log.ipAddress}</td>
+                    <td className="py-4 px-4 max-w-[220px] font-medium leading-relaxed">{log.action || ''}</td>
+                    <td className="py-4 px-4 font-mono text-zinc-500">{log.ipAddress || '-'}</td>
                     <td className="py-4 px-4 max-w-[200px] text-zinc-500">
                       {log.changes ? (
                         <div className="flex flex-col items-start gap-1">
@@ -211,10 +225,17 @@ export default function AuditLogs() {
           </table>
         </div>
       </div>
+      </div>
 
       {selectedChanges && (
-        <div className="fixed inset-0 bg-black/55 z-55 flex items-center justify-center p-4 backdrop-blur-xs">
-          <div className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in scale-in">
+        <div 
+          onClick={() => setSelectedChanges(null)}
+          className="fixed inset-0 bg-black/55 z-55 flex items-center justify-center p-4 backdrop-blur-xs"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in scale-in"
+          >
             <div className="px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950/40">
               <div>
                 <h3 className="font-extrabold text-zinc-900 dark:text-zinc-50 text-xs">Detalhamento de Alterações</h3>
@@ -264,6 +285,6 @@ export default function AuditLogs() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

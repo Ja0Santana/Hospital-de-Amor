@@ -104,7 +104,7 @@ export default function AdminApp() {
             </div>
           );
         }
-        return <AdminDashboard loggedEmployee={loggedEmployee} />;
+        return <AdminDashboard loggedEmployee={loggedEmployee} permissions={permissions} />;
       case '/usuarios':
         if (!permissions.includes('manage_users')) {
           window.location.hash = '#/dashboard';

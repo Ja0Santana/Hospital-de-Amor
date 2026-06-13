@@ -26,9 +26,10 @@ import {
 
 interface AdminDashboardProps {
   loggedEmployee: PatientUser;
+  permissions: string[];
 }
 
-export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) {
+export default function AdminDashboard({ loggedEmployee, permissions }: AdminDashboardProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
@@ -68,6 +69,17 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
   const [mockNotification, setMockNotification] = useState<{ method: string; phone: string; code: string } | null>(null);
   const [priorityInput, setPriorityInput] = useState<'Baixa' | 'Média' | 'Alta'>('Baixa');
   const [statusInput, setStatusInput] = useState<AppointmentStatus>('Pendente');
+
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleCloseTriagem = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setActiveApp(null);
+      setIsClosing(false);
+      setIsScheduling(false);
+    }, 300);
+  };
 
   const getPatientHistory = (patientCpf: string, currentAppId: string) => {
     const cleanCpf = patientCpf.replace(/\D/g, "");
@@ -237,6 +249,16 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
       }
     }
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activeApp) {
+        handleCloseTriagem();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeApp]);
 
   const handleSort = (key: typeof sortKey) => {
     let nextOrder: 'asc' | 'desc' = 'asc';
@@ -459,7 +481,8 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in">
+    <>
+      <div className="space-y-8 animate-in fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-sans">Painel de Triagem</h1>
@@ -600,7 +623,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
           </div>
         )}
 
-        {selectedApps.length > 0 && (
+        {selectedApps.length > 0 && permissions.includes('confirm_appointments') && (
           <div className="bg-pink-50 border border-pink-200/50 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-top-2 dark:bg-pink-955/10 dark:border-pink-900/30">
             <span className="text-xs font-bold text-pink-700 dark:text-pink-400">
               {selectedApps.length} item(s) selecionado(s)
@@ -778,20 +801,31 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
         </div>
       </div>
 
+      </div>
+
       {activeApp && (
-        <div className="fixed inset-0 bg-black/45 z-50 flex justify-end animate-in fade-in">
-          <div className="w-full max-w-xl bg-white dark:bg-zinc-900 h-full flex flex-col shadow-2xl border-l border-zinc-250 dark:border-zinc-800 animate-in slide-in-from-right duration-350">
+        <div 
+          onClick={handleCloseTriagem}
+          className={`fixed inset-0 bg-black/45 z-50 flex justify-end animate-in fade-in ${
+            isClosing ? 'animate-out fade-out duration-300' : ''
+          }`}
+          style={isClosing ? { animationFillMode: 'forwards' } : undefined}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-xl bg-white dark:bg-zinc-900 h-full flex flex-col shadow-2xl border-l border-zinc-250 dark:border-zinc-800 animate-in slide-in-from-right duration-300 ${
+              isClosing ? 'animate-out slide-out-to-right' : ''
+            }`}
+            style={isClosing ? { animationFillMode: 'forwards' } : undefined}
+          >
             <div className="p-6 border-b border-zinc-150 dark:border-zinc-800 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-black text-zinc-955 dark:text-zinc-50">Ficha de Triagem</h3>
                 <span className="text-[10px] font-mono text-zinc-400 font-bold block mt-1">{activeApp.protocol}</span>
               </div>
               <button
-                onClick={() => {
-                  setActiveApp(null);
-                  setIsScheduling(false);
-                }}
-                className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-950 text-zinc-500"
+                onClick={handleCloseTriagem}
+                className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-955 text-zinc-500"
               >
                 ✕
               </button>
@@ -1107,21 +1141,23 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                       >
                         Acompanhamento
                       </button>
-                      <button
-                        onClick={() => {
-                          setIsScheduling(true);
-                          if (activeApp.status === 'Reagendamento Pendente' && activeApp.rescheduledDate && activeApp.rescheduledTime) {
-                            setScheduleDate(activeApp.rescheduledDate);
-                            setScheduleTime(activeApp.rescheduledTime);
-                          } else {
-                            setScheduleDate(nextBusinessDays()[0]);
-                            setScheduleTime('08:30');
-                          }
-                        }}
-                        className="h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15"
-                      >
-                        Agendar
-                      </button>
+                      {permissions.includes('confirm_appointments') && (
+                        <button
+                          onClick={() => {
+                            setIsScheduling(true);
+                            if (activeApp.status === 'Reagendamento Pendente' && activeApp.rescheduledDate && activeApp.rescheduledTime) {
+                              setScheduleDate(activeApp.rescheduledDate);
+                              setScheduleTime(activeApp.rescheduledTime);
+                            } else {
+                              setScheduleDate(nextBusinessDays()[0]);
+                              setScheduleTime('08:30');
+                            }
+                          }}
+                          className="h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15"
+                        >
+                          Agendar
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1338,6 +1374,6 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }

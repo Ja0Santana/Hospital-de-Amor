@@ -256,7 +256,7 @@ function App() {
           />
         )}
 
-        <aside className={`w-64 bg-primary dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800 flex flex-col shrink-0 p-5 fixed inset-y-0 left-0 z-40 h-screen transform transition-transform duration-300 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <aside className={`w-64 bg-primary dark:bg-zinc-950 border-r border-zinc-200/50 dark:border-zinc-800 flex flex-col shrink-0 px-5 pt-5 pb-2 fixed inset-y-0 left-0 z-40 h-screen transform transition-transform duration-300 md:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           <div className="flex md:hidden justify-end mb-2">
             <Button variant="ghost" size="icon" aria-label="Fechar menu lateral" onClick={() => setIsSidebarOpen(false)} className="h-8 w-8 hover:bg-white/10 rounded-lg">
               <X className="w-5 h-5 text-blue-100" aria-hidden="true" />
@@ -285,8 +285,8 @@ function App() {
             </div>
           </div>
 
-          <div className="flex-1 py-6 flex flex-col justify-between">
-            <nav className="space-y-1">
+          <div className="flex-1 py-6 flex flex-col overflow-hidden">
+            <nav className="space-y-1 overflow-y-auto flex-1 min-h-0">
               {userRole === 'donor' ? (
                 <>
                   <Button
@@ -392,7 +392,7 @@ function App() {
               )}
             </nav>
 
-            <div className="space-y-4">
+            <div className="shrink-0 space-y-4 pt-4">
               {userRole === 'donor' ? (
                 <Button
                   onClick={() => setIsDonationModalOpen(true)}
