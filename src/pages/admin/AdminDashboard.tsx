@@ -972,34 +972,43 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
               {!isSettingFollowUp && !isScheduling ? (
                 <div className="space-y-6">
                   <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Status da Solicitação</label>
+                    <div className="flex gap-2">
+                      {(['Pendente', 'Em análise', 'Cancelado'] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setStatusInput(s)}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
+                            statusInput === s
+                              ? s === 'Cancelado'
+                                ? 'bg-red-600 border-red-600 text-white shadow-xs'
+                                : s === 'Em análise'
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                                : 'bg-yellow-600 border-yellow-600 text-white shadow-xs'
+                              : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-650 hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                          }`}
+                        >
+                          {s === 'Em análise' ? 'Em Análise' : s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Grau de Prioridade da Solicitação</label>
                     <div className="flex gap-2">
                       {(['Baixa', 'Média', 'Alta'] as const).map((p) => (
                         <button
                           key={p}
                           type="button"
-                          onClick={async () => {
-                            setPriorityInput(p);
-                            if (!activeApp) return;
-                            try {
-                              await setAppointmentPriority(activeApp.id, p, loggedEmployee.cpf, loggedEmployee.name);
-                              setActionSuccess(`Prioridade alterada para ${p}.`);
-                              const allApps = await getAppointmentsForAdmin();
-                              setAppointments(allApps);
-                              const updated = allApps.find(app => app.id === activeApp.id);
-                              if (updated) {
-                                setActiveApp(updated);
-                              }
-                            } catch (err: any) {
-                              setActionError(err.message || 'Erro ao definir prioridade.');
-                            }
-                          }}
+                          onClick={() => setPriorityInput(p)}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
                             priorityInput === p
                               ? p === 'Alta'
-                                ? 'bg-red-500 border-red-500 text-white shadow-xs animate-pulse'
+                                ? 'bg-red-600 border-red-600 text-white shadow-xs'
                                 : p === 'Média'
-                                ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                                ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
                                 : 'bg-zinc-800 border-zinc-800 text-white shadow-xs'
                               : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-650 hover:bg-zinc-50 dark:hover:bg-zinc-900'
                           }`}
