@@ -148,7 +148,7 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'audit_logs', 'calendar_blocks', 'capacity_limits', 'custom_roles'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'calendar_blocks', 'capacity_limits', 'custom_roles'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
@@ -159,7 +159,6 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
     const donorPointsStore = tx.objectStore('donor_points');
     const supportMessagesStore = tx.objectStore('support_messages');
     const recurringSubscriptionsStore = tx.objectStore('recurring_subscriptions');
-    const auditLogsStore = tx.objectStore('audit_logs');
 
     const specCountReq = specStore.count();
     specCountReq.onsuccess = () => {
