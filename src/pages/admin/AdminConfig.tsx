@@ -223,9 +223,10 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
   };
 
   const handleImportDefaultHolidays = async () => {
-    setLoading(true);
     setActionError('');
     setActionSuccess('');
+    setLoading(true);
+
     try {
       const years = [2026, 2027];
       const defaultHolidays = [
@@ -244,13 +245,18 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       for (const year of years) {
         for (const hol of defaultHolidays) {
           const dateStr = `${year}-${hol.monthDay}`;
-          const day: CalendarDay = {
-            date: dateStr,
-            label: hol.label,
-            isWorkingDay: false
-          };
-          await saveCalendarDay(day);
-          count++;
+          const labelLower = hol.label.trim().toLowerCase();
+          const alreadyExists = calendarDays.some(d => d.label.trim().toLowerCase() === labelLower);
+
+          if (!alreadyExists) {
+            const day: CalendarDay = {
+              date: dateStr,
+              label: hol.label,
+              isWorkingDay: false
+            };
+            await saveCalendarDay(day);
+            count++;
+          }
         }
       }
 
