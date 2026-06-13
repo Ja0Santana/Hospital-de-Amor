@@ -60,6 +60,16 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
     loadData();
   }, [activeTab]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editingExam) {
+        setEditingExam(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingExam]);
+
   const loadData = async () => {
     setLoading(true);
     setActionError('');
@@ -106,6 +116,28 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       const spec = specialties.find(s => s.id === editingExamSpecId);
       if (!spec) throw new Error('Especialidade não encontrada');
 
+      const oldLimit = limits.find(l => l.examId === editingExam.id)?.dailyLimit ?? 10;
+      const changes: Record<string, { old: any; new: any }> = {};
+
+      if ((editingExam.duration ?? 30) !== durationInput) {
+        changes.duration = { old: editingExam.duration ?? 30, new: durationInput };
+      }
+      if ((editingExam.room ?? 'Sala A') !== roomInput) {
+        changes.room = { old: editingExam.room ?? 'Sala A', new: roomInput };
+      }
+      if ((editingExam.cost ?? 0) !== costInput) {
+        changes.cost = { old: editingExam.cost ?? 0, new: costInput };
+      }
+      if ((editingExam.requiresEncaminhamento ?? true) !== requiresEncaminhamentoInput) {
+        changes.requiresEncaminhamento = { old: editingExam.requiresEncaminhamento ?? true, new: requiresEncaminhamentoInput };
+      }
+      if ((editingExam.isActive ?? true) !== isActiveInput) {
+        changes.isActive = { old: editingExam.isActive ?? true, new: isActiveInput };
+      }
+      if (oldLimit !== limitInput) {
+        changes.dailyLimit = { old: oldLimit, new: limitInput };
+      }
+
       const updatedExams = spec.exams.map(ex => {
         if (ex.id === editingExam.id) {
           return {
@@ -136,7 +168,8 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
         'Configurações',
         `Parâmetros atualizados pelo gestor`,
         loggedEmployee.cpf,
-        loggedEmployee.name
+        loggedEmployee.name,
+        Object.keys(changes).length > 0 ? changes : undefined
       );
 
       setActionSuccess(`Configurações de "${editingExam.name}" salvas com sucesso.`);
@@ -200,9 +233,10 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
   };
 
   const handleImportDefaultHolidays = async () => {
-    setLoading(true);
     setActionError('');
     setActionSuccess('');
+    setLoading(true);
+
     try {
       const years = [2026, 2027];
       const defaultHolidays = [
@@ -221,13 +255,18 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       for (const year of years) {
         for (const hol of defaultHolidays) {
           const dateStr = `${year}-${hol.monthDay}`;
-          const day: CalendarDay = {
-            date: dateStr,
-            label: hol.label,
-            isWorkingDay: false
-          };
-          await saveCalendarDay(day);
-          count++;
+          const labelLower = hol.label.trim().toLowerCase();
+          const alreadyExists = calendarDays.some(d => d.label.trim().toLowerCase() === labelLower);
+
+          if (!alreadyExists) {
+            const day: CalendarDay = {
+              date: dateStr,
+              label: hol.label,
+              isWorkingDay: false
+            };
+            await saveCalendarDay(day);
+            count++;
+          }
         }
       }
 
@@ -259,7 +298,8 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-200">
+    <>
+      <div className="space-y-8 animate-in fade-in duration-200">
       <div>
         <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-sans">Configurações Hospitalares</h1>
         <p className="text-zinc-500 mt-1 text-sm">Gerencie parâmetros de exames, regras de capacidade e calendário operacional institucional.</p>
@@ -577,15 +617,15 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                   logs.map(log => (
                     <tr 
                       key={log.id} 
-                      className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10 text-xs text-zinc-700 dark:text-zinc-350 transition-colors"
+                      className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10 text-xs text-zinc-700 dark:text-zinc-355 transition-colors"
                     >
                       <td className="py-3.5 px-3 font-semibold text-zinc-900 dark:text-zinc-55 whitespace-nowrap">
-                        {new Date(log.timestamp).toLocaleString('pt-BR')}
+                        {log.timestamp ? new Date(log.timestamp).toLocaleString('pt-BR') : ''}
                       </td>
-                      <td className="py-3.5 px-3 font-bold text-zinc-950 dark:text-zinc-50">{log.userName}</td>
-                      <td className="py-3.5 px-3 font-medium text-pink-600 dark:text-pink-400">{log.action}</td>
+                      <td className="py-3.5 px-3 font-bold text-zinc-955 dark:text-zinc-50">{log.userName || 'Sistema'}</td>
+                      <td className="py-3.5 px-3 font-medium text-pink-600 dark:text-pink-400">{log.action || ''}</td>
                       <td className="py-3.5 px-3 text-zinc-550 dark:text-zinc-450 italic font-mono text-[0.625rem] whitespace-normal leading-relaxed">
-                        {log.details}
+                        {log.details || ''}
                       </td>
                     </tr>
                   ))
@@ -595,10 +635,17 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
           </div>
         </div>
       )}
+      </div>
 
       {editingExam && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in">
-          <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150">
+        <div 
+          onClick={() => setEditingExam(null)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-[9999] animate-in fade-in"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-150"
+          >
             <div className="border-b border-zinc-100 dark:border-zinc-800 p-5 flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Configurar Parâmetros Operacionais</h3>
@@ -716,6 +763,6 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
