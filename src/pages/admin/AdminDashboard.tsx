@@ -11,7 +11,7 @@ import {
   updatePatientContactInfo,
   getCapacityLimits
 } from '../../services/db';
-import type { Appointment, City, Specialty, PatientUser, CapacityLimit } from '../../types';
+import type { Appointment, City, Specialty, PatientUser, CapacityLimit, AppointmentStatus } from '../../types';
 import { 
   AlertCircle, 
   Clock, 
@@ -67,6 +67,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
   const [editEmail, setEditEmail] = useState('');
   const [mockNotification, setMockNotification] = useState<{ method: string; phone: string; code: string } | null>(null);
   const [priorityInput, setPriorityInput] = useState<'Baixa' | 'Média' | 'Alta'>('Baixa');
+  const [statusInput, setStatusInput] = useState<AppointmentStatus>('Pendente');
 
   const getPatientHistory = (patientCpf: string, currentAppId: string) => {
     const cleanCpf = patientCpf.replace(/\D/g, "");
@@ -306,24 +307,36 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
     }
   };
 
-  const handleStatusChange = async (newStatus: 'Em análise' | 'Cancelado') => {
+  const handleSaveTriagemChanges = async () => {
     setActionError('');
     setActionSuccess('');
     if (!activeApp) return;
 
     try {
-      await updateAppointmentStatus(
-        activeApp.id,
-        newStatus,
-        'Status alterado na triagem clínica.',
-        loggedEmployee.cpf,
-        loggedEmployee.name
-      );
-      setActionSuccess(`Agendamento de ${activeApp.patientName} alterado para "${newStatus}".`);
+      if (activeApp.priority !== priorityInput) {
+        await setAppointmentPriority(
+          activeApp.id,
+          priorityInput,
+          loggedEmployee.cpf,
+          loggedEmployee.name
+        );
+      }
+
+      if (activeApp.status !== statusInput) {
+        await updateAppointmentStatus(
+          activeApp.id,
+          statusInput,
+          'Status alterado na triagem clínica.',
+          loggedEmployee.cpf,
+          loggedEmployee.name
+        );
+      }
+
+      setActionSuccess(`Alterações da triagem de ${activeApp.patientName} salvas com sucesso.`);
       setActiveApp(null);
       await loadData();
     } catch (e: any) {
-      setActionError(e.message || 'Erro ao atualizar o status.');
+      setActionError(e.message || 'Erro ao salvar alterações da triagem.');
     }
   };
 
@@ -370,6 +383,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
     setEditPhone(app.patientPhone || '');
     setEditEmail(app.patientEmail || '');
     setPriorityInput(app.priority || 'Baixa');
+    setStatusInput(app.status || 'Pendente');
     setIsSettingFollowUp(false);
   };
 
