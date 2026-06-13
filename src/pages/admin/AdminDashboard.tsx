@@ -180,7 +180,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
         loggedEmployee.name
       );
 
-      setActionSuccess(`Solicitação de ${activeApp.patientName} em follow-up.`);
+      setActionSuccess(`Solicitação de ${activeApp.patientName} em acompanhamento.`);
       setIsSettingFollowUp(false);
       setFollowUpDateInput('');
       setFollowUpReason('');
@@ -188,7 +188,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
       setActiveApp(null);
       await loadData();
     } catch (err: any) {
-      setActionError(err.message || 'Erro ao registrar follow-up.');
+      setActionError(err.message || 'Erro ao registrar acompanhamento.');
     }
   };
 
@@ -577,7 +577,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
               <option value="Reagendamento Pendente">Reagendamento Pendente</option>
               <option value="Confirmado">Confirmado</option>
               <option value="Cancelado">Cancelado</option>
-              <option value="Aguardando Follow-up">Aguardando Follow-up</option>
+              <option value="Aguardando Follow-up">Aguardando Acompanhamento</option>
             </select>
           </div>
         </div>
@@ -735,12 +735,12 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                               app.status === 'Aguardando Follow-up' ? 'bg-purple-50 text-purple-700 dark:bg-purple-955/20 dark:text-purple-400 border border-purple-200/20' :
                               'bg-yellow-50 text-yellow-700 dark:bg-yellow-955/20 dark:text-yellow-400 border border-yellow-200/20'
                           }`}>
-                            {isOverdue ? 'Aguardando Follow-up (Vencido)' : app.status}
+                            {isOverdue ? 'Aguardando Acompanhamento (Vencido)' : app.status === 'Aguardando Follow-up' ? 'Aguardando Acompanhamento' : app.status}
                           </span>
                           {app.status === 'Aguardando Follow-up' && (
                             <div className="text-[9px] font-bold tracking-tight block">
                               {app.followUpSuspended ? (
-                                <span className="text-zinc-400">⏸️ Follow-up Suspenso</span>
+                                <span className="text-zinc-400">⏸️ Acompanhamento Suspenso</span>
                               ) : (
                                 <span className={isOverdue ? "text-red-500 font-extrabold animate-pulse" : "text-purple-500"}>
                                   📅 Limite: {app.followUpDate ? new Date(app.followUpDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
@@ -1105,7 +1105,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                         }}
                         className="h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
                       >
-                        Follow-up
+                        Acompanhamento
                       </button>
                       <button
                         onClick={() => {
@@ -1129,7 +1129,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                 <form onSubmit={handleFollowUpSubmit} className="space-y-4 pt-4 border-t border-zinc-150 dark:border-zinc-800 animate-in slide-in-from-bottom-2">
                   <h4 className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50 flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-purple-650" />
-                    Configurar Follow-up / Pendência
+                    Configurar Acompanhamento / Pendência
                   </h4>
 
                   <div className="space-y-4">
@@ -1164,8 +1164,8 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                           rows={2}
                           value={followUpReason}
                           onChange={(e) => setFollowUpReason(e.target.value)}
-                          placeholder="Informe o motivo para pausar o follow-up deste paciente..."
-                          className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                          placeholder="Informe o motivo para pausar o acompanhamento deste paciente..."
+                          className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
                           required={followUpIsSuspended}
                         />
                       </div>
@@ -1184,7 +1184,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                       type="submit"
                       className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[11px] font-bold transition-all shadow-sm"
                     >
-                      Confirmar Follow-up
+                      Confirmar Acompanhamento
                     </button>
                   </div>
                 </form>
