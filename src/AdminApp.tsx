@@ -6,11 +6,16 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AuditLogs from './pages/admin/AuditLogs';
 import AdminConfig from './pages/admin/AdminConfig';
+import { getEmployeePermissions } from './services/db';
 import type { PatientUser } from './types';
 
 export default function AdminApp() {
   const [currentHash, setCurrentHash] = useState(window.location.hash || '#/login');
   const [loggedEmployee, setLoggedEmployee] = useState<PatientUser | null>(null);
+  const [permissions, setPermissions] = useState<string[]>(() => {
+    const stored = localStorage.getItem('hospital_amor_admin_permissions');
+    return stored ? JSON.parse(stored) : [];
+  });
   const [isSidebarMobileOpen, setIsSidebarMobileOpen] = useState(false);
   const [fontSize, setFontSize] = useState(() => {
     return localStorage.getItem('font-size-level') || 'default';
@@ -31,9 +36,20 @@ export default function AdminApp() {
     const storedUser = localStorage.getItem('hospital_amor_admin_user');
     if (storedUser) {
       try {
-        setLoggedEmployee(JSON.parse(storedUser));
+        const parsed = JSON.parse(storedUser);
+        setLoggedEmployee(parsed);
+        const storedPerms = localStorage.getItem('hospital_amor_admin_permissions');
+        if (storedPerms) {
+          setPermissions(JSON.parse(storedPerms));
+        } else if (parsed.role) {
+          getEmployeePermissions(parsed.role).then(perms => {
+            setPermissions(perms);
+            localStorage.setItem('hospital_amor_admin_permissions', JSON.stringify(perms));
+          });
+        }
       } catch (e) {
         localStorage.removeItem('hospital_amor_admin_user');
+        localStorage.removeItem('hospital_amor_admin_permissions');
       }
     }
 
@@ -45,15 +61,25 @@ export default function AdminApp() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const handleLogin = (employee: PatientUser) => {
+  const handleLogin = async (employee: PatientUser) => {
     setLoggedEmployee(employee);
     localStorage.setItem('hospital_amor_admin_user', JSON.stringify(employee));
+    if (employee.role) {
+      const perms = await getEmployeePermissions(employee.role);
+      setPermissions(perms);
+      localStorage.setItem('hospital_amor_admin_permissions', JSON.stringify(perms));
+    } else {
+      setPermissions([]);
+      localStorage.setItem('hospital_amor_admin_permissions', JSON.stringify([]));
+    }
     window.location.hash = '#/dashboard';
   };
 
   const handleLogout = () => {
     setLoggedEmployee(null);
+    setPermissions([]);
     localStorage.removeItem('hospital_amor_admin_user');
+    localStorage.removeItem('hospital_amor_admin_permissions');
     window.location.hash = '#/login';
   };
 
@@ -66,26 +92,33 @@ export default function AdminApp() {
     return <AdminLogin onLogin={handleLogin} onNavigate={(hash) => { window.location.hash = hash; }} />;
   }
 
-  const userRole = loggedEmployee.role;
-
   const renderContent = () => {
     switch (currentPath) {
       case '/dashboard':
+        if (!permissions.includes('view_appointments')) {
+          return (
+            <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+              <Shield className="w-12 h-12 text-zinc-400 mb-4" />
+              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-2">Acesso Negado</h2>
+              <p className="text-xs text-zinc-500 max-w-sm">Você não tem permissão para visualizar o Painel de Triagem. Entre em contato com o administrador.</p>
+            </div>
+          );
+        }
         return <AdminDashboard loggedEmployee={loggedEmployee} />;
       case '/usuarios':
-        if (userRole !== 'gestor') {
+        if (!permissions.includes('manage_users')) {
           window.location.hash = '#/dashboard';
           return null;
         }
         return <AdminUsers loggedEmployee={loggedEmployee} />;
       case '/configuracoes':
-        if (userRole !== 'gestor') {
+        if (!permissions.includes('manage_config')) {
           window.location.hash = '#/dashboard';
           return null;
         }
         return <AdminConfig loggedEmployee={loggedEmployee} />;
       case '/auditoria':
-        if (userRole !== 'auditor') {
+        if (!permissions.includes('view_audit')) {
           window.location.hash = '#/dashboard';
           return null;
         }
@@ -142,37 +175,40 @@ export default function AdminApp() {
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          <a
-            href="#/dashboard"
-            onClick={() => setIsSidebarMobileOpen(false)}
-            className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${currentPath === '/dashboard' ? 'bg-pink-50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400' : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900'}`}
-          >
-            <ClipboardList className="w-4 h-4" />
-            Painel de Triagem
-          </a>
-
-          {userRole === 'gestor' && (
-            <>
-              <a
-                href="#/usuarios"
-                onClick={() => setIsSidebarMobileOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${currentPath === '/usuarios' ? 'bg-pink-50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400' : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900'}`}
-              >
-                <Users className="w-4 h-4" />
-                Gestão da Equipe
-              </a>
-              <a
-                href="#/configuracoes"
-                onClick={() => setIsSidebarMobileOpen(false)}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${currentPath === '/configuracoes' ? 'bg-pink-50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400' : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900'}`}
-              >
-                <Sliders className="w-4 h-4" />
-                Configurações
-              </a>
-            </>
+          {permissions.includes('view_appointments') && (
+            <a
+              href="#/dashboard"
+              onClick={() => setIsSidebarMobileOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${currentPath === '/dashboard' ? 'bg-pink-50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400' : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900'}`}
+            >
+              <ClipboardList className="w-4 h-4" />
+              Painel de Triagem
+            </a>
           )}
 
-          {userRole === 'auditor' && (
+          {permissions.includes('manage_users') && (
+            <a
+              href="#/usuarios"
+              onClick={() => setIsSidebarMobileOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${currentPath === '/usuarios' ? 'bg-pink-50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400' : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900'}`}
+            >
+              <Users className="w-4 h-4" />
+              Gestão da Equipe
+            </a>
+          )}
+
+          {permissions.includes('manage_config') && (
+            <a
+              href="#/configuracoes"
+              onClick={() => setIsSidebarMobileOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${currentPath === '/configuracoes' ? 'bg-pink-50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400' : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900'}`}
+            >
+              <Sliders className="w-4 h-4" />
+              Configurações
+            </a>
+          )}
+
+          {permissions.includes('view_audit') && (
             <a
               href="#/auditoria"
               onClick={() => setIsSidebarMobileOpen(false)}

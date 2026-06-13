@@ -1,7 +1,7 @@
-import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit } from '../types';
+import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 9;
+const DB_VERSION = 10;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -137,6 +137,10 @@ export function initDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('capacity_limits')) {
         db.createObjectStore('capacity_limits', { keyPath: 'examId' });
       }
+
+      if (!db.objectStoreNames.contains('custom_roles')) {
+        db.createObjectStore('custom_roles', { keyPath: 'id' });
+      }
     };
   }).then((db) => {
     return seedData(db);
@@ -145,7 +149,7 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'audit_logs', 'calendar_blocks', 'capacity_limits'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'audit_logs', 'calendar_blocks', 'capacity_limits', 'custom_roles'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
@@ -702,26 +706,68 @@ export async function getUserByCpf(cpf: string): Promise<PatientUser | null> {
 export async function createUser(user: Omit<PatientUser, 'createdAt'>): Promise<void> {
   const db = await initDb();
   const cleanCpf = user.cpf.replace(/\D/g, "");
-  const existing = await getUserByCpf(cleanCpf);
 
-  if (existing) {
-    const existingRole = existing.role || 'patient';
-    const newRole = user.role || 'patient';
+  return new Promise<void>((resolve, reject) => {
+    const txCheck = db.transaction('users', 'readonly');
+    const storeCheck = txCheck.objectStore('users');
+    const getAllReq = storeCheck.getAll();
+    getAllReq.onsuccess = () => {
+      const allUsers = getAllReq.result as PatientUser[];
+      const emailExists = allUsers.some(u => u.email.trim().toLowerCase() === user.email.trim().toLowerCase());
+      if (emailExists) {
+        reject(new Error('Este e-mail já está cadastrado em outra conta.'));
+        return;
+      }
+      resolve();
+    };
+    txCheck.onerror = () => reject(txCheck.error);
+  }).then(async () => {
+    const existing = await getUserByCpf(cleanCpf);
+    if (existing) {
+      const existingRole = existing.role || 'patient';
+      const newRole = user.role || 'patient';
 
-    if (existingRole === newRole || existingRole === 'both') {
-      throw new Error('Este CPF já está cadastrado');
+      if (existingRole === newRole || existingRole === 'both') {
+        throw new Error('Este CPF já está cadastrado');
+      }
+
+      existing.role = 'both';
+
+      return new Promise<void>((resolve, reject) => {
+        const stores = newRole === 'donor' ? ['users', 'donor_points'] : ['users'];
+        const tx = db.transaction(stores, 'readwrite');
+        
+        const userStore = tx.objectStore('users');
+        userStore.put(existing);
+
+        if (newRole === 'donor') {
+          const donorPointsStore = tx.objectStore('donor_points');
+          donorPointsStore.put({
+            donorCpf: cleanCpf,
+            balance: 0,
+            level: 'Bronze'
+          });
+        }
+
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
     }
 
-    existing.role = 'both';
+    const newUser: PatientUser = {
+      ...user,
+      cpf: cleanCpf,
+      createdAt: new Date().toISOString()
+    };
 
-    return new Promise((resolve, reject) => {
-      const stores = newRole === 'donor' ? ['users', 'donor_points'] : ['users'];
+    return new Promise<void>((resolve, reject) => {
+      const stores = newUser.role === 'donor' ? ['users', 'donor_points'] : ['users'];
       const tx = db.transaction(stores, 'readwrite');
       
       const userStore = tx.objectStore('users');
-      userStore.put(existing);
+      userStore.add(newUser);
 
-      if (newRole === 'donor') {
+      if (newUser.role === 'donor') {
         const donorPointsStore = tx.objectStore('donor_points');
         donorPointsStore.put({
           donorCpf: cleanCpf,
@@ -733,32 +779,6 @@ export async function createUser(user: Omit<PatientUser, 'createdAt'>): Promise<
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
     });
-  }
-
-  const newUser: PatientUser = {
-    ...user,
-    cpf: cleanCpf,
-    createdAt: new Date().toISOString()
-  };
-
-  return new Promise((resolve, reject) => {
-    const stores = newUser.role === 'donor' ? ['users', 'donor_points'] : ['users'];
-    const tx = db.transaction(stores, 'readwrite');
-    
-    const userStore = tx.objectStore('users');
-    userStore.add(newUser);
-
-    if (newUser.role === 'donor') {
-      const donorPointsStore = tx.objectStore('donor_points');
-      donorPointsStore.put({
-        donorCpf: cleanCpf,
-        balance: 0,
-        level: 'Bronze'
-      });
-    }
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -1544,6 +1564,7 @@ export async function updateUserStatusAdmin(
         return;
       }
 
+      const oldActive = user.isActive !== false;
       user.isActive = active;
       userStore.put(user);
 
@@ -1555,7 +1576,10 @@ export async function updateUserStatusAdmin(
         action: `${active ? 'Ativação' : 'Desativação'} do usuário ${user.name} (CPF: ${cpf})`,
         module: 'Controle de Usuários',
         ipAddress: '192.168.1.100',
-        details: `Usuário administrativo atualizado pelo gestor.`
+        details: `Usuário administrativo atualizado pelo gestor.`,
+        changes: {
+          isActive: { old: oldActive, new: active }
+        }
       };
       auditStore.add(log);
     };
@@ -1847,7 +1871,8 @@ export async function addAuditLogAdmin(
   module: string,
   details: string,
   employeeCpf: string,
-  employeeName: string
+  employeeName: string,
+  changes?: Record<string, { old: any; new: any }>
 ): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
@@ -1861,12 +1886,128 @@ export async function addAuditLogAdmin(
       action,
       module,
       ipAddress: '192.168.1.100',
-      details
+      details,
+      changes
     };
     const request = store.add(log);
     request.onsuccess = () => resolve();
     request.onerror = () => reject(request.error);
   });
+}
+
+export async function updateUserAdmin(
+  cpf: string,
+  updatedData: { name: string; email: string; phone: string; role: UserRole },
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['users', 'audit_logs'], 'readwrite');
+    const userStore = tx.objectStore('users');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = userStore.get(cpf);
+    getReq.onsuccess = () => {
+      const user = getReq.result as PatientUser | undefined;
+      if (!user) {
+        reject(new Error('Usuário não encontrado.'));
+        return;
+      }
+
+      const allReq = userStore.getAll();
+      allReq.onsuccess = () => {
+        const allUsers = allReq.result as PatientUser[];
+        const emailExists = allUsers.some(u => u.email.trim().toLowerCase() === updatedData.email.trim().toLowerCase() && u.cpf !== cpf);
+        if (emailExists) {
+          reject(new Error('Este e-mail já está cadastrado em outra conta.'));
+          return;
+        }
+
+        const oldName = user.name;
+        const oldEmail = user.email;
+        const oldPhone = user.phone;
+        const oldRole = user.role;
+
+        const changes: Record<string, { old: any; new: any }> = {};
+        if (oldName !== updatedData.name.trim()) changes.name = { old: oldName, new: updatedData.name.trim() };
+        if (oldEmail.toLowerCase() !== updatedData.email.trim().toLowerCase()) changes.email = { old: oldEmail, new: updatedData.email.trim() };
+        if (oldPhone !== updatedData.phone.trim()) changes.phone = { old: oldPhone, new: updatedData.phone.trim() };
+        if (oldRole !== updatedData.role) changes.role = { old: oldRole, new: updatedData.role };
+
+        user.name = updatedData.name.trim();
+        user.email = updatedData.email.trim();
+        user.phone = updatedData.phone.trim();
+        user.role = updatedData.role;
+
+        userStore.put(user);
+
+        const log: AuditLog = {
+          id: 'log-' + crypto.randomUUID().slice(0, 8),
+          timestamp: new Date().toISOString(),
+          userCpf: employeeCpf,
+          userName: employeeName,
+          action: `Edição do usuário ${user.name} (CPF: ${cpf})`,
+          module: 'Controle de Usuários',
+          ipAddress: '192.168.1.100',
+          details: `Dados cadastrais atualizados pelo gestor.`,
+          changes: Object.keys(changes).length > 0 ? changes : undefined
+        };
+        auditStore.add(log);
+      };
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getCustomRoles(): Promise<CustomRole[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('custom_roles', 'readonly');
+    const store = tx.objectStore('custom_roles');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveCustomRole(role: CustomRole): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('custom_roles', 'readwrite');
+    const store = tx.objectStore('custom_roles');
+    const request = store.put(role);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteCustomRole(id: string): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('custom_roles', 'readwrite');
+    const store = tx.objectStore('custom_roles');
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+  gestor: ['view_appointments', 'confirm_appointments', 'manage_config', 'manage_users', 'view_audit'],
+  recepcionista: ['view_appointments', 'confirm_appointments'],
+  auditor: ['view_appointments', 'view_audit']
+};
+
+export async function getEmployeePermissions(role: string): Promise<string[]> {
+  if (DEFAULT_ROLE_PERMISSIONS[role]) {
+    return DEFAULT_ROLE_PERMISSIONS[role];
+  }
+  const roles = await getCustomRoles();
+  const custom = roles.find(r => r.id === role);
+  return custom ? custom.permissions : [];
 }
 
 

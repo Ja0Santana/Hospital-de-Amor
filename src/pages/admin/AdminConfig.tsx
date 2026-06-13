@@ -106,6 +106,28 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       const spec = specialties.find(s => s.id === editingExamSpecId);
       if (!spec) throw new Error('Especialidade não encontrada');
 
+      const oldLimit = limits.find(l => l.examId === editingExam.id)?.dailyLimit ?? 10;
+      const changes: Record<string, { old: any; new: any }> = {};
+
+      if ((editingExam.duration ?? 30) !== durationInput) {
+        changes.duration = { old: editingExam.duration ?? 30, new: durationInput };
+      }
+      if ((editingExam.room ?? 'Sala A') !== roomInput) {
+        changes.room = { old: editingExam.room ?? 'Sala A', new: roomInput };
+      }
+      if ((editingExam.cost ?? 0) !== costInput) {
+        changes.cost = { old: editingExam.cost ?? 0, new: costInput };
+      }
+      if ((editingExam.requiresEncaminhamento ?? true) !== requiresEncaminhamentoInput) {
+        changes.requiresEncaminhamento = { old: editingExam.requiresEncaminhamento ?? true, new: requiresEncaminhamentoInput };
+      }
+      if ((editingExam.isActive ?? true) !== isActiveInput) {
+        changes.isActive = { old: editingExam.isActive ?? true, new: isActiveInput };
+      }
+      if (oldLimit !== limitInput) {
+        changes.dailyLimit = { old: oldLimit, new: limitInput };
+      }
+
       const updatedExams = spec.exams.map(ex => {
         if (ex.id === editingExam.id) {
           return {
@@ -136,7 +158,8 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
         'Configurações',
         `Parâmetros atualizados pelo gestor`,
         loggedEmployee.cpf,
-        loggedEmployee.name
+        loggedEmployee.name,
+        Object.keys(changes).length > 0 ? changes : undefined
       );
 
       setActionSuccess(`Configurações de "${editingExam.name}" salvas com sucesso.`);
