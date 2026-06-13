@@ -177,6 +177,7 @@ export interface AuditLog {
   module: string;
   ipAddress: string;
   details: string;
+  changes?: Record<string, { old: any; new: any }>;
 }
 
 export interface CalendarDay {
@@ -188,6 +189,12 @@ export interface CalendarDay {
 export interface CapacityLimit {
   examId: string;
   dailyLimit: number;
+}
+
+export interface CustomRole {
+  id: string;
+  name: string;
+  permissions: string[];
 }
 
 

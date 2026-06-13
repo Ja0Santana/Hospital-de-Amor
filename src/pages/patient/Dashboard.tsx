@@ -12,17 +12,6 @@ interface DashboardProps {
   onOpenCard: () => void;
 }
 
-function formatNextEventDate(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 3);
-  return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function getNextEventIsoDate(): string {
-  const date = new Date();
-  date.setDate(date.getDate() + 3);
-  return date.toISOString().split('T')[0];
-}
 
 export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenCard }: DashboardProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -68,6 +57,14 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
       console.error(error);
     }
   };
+
+  const nextConfirmedAppointment = appointments
+    .filter(app => app.status === 'Confirmado' && app.rescheduledDate)
+    .sort((a, b) => {
+      const dateA = new Date(`${a.rescheduledDate}T${a.rescheduledTime || '00:00'}`).getTime();
+      const dateB = new Date(`${b.rescheduledDate}T${b.rescheduledTime || '00:00'}`).getTime();
+      return dateA - dateB;
+    })[0] ?? null;
 
 
   const getStatusBadge = (status: Appointment['status']) => {
@@ -160,40 +157,74 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
         </Card>
 
         <Card className="lg:col-span-3 border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-3xl overflow-hidden bg-white dark:bg-zinc-950 flex flex-row min-h-[190px]">
-          <div className="flex-1 p-6 flex flex-col justify-between">
-            <div className="space-y-1">
-              <h2 className="text-[10px] font-bold uppercase tracking-wider text-primary">Próximo Evento</h2>
-              <p className="text-lg font-black text-zinc-900 dark:text-zinc-50 leading-tight">Consulta de Retorno - Oncologia</p>
+          {nextConfirmedAppointment ? (
+            <>
+              <div className="flex-1 p-6 flex flex-col justify-between">
+                <div className="space-y-1">
+                  <h2 className="text-[10px] font-bold uppercase tracking-wider text-primary">Próximo Evento</h2>
+                  <p className="text-lg font-black text-zinc-900 dark:text-zinc-50 leading-tight">
+                    {nextConfirmedAppointment.examName}
+                    {nextConfirmedAppointment.specialtyName ? ` · ${nextConfirmedAppointment.specialtyName}` : ''}
+                  </p>
+                </div>
+                <div className="space-y-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-3">
+                  <p className="flex items-center gap-1.5 font-medium">
+                    <Clock className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+                    <time dateTime={nextConfirmedAppointment.rescheduledDate}>
+                      {new Date(`${nextConfirmedAppointment.rescheduledDate}T12:00:00`).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      {nextConfirmedAppointment.rescheduledTime ? ` às ${nextConfirmedAppointment.rescheduledTime}` : ''}
+                    </time>
+                  </p>
+                  {(nextConfirmedAppointment.scheduledRoom || nextConfirmedAppointment.scheduledDoctor) && (
+                    <p className="flex items-center gap-1.5 font-medium">
+                      <MapPin className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+                      {[nextConfirmedAppointment.scheduledRoom, nextConfirmedAppointment.scheduledDoctor ? `Dr(a). ${nextConfirmedAppointment.scheduledDoctor}` : null].filter(Boolean).join(' · ')}
+                    </p>
+                  )}
+                  <p className="flex items-center gap-1.5 font-medium">
+                    <Info className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
+                    Protocolo: {nextConfirmedAppointment.protocol}
+                  </p>
+                </div>
+              </div>
+              <div className="hidden sm:flex w-[160px] bg-[#FFF0F6] dark:bg-zinc-900/30 items-center justify-center p-4 shrink-0 border-l border-zinc-100 dark:border-zinc-800">
+                <svg className="w-full h-full text-primary max-h-[130px]" viewBox="0 0 160 120" fill="none" aria-hidden="true">
+                  <circle cx="130" cy="30" r="10" fill="#FFB703" />
+                  <path d="M125,45 a6,6 0 0,1 12,0 a4,4 0 0,1 8,0 a2,2 0 0,1 2,2 a4,4 0 0,1 -4,4 h-16 a4,4 0 0,1 -2,-6" fill="white" opacity="0.9" />
+                  <rect x="25" y="45" width="110" height="65" rx="6" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
+                  <rect x="55" y="25" width="50" height="20" rx="3" fill="#E80053" />
+                  <rect x="71" y="31" width="18" height="12" fill="#FFFFFF" />
+                  <rect x="35" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
+                  <rect x="55" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
+                  <rect x="75" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
+                  <rect x="95" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
+                  <rect x="113" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
+                  <rect x="35" y="75" width="12" height="12" rx="1" fill="#F1F5F9" />
+                  <rect x="113" y="75" width="12" height="12" rx="1" fill="#F1F5F9" />
+                  <rect x="65" y="75" width="30" height="35" rx="3" fill="#1A202C" />
+                  <path d="M77,31 h6 M80,28 v6" stroke="#E80053" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </div>
+            </>
+          ) : (
+            <div className="flex-1 p-6 flex flex-col items-center justify-center text-center gap-3">
+              <div className="w-11 h-11 rounded-full bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-6 h-6 text-emerald-500" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm font-black text-zinc-800 dark:text-zinc-100">Nenhum evento agendado</p>
+                <p className="text-xs text-zinc-400 dark:text-zinc-500 max-w-[240px] leading-relaxed">
+                  Você não possui consultas ou exames confirmados no momento. Tudo em ordem!
+                </p>
+              </div>
+              <button
+                onClick={() => onNavigate('status-check')}
+                className="mt-1 text-[11px] font-bold text-primary hover:underline"
+              >
+                Ver meus agendamentos
+              </button>
             </div>
-            <div className="space-y-1.5 text-xs text-zinc-500 dark:text-zinc-400 mt-3">
-              <p className="flex items-center gap-1.5 font-medium">
-                <Clock className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-                <time dateTime={getNextEventIsoDate()}>{formatNextEventDate()} às 14:30</time>
-              </p>
-              <p className="flex items-center gap-1.5 font-medium">
-                <MapPin className="w-4 h-4 text-primary shrink-0" aria-hidden="true" />
-                Unidade Barretos - Ala B, Consultório 4
-              </p>
-            </div>
-          </div>
-          <div className="hidden sm:flex w-[160px] bg-[#FFF0F6] dark:bg-zinc-900/30 items-center justify-center p-4 shrink-0 border-l border-zinc-100 dark:border-zinc-800">
-            <svg className="w-full h-full text-primary max-h-[130px]" viewBox="0 0 160 120" fill="none" aria-hidden="true">
-              <circle cx="130" cy="30" r="10" fill="#FFB703" />
-              <path d="M125,45 a6,6 0 0,1 12,0 a4,4 0 0,1 8,0 a2,2 0 0,1 2,2 a4,4 0 0,1 -4,4 h-16 a4,4 0 0,1 -2,-6" fill="white" opacity="0.9" />
-              <rect x="25" y="45" width="110" height="65" rx="6" fill="#FFFFFF" stroke="#E2E8F0" strokeWidth="2" />
-              <rect x="55" y="25" width="50" height="20" rx="3" fill="#E80053" />
-              <rect x="71" y="31" width="18" height="12" fill="#FFFFFF" />
-              <rect x="35" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
-              <rect x="55" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
-              <rect x="75" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
-              <rect x="95" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
-              <rect x="113" y="55" width="12" height="12" rx="1" fill="#F1F5F9" />
-              <rect x="35" y="75" width="12" height="12" rx="1" fill="#F1F5F9" />
-              <rect x="113" y="75" width="12" height="12" rx="1" fill="#F1F5F9" />
-              <rect x="65" y="75" width="30" height="35" rx="3" fill="#1A202C" />
-              <path d="M77,31 h6 M80,28 v6" stroke="#E80053" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-          </div>
+          )}
         </Card>
       </div>
 

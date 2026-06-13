@@ -72,7 +72,7 @@ export default function AdminLogin({ onLogin, onNavigate }: AdminLoginProps) {
     try {
       const user = await authenticateUser(cleanCpf, password);
       if (user) {
-        const isValidRole = user.role === 'recepcionista' || user.role === 'gestor' || user.role === 'auditor';
+        const isValidRole = user.role !== 'patient' && user.role !== 'donor';
         if (!isValidRole) {
           setErrorMsg('Acesso negado. Esta conta não possui perfil administrativo.');
           await recordLoginAttempt(cleanCpf, false);

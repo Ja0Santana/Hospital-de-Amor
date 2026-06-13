@@ -138,6 +138,10 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
       return;
     }
 
+    if (!window.confirm(`Confirma o envio da sua avaliação com a nota ${npsScore}?`)) {
+      return;
+    }
+
     try {
       appointment.feedbackNps = npsScore;
       appointment.feedbackComment = npsComment;
@@ -800,7 +804,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                             </CardDescription>
                           </CardHeader>
                           <CardContent>
-                            {feedbackSuccess ? (
+                            {feedbackSuccess || (appointment.feedbackNps !== undefined && appointment.feedbackNps !== null) ? (
                               <div className="p-4 bg-green-50 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 rounded-2xl flex gap-2.5 items-center">
                                 <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                                 <span className="text-sm font-semibold text-green-800 dark:text-green-400">Obrigado! Seu feedback (NPS) foi registrado com sucesso.</span>

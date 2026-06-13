@@ -11,7 +11,7 @@ import {
   updatePatientContactInfo,
   getCapacityLimits
 } from '../../services/db';
-import type { Appointment, City, Specialty, PatientUser, CapacityLimit } from '../../types';
+import type { Appointment, City, Specialty, PatientUser, CapacityLimit, AppointmentStatus } from '../../types';
 import { 
   AlertCircle, 
   Clock, 
@@ -26,9 +26,10 @@ import {
 
 interface AdminDashboardProps {
   loggedEmployee: PatientUser;
+  permissions: string[];
 }
 
-export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) {
+export default function AdminDashboard({ loggedEmployee, permissions }: AdminDashboardProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
@@ -67,6 +68,18 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
   const [editEmail, setEditEmail] = useState('');
   const [mockNotification, setMockNotification] = useState<{ method: string; phone: string; code: string } | null>(null);
   const [priorityInput, setPriorityInput] = useState<'Baixa' | 'Média' | 'Alta'>('Baixa');
+  const [statusInput, setStatusInput] = useState<AppointmentStatus>('Pendente');
+
+  const [isClosing, setIsClosing] = useState(false);
+
+  const handleCloseTriagem = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setActiveApp(null);
+      setIsClosing(false);
+      setIsScheduling(false);
+    }, 300);
+  };
 
   const getPatientHistory = (patientCpf: string, currentAppId: string) => {
     const cleanCpf = patientCpf.replace(/\D/g, "");
@@ -179,7 +192,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
         loggedEmployee.name
       );
 
-      setActionSuccess(`Solicitação de ${activeApp.patientName} em follow-up.`);
+      setActionSuccess(`Solicitação de ${activeApp.patientName} em acompanhamento.`);
       setIsSettingFollowUp(false);
       setFollowUpDateInput('');
       setFollowUpReason('');
@@ -187,7 +200,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
       setActiveApp(null);
       await loadData();
     } catch (err: any) {
-      setActionError(err.message || 'Erro ao registrar follow-up.');
+      setActionError(err.message || 'Erro ao registrar acompanhamento.');
     }
   };
 
@@ -236,6 +249,16 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
       }
     }
   }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && activeApp) {
+        handleCloseTriagem();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeApp]);
 
   const handleSort = (key: typeof sortKey) => {
     let nextOrder: 'asc' | 'desc' = 'asc';
@@ -306,24 +329,36 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
     }
   };
 
-  const handleStatusChange = async (newStatus: 'Em análise' | 'Cancelado') => {
+  const handleSaveTriagemChanges = async () => {
     setActionError('');
     setActionSuccess('');
     if (!activeApp) return;
 
     try {
-      await updateAppointmentStatus(
-        activeApp.id,
-        newStatus,
-        'Status alterado na triagem clínica.',
-        loggedEmployee.cpf,
-        loggedEmployee.name
-      );
-      setActionSuccess(`Agendamento de ${activeApp.patientName} alterado para "${newStatus}".`);
+      if (activeApp.priority !== priorityInput) {
+        await setAppointmentPriority(
+          activeApp.id,
+          priorityInput,
+          loggedEmployee.cpf,
+          loggedEmployee.name
+        );
+      }
+
+      if (activeApp.status !== statusInput) {
+        await updateAppointmentStatus(
+          activeApp.id,
+          statusInput,
+          'Status alterado na triagem clínica.',
+          loggedEmployee.cpf,
+          loggedEmployee.name
+        );
+      }
+
+      setActionSuccess(`Alterações da triagem de ${activeApp.patientName} salvas com sucesso.`);
       setActiveApp(null);
       await loadData();
     } catch (e: any) {
-      setActionError(e.message || 'Erro ao atualizar o status.');
+      setActionError(e.message || 'Erro ao salvar alterações da triagem.');
     }
   };
 
@@ -370,6 +405,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
     setEditPhone(app.patientPhone || '');
     setEditEmail(app.patientEmail || '');
     setPriorityInput(app.priority || 'Baixa');
+    setStatusInput(app.status || 'Pendente');
     setIsSettingFollowUp(false);
   };
 
@@ -445,7 +481,8 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in">
+    <>
+      <div className="space-y-8 animate-in fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-sans">Painel de Triagem</h1>
@@ -563,7 +600,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
               <option value="Reagendamento Pendente">Reagendamento Pendente</option>
               <option value="Confirmado">Confirmado</option>
               <option value="Cancelado">Cancelado</option>
-              <option value="Aguardando Follow-up">Aguardando Follow-up</option>
+              <option value="Aguardando Follow-up">Aguardando Acompanhamento</option>
             </select>
           </div>
         </div>
@@ -586,7 +623,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
           </div>
         )}
 
-        {selectedApps.length > 0 && (
+        {selectedApps.length > 0 && permissions.includes('confirm_appointments') && (
           <div className="bg-pink-50 border border-pink-200/50 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-in slide-in-from-top-2 dark:bg-pink-955/10 dark:border-pink-900/30">
             <span className="text-xs font-bold text-pink-700 dark:text-pink-400">
               {selectedApps.length} item(s) selecionado(s)
@@ -721,12 +758,12 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                               app.status === 'Aguardando Follow-up' ? 'bg-purple-50 text-purple-700 dark:bg-purple-955/20 dark:text-purple-400 border border-purple-200/20' :
                               'bg-yellow-50 text-yellow-700 dark:bg-yellow-955/20 dark:text-yellow-400 border border-yellow-200/20'
                           }`}>
-                            {isOverdue ? 'Aguardando Follow-up (Vencido)' : app.status}
+                            {isOverdue ? 'Aguardando Acompanhamento (Vencido)' : app.status === 'Aguardando Follow-up' ? 'Aguardando Acompanhamento' : app.status}
                           </span>
                           {app.status === 'Aguardando Follow-up' && (
                             <div className="text-[9px] font-bold tracking-tight block">
                               {app.followUpSuspended ? (
-                                <span className="text-zinc-400">⏸️ Follow-up Suspenso</span>
+                                <span className="text-zinc-400">⏸️ Acompanhamento Suspenso</span>
                               ) : (
                                 <span className={isOverdue ? "text-red-500 font-extrabold animate-pulse" : "text-purple-500"}>
                                   📅 Limite: {app.followUpDate ? new Date(app.followUpDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
@@ -764,20 +801,31 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
         </div>
       </div>
 
+      </div>
+
       {activeApp && (
-        <div className="fixed inset-0 bg-black/45 z-50 flex justify-end animate-in fade-in">
-          <div className="w-full max-w-xl bg-white dark:bg-zinc-900 h-full flex flex-col shadow-2xl border-l border-zinc-250 dark:border-zinc-800 animate-in slide-in-from-right duration-350">
+        <div 
+          onClick={handleCloseTriagem}
+          className={`fixed inset-0 bg-black/45 z-50 flex justify-end animate-in fade-in ${
+            isClosing ? 'animate-out fade-out duration-300' : ''
+          }`}
+          style={isClosing ? { animationFillMode: 'forwards' } : undefined}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full max-w-xl bg-white dark:bg-zinc-900 h-full flex flex-col shadow-2xl border-l border-zinc-250 dark:border-zinc-800 animate-in slide-in-from-right duration-300 ${
+              isClosing ? 'animate-out slide-out-to-right' : ''
+            }`}
+            style={isClosing ? { animationFillMode: 'forwards' } : undefined}
+          >
             <div className="p-6 border-b border-zinc-150 dark:border-zinc-800 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-black text-zinc-955 dark:text-zinc-50">Ficha de Triagem</h3>
                 <span className="text-[10px] font-mono text-zinc-400 font-bold block mt-1">{activeApp.protocol}</span>
               </div>
               <button
-                onClick={() => {
-                  setActiveApp(null);
-                  setIsScheduling(false);
-                }}
-                className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-950 text-zinc-500"
+                onClick={handleCloseTriagem}
+                className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-955 text-zinc-500"
               >
                 ✕
               </button>
@@ -883,7 +931,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                     <button
                       type="button"
                       onClick={() => handleSendMockValidation('SMS')}
-                      className="py-2.5 bg-blue-650 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                      className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                     >
                       <span>📱 Testar via SMS</span>
                     </button>
@@ -901,7 +949,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                     O paciente solicitou a alteração do atendimento para a data:
                   </p>
                   <p className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 pt-1">
-                    <Calendar className="w-4 h-4 text-pink-650" />
+                    <Calendar className="w-4 h-4 text-pink-600" />
                     {activeApp.rescheduledDate ? new Date(activeApp.rescheduledDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''} às {activeApp.rescheduledTime}h
                   </p>
                 </div>
@@ -958,34 +1006,43 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
               {!isSettingFollowUp && !isScheduling ? (
                 <div className="space-y-6">
                   <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Status da Solicitação</label>
+                    <div className="flex gap-2">
+                      {(['Pendente', 'Em análise', 'Cancelado'] as const).map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setStatusInput(s)}
+                          className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
+                            statusInput === s
+                              ? s === 'Cancelado'
+                                ? 'bg-red-600 border-red-600 text-white shadow-xs'
+                                : s === 'Em análise'
+                                ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
+                                : 'bg-yellow-600 border-yellow-600 text-white shadow-xs'
+                              : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-650 hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                          }`}
+                        >
+                          {s === 'Em análise' ? 'Em Análise' : s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
                     <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Grau de Prioridade da Solicitação</label>
                     <div className="flex gap-2">
                       {(['Baixa', 'Média', 'Alta'] as const).map((p) => (
                         <button
                           key={p}
                           type="button"
-                          onClick={async () => {
-                            setPriorityInput(p);
-                            if (!activeApp) return;
-                            try {
-                              await setAppointmentPriority(activeApp.id, p, loggedEmployee.cpf, loggedEmployee.name);
-                              setActionSuccess(`Prioridade alterada para ${p}.`);
-                              const allApps = await getAppointmentsForAdmin();
-                              setAppointments(allApps);
-                              const updated = allApps.find(app => app.id === activeApp.id);
-                              if (updated) {
-                                setActiveApp(updated);
-                              }
-                            } catch (err: any) {
-                              setActionError(err.message || 'Erro ao definir prioridade.');
-                            }
-                          }}
+                          onClick={() => setPriorityInput(p)}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
                             priorityInput === p
                               ? p === 'Alta'
-                                ? 'bg-red-500 border-red-500 text-white shadow-xs animate-pulse'
+                                ? 'bg-red-600 border-red-600 text-white shadow-xs'
                                 : p === 'Média'
-                                ? 'bg-amber-500 border-amber-500 text-white shadow-xs'
+                                ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
                                 : 'bg-zinc-800 border-zinc-800 text-white shadow-xs'
                               : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-650 hover:bg-zinc-50 dark:hover:bg-zinc-900'
                           }`}
@@ -1064,52 +1121,51 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                     </form>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-2 pt-2">
+                  <div className="flex flex-col gap-2 pt-2 border-t border-zinc-150 dark:border-zinc-800">
                     <button
-                      onClick={() => handleStatusChange('Em análise')}
-                      className="h-10 border border-zinc-200 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-950 dark:text-zinc-300 text-zinc-700 rounded-xl text-[10px] font-bold transition-all shadow-xs"
+                      onClick={handleSaveTriagemChanges}
+                      className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-pink-600/15"
                     >
-                      Em Análise
+                      Salvar Alterações
                     </button>
-                    <button
-                      onClick={() => handleStatusChange('Cancelado')}
-                      className="h-10 bg-red-650 hover:bg-red-700 text-white rounded-xl text-[10px] font-bold transition-all shadow-xs"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsSettingFollowUp(true);
-                        setFollowUpDateInput(activeApp.followUpDate || '');
-                        setFollowUpIsSuspended(activeApp.followUpSuspended || false);
-                        setFollowUpReason('');
-                      }}
-                      className="h-10 bg-purple-650 hover:bg-purple-755 text-white rounded-xl text-[10px] font-bold transition-all shadow-xs"
-                    >
-                      Follow-up
-                    </button>
-                    <button
-                      onClick={() => {
-                        setIsScheduling(true);
-                        if (activeApp.status === 'Reagendamento Pendente' && activeApp.rescheduledDate && activeApp.rescheduledTime) {
-                          setScheduleDate(activeApp.rescheduledDate);
-                          setScheduleTime(activeApp.rescheduledTime);
-                        } else {
-                          setScheduleDate(nextBusinessDays()[0]);
-                          setScheduleTime('08:30');
-                        }
-                      }}
-                      className="h-10 bg-pink-650 hover:bg-pink-755 text-white rounded-xl text-[10px] font-bold transition-all shadow-sm shadow-pink-600/15"
-                    >
-                      Agendar
-                    </button>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setIsSettingFollowUp(true);
+                          setFollowUpDateInput(activeApp.followUpDate || '');
+                          setFollowUpIsSuspended(activeApp.followUpSuspended || false);
+                          setFollowUpReason('');
+                        }}
+                        className="h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                      >
+                        Acompanhamento
+                      </button>
+                      {permissions.includes('confirm_appointments') && (
+                        <button
+                          onClick={() => {
+                            setIsScheduling(true);
+                            if (activeApp.status === 'Reagendamento Pendente' && activeApp.rescheduledDate && activeApp.rescheduledTime) {
+                              setScheduleDate(activeApp.rescheduledDate);
+                              setScheduleTime(activeApp.rescheduledTime);
+                            } else {
+                              setScheduleDate(nextBusinessDays()[0]);
+                              setScheduleTime('08:30');
+                            }
+                          }}
+                          className="h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15"
+                        >
+                          Agendar
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ) : isSettingFollowUp ? (
                 <form onSubmit={handleFollowUpSubmit} className="space-y-4 pt-4 border-t border-zinc-150 dark:border-zinc-800 animate-in slide-in-from-bottom-2">
                   <h4 className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50 flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-purple-650" />
-                    Configurar Follow-up / Pendência
+                    Configurar Acompanhamento / Pendência
                   </h4>
 
                   <div className="space-y-4">
@@ -1144,8 +1200,8 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                           rows={2}
                           value={followUpReason}
                           onChange={(e) => setFollowUpReason(e.target.value)}
-                          placeholder="Informe o motivo para pausar o follow-up deste paciente..."
-                          className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                          placeholder="Informe o motivo para pausar o acompanhamento deste paciente..."
+                          className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
                           required={followUpIsSuspended}
                         />
                       </div>
@@ -1162,16 +1218,16 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                     </button>
                     <button
                       type="submit"
-                      className="flex-1 h-10 bg-purple-650 hover:bg-purple-700 text-white rounded-xl text-[11px] font-bold transition-all shadow-sm"
+                      className="flex-1 h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-[11px] font-bold transition-all shadow-sm"
                     >
-                      Confirmar Follow-up
+                      Confirmar Acompanhamento
                     </button>
                   </div>
                 </form>
               ) : (
                 <form onSubmit={handleConfirmSchedule} className="space-y-4 pt-4 border-t border-zinc-150 dark:border-zinc-800 animate-in slide-in-from-bottom-2">
                   <h4 className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50 flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4 text-pink-650" />
+                    <Calendar className="w-4 h-4 text-pink-600" />
                     Alocação de Recurso & Horário (Confirmar Agendamento)
                   </h4>
 
@@ -1318,6 +1374,6 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
