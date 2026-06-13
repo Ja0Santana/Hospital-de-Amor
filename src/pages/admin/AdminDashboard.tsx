@@ -897,7 +897,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                     <button
                       type="button"
                       onClick={() => handleSendMockValidation('SMS')}
-                      className="py-2.5 bg-blue-650 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                      className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                     >
                       <span>📱 Testar via SMS</span>
                     </button>
@@ -915,7 +915,7 @@ export default function AdminDashboard({ loggedEmployee }: AdminDashboardProps) 
                     O paciente solicitou a alteração do atendimento para a data:
                   </p>
                   <p className="font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5 pt-1">
-                    <Calendar className="w-4 h-4 text-pink-650" />
+                    <Calendar className="w-4 h-4 text-pink-600" />
                     {activeApp.rescheduledDate ? new Date(activeApp.rescheduledDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''} às {activeApp.rescheduledTime}h
                   </p>
                 </div>
