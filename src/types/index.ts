@@ -29,7 +29,7 @@ export interface FileAttachment {
   base64: string;
 }
 
-export type AppointmentStatus = 'Pendente' | 'Confirmado' | 'Cancelado' | 'Em análise' | 'Reagendamento Pendente' | 'Aguardando Follow-up';
+export type AppointmentStatus = 'Pendente' | 'Confirmado' | 'Cancelado' | 'Em análise' | 'Reagendamento Pendente' | 'Aguardando Follow-up' | 'Concluído' | 'Arquivado por Documentação Pendente';
 
 export interface Appointment {
   id: string;
@@ -53,6 +53,7 @@ export interface Appointment {
   feedbackNps: number | null;
   feedbackComment: string | null;
   presenceConfirmed?: boolean;
+  presenceConfirmedAt?: string;
   rescheduledDate?: string;
   rescheduledTime?: string;
   scheduledRoom?: string;
@@ -73,6 +74,19 @@ export interface Appointment {
     timestamp: string;
     isUrgent?: boolean;
   }>;
+  rescheduleReason?: string;
+  documentReminders?: Array<{ sentAt: string; count: number }>;
+}
+
+export interface FeedbackResponse {
+  id: string;
+  appointmentProtocol: string;
+  npsScore: number;
+  comment: string;
+  createdAt: string;
+  userCpf: string;
+  originSessionId: string;
+  originIp: string;
 }
 
 export interface PatientUser {
@@ -92,6 +106,16 @@ export interface PatientUser {
   emergencyContactRelation?: string;
   photoUrl?: string;
   isActive?: boolean;
+  privacyPreferences?: {
+    emailNotify: boolean;
+    smsNotify: boolean;
+    whatsappNotify: boolean;
+    npsNotify: boolean;
+    newsletterNotify: boolean;
+    marketingNotify: boolean;
+  };
+  lastConsentAt?: string;
+  readBooklets?: string[];
 }
 
 export interface SymptomLog {

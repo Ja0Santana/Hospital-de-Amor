@@ -209,7 +209,12 @@ export default function StepUploadReview({ formData, onChange, onEditStep, error
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-alert"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
             </div>
             <div>
-              <span className="font-bold text-sm block text-amber-900 dark:text-amber-300">Prioridade Legal Reconhecida</span>
+              <span className="font-bold text-sm flex items-center gap-1.5 text-amber-900 dark:text-amber-300">
+                Prioridade Legal Reconhecida
+                <Tooltip id="tooltip-legal-priority" content="Garantida por lei para idosos a partir de 60 anos ou pacientes oncológicos urgentes.">
+                  <HelpCircle className="w-3.5 h-3.5 text-amber-700/60 dark:text-amber-400/60 hover:text-amber-900 transition-colors" />
+                </Tooltip>
+              </span>
               <span className="text-xs text-amber-800 dark:text-amber-400/90 block mt-1 leading-relaxed">
                 Prioridade Legal reconhecida — {priorityInfo.reasonText}. Esta solicitação receberá atendimento prioritário na triagem.
               </span>
