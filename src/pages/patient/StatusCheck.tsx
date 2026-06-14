@@ -753,14 +753,12 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                               <Button type="button" variant="outline" onClick={() => window.print()} className="w-full text-xs font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
                                 Imprimir Credencial
                               </Button>
-                              <div className="flex gap-2 w-full">
-                                <Button type="button" variant="outline" onClick={handleSendEmail} className="flex-1 text-[11px] font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                                  Enviar por E-mail
-                                </Button>
-                                <Button type="button" variant="outline" onClick={handleSendWhatsapp} className="flex-1 text-[11px] font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                                  Enviar WhatsApp
-                                </Button>
-                              </div>
+                              <Button type="button" variant="outline" onClick={handleSendEmail} className="w-full text-xs font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                                Enviar por E-mail
+                              </Button>
+                              <Button type="button" variant="outline" onClick={handleSendWhatsapp} className="w-full text-xs font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                                Enviar WhatsApp
+                              </Button>
                             </div>
                           </div>
                         </div>
