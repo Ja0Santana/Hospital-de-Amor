@@ -4,9 +4,10 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
-import { createDonation, addDonorPoints, saveSupportMessage, getUserByCpf, createRecurringSubscription } from '../../services/db';
-import { X, CheckCircle2, AlertTriangle, CreditCard, QrCode, FileText, Copy, Check, Download, RefreshCw, AlertCircle, Coins } from 'lucide-react';
+import { createDonation, updateDonation, addDonorPoints, saveSupportMessage, getUserByCpf, createRecurringSubscription } from '../../services/db';
+import { X, CheckCircle2, AlertTriangle, CreditCard, QrCode, FileText, Copy, Check, Download, AlertCircle, Coins } from 'lucide-react';
 import type { Donation } from '../../types';
+import jsPDF from 'jspdf';
 
 interface DonationModalProps {
   isOpen: boolean;
@@ -29,7 +30,6 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
   const [amount, setAmount] = useState<number>(50);
   const [customAmount, setCustomAmount] = useState<string>('');
   const [isCustom, setIsCustom] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(false);
   const [successData, setSuccessData] = useState<{ amount: number; points: number; method: string } | null>(null);
   
@@ -44,11 +44,23 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
   const [cardRecurrence, setCardRecurrence] = useState<'single' | 'recurring'>('single');
   const [cardError, setCardError] = useState('');
 
-  const [downloadProgress, setDownloadProgress] = useState<number | null>(null);
-
   const [supportMessage, setSupportMessage] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(true);
   const [projectDestiny, setProjectDestiny] = useState<string>('Geral');
+
+  const [currentDonationId, setCurrentDonationId] = useState<string | null>(null);
+  const [pixGenerated, setPixGenerated] = useState(false);
+  const [boletoGenerated, setBoletoGenerated] = useState(false);
+  
+  const [btcRate, setBtcRate] = useState(375240);
+  const [ethRate, setEthRate] = useState(19820);
+  const [usdtRate, setUsdtRate] = useState(5.45);
+  const [cryptoTimeLeft, setCryptoTimeLeft] = useState(900);
+  const cryptoTimerRef = useRef<any | null>(null);
+
+  const [copiedCopiaCola, setCopiedCopiaCola] = useState(false);
+  const [copiedBoletoLine, setCopiedBoletoLine] = useState(false);
+  const [copiedCryptoWallet, setCopiedCryptoWallet] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,31 +81,46 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
       setCardName('');
       setCardExpiry('');
       setCardCvv('');
-      setCardRecurrence('single');
       setCardError('');
-      setDownloadProgress(null);
+      setCardRecurrence('single');
       setSupportMessage('');
       setIsAuthorized(true);
       setProjectDestiny('Geral');
+      setCurrentDonationId(null);
+      setPixGenerated(false);
+      setBoletoGenerated(false);
+      setCryptoTimeLeft(900);
+      setCopiedCopiaCola(false);
+      setCopiedBoletoLine(false);
+      setCopiedCryptoWallet(false);
       
-      startPixTimer();
       window.addEventListener('keydown', handleKeyDown);
     } else {
       stopPixTimer();
+      stopCryptoTimer();
     }
     return () => {
       stopPixTimer();
+      stopCryptoTimer();
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen]);
 
   useEffect(() => {
-    if (method === 'pix' && !pixExpired && isOpen) {
+    if (method === 'pix' && pixGenerated && !pixExpired && isOpen) {
       startPixTimer();
     } else {
       stopPixTimer();
     }
-  }, [method, pixExpired]);
+  }, [method, pixGenerated, pixExpired]);
+
+  useEffect(() => {
+    if (method === 'crypto' && isOpen) {
+      startCryptoTimer();
+    } else {
+      stopCryptoTimer();
+    }
+  }, [method, isOpen]);
 
   const startPixTimer = () => {
     stopPixTimer();
@@ -104,6 +131,9 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
         if (prev <= 1) {
           setPixExpired(true);
           stopPixTimer();
+          if (currentDonationId) {
+            updateDonation(currentDonationId, { status: 'Expirado' }).catch(console.error);
+          }
           return 0;
         }
         return prev - 1;
@@ -115,6 +145,33 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
     if (pixTimerRef.current) {
       clearInterval(pixTimerRef.current);
       pixTimerRef.current = null;
+    }
+  };
+
+  const updateCryptoRates = () => {
+    setBtcRate(375000 + Math.random() * 800 - 400);
+    setEthRate(19500 + Math.random() * 100 - 50);
+    setUsdtRate(5.45 + Math.random() * 0.1 - 0.05);
+  };
+
+  const startCryptoTimer = () => {
+    stopCryptoTimer();
+    setCryptoTimeLeft(900);
+    cryptoTimerRef.current = setInterval(() => {
+      setCryptoTimeLeft((prev) => {
+        if (prev <= 1) {
+          updateCryptoRates();
+          return 900;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const stopCryptoTimer = () => {
+    if (cryptoTimerRef.current) {
+      clearInterval(cryptoTimerRef.current);
+      cryptoTimerRef.current = null;
     }
   };
 
@@ -141,14 +198,9 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
     return amount;
   };
 
-  const handleCopy = (textToCopy?: string) => {
-    setCopied(true);
-    const text = textToCopy || '00020126580014br.gov.bcb.pix0136ha-doacao-hospital-de-amor-3450520400005303986540550.005802BR5916Hospital de Amor6009Barretos62070503***6304abcd';
-    navigator.clipboard.writeText(text);
-    setTimeout(() => setCopied(false), 2000);
-  };
 
-  const processSuccess = async (methodName: 'Pix' | 'Cartão de Crédito' | 'Boleto' | 'Criptomoedas', recurrence: 'single' | 'recurring' = 'single') => {
+
+  const processSuccess = async (methodName: 'Pix' | 'Cartão de Crédito' | 'Boleto' | 'Criptomoedas', recurrence: 'single' | 'recurring' = 'single', hashTx?: string) => {
     setLoading(true);
     const donationAmount = getActiveAmount();
     if (donationAmount <= 0) {
@@ -158,20 +210,28 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
 
     try {
       const points = donationAmount * 10;
-      const donationId = 'don-' + crypto.randomUUID().slice(0, 8);
-      const newDonation: Donation = {
-        id: donationId,
-        donorCpf,
-        amount: donationAmount,
-        method: methodName,
-        status: 'Confirmada',
-        date: new Date().toISOString(),
-        type: recurrence,
-        hash: 'TX-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 12),
-        projectDestiny
-      };
+      
+      if (currentDonationId && (methodName === 'Pix' || methodName === 'Boleto')) {
+        await updateDonation(currentDonationId, {
+          status: 'Confirmada',
+          date: new Date().toISOString()
+        });
+      } else {
+        const donationId = 'don-' + crypto.randomUUID().slice(0, 8);
+        const newDonation: Donation = {
+          id: donationId,
+          donorCpf,
+          amount: donationAmount,
+          method: methodName,
+          status: 'Confirmada',
+          date: new Date().toISOString(),
+          type: recurrence,
+          hash: hashTx || 'TX-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 12),
+          projectDestiny
+        };
+        await createDonation(newDonation);
+      }
 
-      await createDonation(newDonation);
       await addDonorPoints(donorCpf, points);
 
       if (methodName === 'Cartão de Crédito' && recurrence === 'recurring') {
@@ -214,6 +274,192 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
     }
   };
 
+  const handleGeneratePix = async () => {
+    setLoading(true);
+    try {
+      const donationAmount = getActiveAmount();
+      if (donationAmount <= 0) {
+        setLoading(false);
+        return;
+      }
+      const donationId = 'don-pix-' + crypto.randomUUID().slice(0, 8);
+      const e2eId = 'E2E-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 16);
+      const newDonation: Donation = {
+        id: donationId,
+        donorCpf,
+        amount: donationAmount,
+        method: 'Pix',
+        status: 'Aguardando Pagamento',
+        date: new Date().toISOString(),
+        type: 'single',
+        hash: e2eId,
+        projectDestiny
+      };
+      await createDonation(newDonation);
+      setCurrentDonationId(donationId);
+      setPixGenerated(true);
+      setPixExpired(false);
+      setPixTimeLeft(300);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateBoleto = async () => {
+    setLoading(true);
+    try {
+      const donationAmount = getActiveAmount();
+      if (donationAmount <= 0) {
+        setLoading(false);
+        return;
+      }
+      const donationId = 'don-bol-' + crypto.randomUUID().slice(0, 8);
+      const bolHash = 'BOL-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 12);
+      const newDonation: Donation = {
+        id: donationId,
+        donorCpf,
+        amount: donationAmount,
+        method: 'Boleto',
+        status: 'Aguardando Pagamento',
+        date: new Date().toISOString(),
+        type: 'single',
+        hash: bolHash,
+        projectDestiny
+      };
+      await createDonation(newDonation);
+      setCurrentDonationId(donationId);
+      setBoletoGenerated(true);
+
+      let count = 0;
+      const dueDate = new Date();
+      while (count < 3) {
+        dueDate.setDate(dueDate.getDate() + 1);
+        const day = dueDate.getDay();
+        if (day !== 0 && day !== 6) {
+          count++;
+        }
+      }
+
+      const cleanCpf = donorCpf.replace(/\D/g, "");
+      const donorObj = await getUserByCpf(cleanCpf);
+      const dName = donorObj ? donorObj.name : 'Doador';
+
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const marginLeft = 20;
+      const marginRight = pageWidth - 20;
+      const contentWidth = marginRight - marginLeft;
+      let cursorY = 20;
+
+      doc.setFillColor(240, 240, 240);
+      doc.rect(marginLeft, cursorY, contentWidth, 15, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(14);
+      doc.setTextColor(30, 30, 30);
+      doc.text('HA-BANK  |  001-9', marginLeft + 5, cursorY + 9.5);
+      
+      doc.setFontSize(8);
+      const lineDigitabel = `00191.00009 01234.567894 01000.123456 1 987600000${donationAmount.toFixed(0).padStart(4, '0')}`;
+      doc.text(lineDigitabel, marginRight - 5, cursorY + 9.5, { align: 'right' });
+
+      cursorY += 15;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(marginLeft, cursorY, marginRight, cursorY);
+
+      const drawField = (label: string, value: string, x: number, y: number, w: number, h: number, align = 'left') => {
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.2);
+        doc.rect(x, y, w, h);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6);
+        doc.setTextColor(100, 100, 100);
+        doc.text(label, x + 2, y + 4.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(30, 30, 30);
+        if (align === 'right') {
+          doc.text(value, x + w - 2, y + 10, { align: 'right' });
+        } else {
+          doc.text(value, x + 2, y + 10);
+        }
+      };
+
+      drawField('Local de Pagamento', 'Qualquer banco até o vencimento', marginLeft, cursorY, contentWidth - 40, 13);
+      drawField('Vencimento', dueDate.toLocaleDateString('pt-BR'), marginRight - 40, cursorY, 40, 13, 'right');
+
+      cursorY += 13;
+      drawField('Beneficiário', 'Fundação Pio XII - Hospital de Amor (CNPJ: 60.102.102/0001-10)', marginLeft, cursorY, contentWidth - 40, 13);
+      drawField('Agência/Código Beneficiário', '1234-5 / 987654-3', marginRight - 40, cursorY, 40, 13, 'right');
+
+      cursorY += 13;
+      drawField('Data do Documento', new Date().toLocaleDateString('pt-BR'), marginLeft, cursorY, 30, 13);
+      drawField('Número do Documento', 'HA-' + Math.floor(Math.random() * 1000000), marginLeft + 30, cursorY, 35, 13);
+      drawField('Espécie Doc.', 'DM', marginLeft + 65, cursorY, 20, 13);
+      drawField('Aceite', 'N', marginLeft + 85, cursorY, 15, 13);
+      drawField('Valor do Documento', `R$ ${donationAmount.toFixed(2)}`, marginRight - 40, cursorY, 40, 13, 'right');
+
+      cursorY += 13;
+      drawField('Uso do Banco', '', marginLeft, cursorY, 35, 13);
+      drawField('Carteira', '17', marginLeft + 35, cursorY, 20, 13);
+      drawField('Espécie', 'R$', marginLeft + 55, cursorY, 20, 13);
+      drawField('Quantidade', '1', marginLeft + 75, cursorY, 25, 13);
+      drawField('Nosso Número', '17/987654321-0', marginRight - 40, cursorY, 40, 13, 'right');
+
+      cursorY += 13;
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.2);
+      doc.rect(marginLeft, cursorY, contentWidth, 30);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Instruções (Todas as informações deste boleto são de exclusiva responsabilidade do beneficiário)', marginLeft + 2, cursorY + 4.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(50, 50, 50);
+      doc.text('- Boleto bancário gerado para fins de doação voluntária ao Hospital de Amor.', marginLeft + 4, cursorY + 12);
+      doc.text('- Agradecemos imensamente a sua contribuição para o tratamento de nossos pacientes.', marginLeft + 4, cursorY + 18);
+      doc.text('- O boleto pode ser pago em qualquer lotérica ou internet banking.', marginLeft + 4, cursorY + 24);
+
+      cursorY += 30;
+      doc.rect(marginLeft, cursorY, contentWidth, 20);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(100, 100, 100);
+      doc.text('Pagador', marginLeft + 2, cursorY + 4.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(30, 30, 30);
+      doc.text(`${dName} — CPF: ${donorCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`, marginLeft + 4, cursorY + 10);
+      doc.text('Rua do Pagador, 123 — Cidade do Pagador/SP', marginLeft + 4, cursorY + 15);
+
+      cursorY += 20;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6);
+      doc.setTextColor(120, 120, 120);
+      doc.text('Ficha de Compensação — Autenticação Mecânica', marginLeft, cursorY + 5);
+
+      cursorY += 8;
+      doc.setFillColor(0, 0, 0);
+      let barX = marginLeft + 10;
+      const barWidths = [1, 2, 0.5, 3, 1, 0.5, 2, 1, 3, 0.5, 1, 2, 0.5, 3, 1, 0.5, 2, 1, 3, 0.5, 1, 2, 0.5, 3, 1, 0.5, 2, 1, 3, 0.5];
+      for (let i = 0; i < 4; i++) {
+        barWidths.forEach((w) => {
+          doc.rect(barX, cursorY, w, 12, 'F');
+          barX += w + 0.8;
+        });
+        barX += 2;
+      }
+
+      doc.save(`boleto_hospital_amor_R$${donationAmount.toFixed(2)}.pdf`);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCardDonation = (simulateFail = false) => {
     setCardError('');
@@ -249,34 +495,6 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
     }
 
     processSuccess('Cartão de Crédito', cardRecurrence);
-  };
-
-  const simulateBoletoDownload = () => {
-    if (downloadProgress !== null) return;
-    setDownloadProgress(0);
-    
-    const interval = setInterval(() => {
-      setDownloadProgress((prev) => {
-        if (prev === null) return null;
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => setDownloadProgress(null), 800);
-          
-          const textContent = `HOSPITAL DE AMOR\nComprovante de Emissão de Boleto Bancário\nDoador CPF: ${donorCpf}\nValor: R$ ${getActiveAmount().toFixed(2)}\nVencimento: 3 dias úteis\nLinha Digitável: 34191.79001 01043.513184 91020.150008 7 98760000005000\nAgradecemos sua contribuição!`;
-          const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = url;
-          link.setAttribute('download', `boleto_hospital_amor_${getActiveAmount()}reais.txt`);
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 150);
   };
 
   const formatCardNumber = (val: string) => {
@@ -462,62 +680,86 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
 
             {method === 'pix' && (
               <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-150 dark:border-zinc-800 space-y-4">
-                <div className="flex flex-col items-center text-center space-y-2">
-                  <div className="bg-white p-3 rounded-2xl border border-zinc-200 shadow-sm w-36 h-36 flex items-center justify-center relative">
-                    {pixExpired ? (
-                      <div className="absolute inset-0 bg-white/90 dark:bg-zinc-950/90 flex flex-col items-center justify-center p-2 text-center">
-                        <AlertTriangle className="w-8 h-8 text-amber-500 mb-1" />
-                        <span className="text-[10px] font-black text-zinc-800 dark:text-zinc-200 uppercase">QR Code Expirado</span>
-                        <Button variant="link" onClick={startPixTimer} className="text-primary text-[10px] font-bold p-0 h-auto mt-1">
-                          Gerar Novo QR Code
-                        </Button>
-                      </div>
-                    ) : null}
-                    {/* SVG simplificado de QR code */}
-                    <svg className="w-full h-full text-zinc-900 dark:text-white" viewBox="0 0 100 100">
-                      <rect x="5" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="12" y="12" width="11" height="11" fill="currentColor" />
-                      <rect x="70" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="77" y="12" width="11" height="11" fill="currentColor" />
-                      <rect x="5" y="70" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
-                      <rect x="12" y="77" width="11" height="11" fill="currentColor" />
-                      <path d="M40,10 h15 M40,20 h20 M50,40 h10 M70,70 h25 M80,80 h10 M40,80 h15 M90,40 h5" stroke="currentColor" strokeWidth="6" strokeLinecap="square" />
-                    </svg>
-                  </div>
-                  
-                  {!pixExpired && (
-                    <div className="space-y-1">
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">O QR Code expira em</p>
-                      <p className="text-sm font-black text-zinc-800 dark:text-zinc-100 font-mono">
-                        {Math.floor(pixTimeLeft / 60)}:{(pixTimeLeft % 60).toString().padStart(2, '0')}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-1.5 pt-2">
-                  <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Chave Pix (Copia e Cola)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value="00020126580014br.gov.bcb.pix0136ha-doacao-hospital-de-amor-345052..."
-                      className="h-10 text-xs border-zinc-200 bg-zinc-100/30 font-mono text-zinc-500 rounded-xl flex-1 select-all"
-                    />
-                    <Button onClick={() => handleCopy()} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
-                      {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
+                {!pixGenerated ? (
+                  <div className="text-center py-6 space-y-3">
+                    <p className="text-xs text-zinc-500 leading-normal">
+                      Clique no botão abaixo para gerar o QR Code de pagamento Pix de <strong>R$ {getActiveAmount().toFixed(2)}</strong>.
+                    </p>
+                    <Button
+                      onClick={handleGeneratePix}
+                      disabled={loading || getActiveAmount() <= 0}
+                      className="bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 px-8 rounded-xl shadow-md text-xs w-full"
+                    >
+                      Gerar QR Code Pix
                     </Button>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col items-center text-center space-y-2">
+                      <div className="bg-white p-3 rounded-2xl border border-zinc-200 shadow-sm w-36 h-36 flex items-center justify-center relative">
+                        {pixExpired ? (
+                          <div className="absolute inset-0 bg-white/95 dark:bg-zinc-950/95 flex flex-col items-center justify-center p-2 text-center rounded-2xl">
+                            <AlertTriangle className="w-8 h-8 text-amber-500 mb-1" />
+                            <span className="text-[10px] font-black text-zinc-800 dark:text-zinc-200 uppercase">QR Code Expirado</span>
+                            <Button variant="link" onClick={handleGeneratePix} className="text-primary text-[10px] font-bold p-0 h-auto mt-1">
+                              Gerar Novo QR Code
+                            </Button>
+                          </div>
+                        ) : null}
+                        <svg className="w-full h-full text-zinc-900 dark:text-white" viewBox="0 0 100 100">
+                          <rect x="5" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
+                          <rect x="12" y="12" width="11" height="11" fill="currentColor" />
+                          <rect x="70" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
+                          <rect x="77" y="12" width="11" height="11" fill="currentColor" />
+                          <rect x="5" y="70" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
+                          <rect x="12" y="77" width="11" height="11" fill="currentColor" />
+                          <path d="M40,10 h15 M40,20 h20 M50,40 h10 M70,70 h25 M80,80 h10 M40,80 h15 M90,40 h5" stroke="currentColor" strokeWidth="6" strokeLinecap="square" />
+                        </svg>
+                      </div>
+                      
+                      {!pixExpired && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">O QR Code expira em</p>
+                          <p className="text-sm font-black text-zinc-800 dark:text-zinc-100 font-mono">
+                            {Math.floor(pixTimeLeft / 60)}:{(pixTimeLeft % 60).toString().padStart(2, '0')}
+                          </p>
+                        </div>
+                      )}
+                    </div>
 
-                <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 flex gap-2">
-                  <Button
-                    onClick={() => processSuccess('Pix')}
-                    disabled={pixExpired || loading}
-                    className="flex-1 bg-green-600 hover:bg-green-600/95 text-white font-bold h-11 rounded-xl shadow-md text-xs"
-                  >
-                    Simular Confirmação Bancária (Sucesso)
-                  </Button>
-                </div>
+                    <div className="space-y-1.5 pt-2">
+                      <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Chave Pix (Copia e Cola)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={`00020126580014br.gov.bcb.pix0136ha-doacao-hospital-de-amor-34505204000053039865405${getActiveAmount().toFixed(2)}5802BR5916Hospital de Amor6009Barretos62070503***6304abcd`}
+                          className="h-10 text-xs border-zinc-200 bg-zinc-100/30 font-mono text-zinc-500 rounded-xl flex-1 select-all"
+                        />
+                        <Button 
+                          onClick={() => {
+                            setCopiedCopiaCola(true);
+                            navigator.clipboard.writeText(`00020126580014br.gov.bcb.pix0136ha-doacao-hospital-de-amor-34505204000053039865405${getActiveAmount().toFixed(2)}5802BR5916Hospital de Amor6009Barretos62070503***6304abcd`);
+                            setTimeout(() => setCopiedCopiaCola(false), 2000);
+                          }} 
+                          variant="outline" 
+                          className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0"
+                        >
+                          {copiedCopiaCola ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 flex gap-2">
+                      <Button
+                        onClick={() => processSuccess('Pix')}
+                        disabled={pixExpired || loading}
+                        className="flex-1 bg-green-600 hover:bg-green-600/95 text-white font-bold h-11 rounded-xl shadow-md text-xs"
+                      >
+                        Simular Confirmação Bancária (Sucesso)
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -637,55 +879,70 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
 
             {method === 'boleto' && (
               <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-2xl border border-zinc-150 dark:border-zinc-800 space-y-4">
-                <div className="flex flex-col items-center justify-center p-3 text-center space-y-1.5 border border-dashed border-zinc-200 rounded-xl bg-white dark:bg-zinc-950">
-                  <FileText className="w-8 h-8 text-primary" />
-                  <div className="space-y-0.5">
-                    <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Boleto Bancário Hospital de Amor</h4>
-                    <p className="text-[10px] text-zinc-400">Vencimento: 3 dias úteis. Compensação em até 24h.</p>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Linha Digitável (Código de Barras)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value="34191.79001 01043.513184 91020.150008 7 98760000005000"
-                      className="h-10 text-xs border-zinc-200 bg-zinc-100/30 font-mono text-zinc-500 rounded-xl flex-1 select-all"
-                    />
-                    <Button onClick={() => handleCopy()} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
-                      {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
+                {!boletoGenerated ? (
+                  <div className="text-center py-6 space-y-3">
+                    <p className="text-xs text-zinc-500 leading-normal">
+                      Gere o Boleto Bancário fictício de <strong>R$ {getActiveAmount().toFixed(2)}</strong> com vencimento de 3 dias úteis.
+                    </p>
+                    <Button
+                      onClick={handleGenerateBoleto}
+                      disabled={loading || getActiveAmount() <= 0}
+                      className="bg-brand-pink hover:bg-brand-pink/95 text-white font-bold h-11 px-8 rounded-xl shadow-md text-xs w-full"
+                    >
+                      Gerar Boleto Bancário
                     </Button>
                   </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col items-center justify-center p-3 text-center space-y-1.5 border border-dashed border-zinc-200 rounded-xl bg-white dark:bg-zinc-950">
+                      <CheckCircle2 className="w-8 h-8 text-green-600" />
+                      <div className="space-y-0.5">
+                        <h4 className="text-xs font-bold text-zinc-800 dark:text-zinc-200">Boleto Emitido e Enviado por E-mail!</h4>
+                        <p className="text-[10px] text-zinc-400">Vencimento em 3 dias úteis. O PDF foi baixado no seu navegador.</p>
+                      </div>
+                    </div>
 
-                <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 flex flex-col gap-2">
-                  <Button
-                    onClick={simulateBoletoDownload}
-                    variant="outline"
-                    className="w-full border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 font-bold h-11 rounded-xl text-xs flex items-center justify-center gap-2 relative overflow-hidden"
-                  >
-                    {downloadProgress !== null ? (
-                      <>
-                        <div className="absolute inset-y-0 left-0 bg-brand-pink/10 transition-all duration-150" style={{ width: `${downloadProgress}%` }} />
-                        <RefreshCw className="w-4 h-4 animate-spin text-brand-pink" />
-                        <span>Baixando Boleto ({downloadProgress}%)</span>
-                      </>
-                    ) : (
-                      <>
+                    <div className="space-y-1.5">
+                      <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Linha Digitável (Código de Barras)</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          readOnly
+                          value={`00191.00009 01234.567894 01000.123456 1 987600000${getActiveAmount().toFixed(0).padStart(4, '0')}`}
+                          className="h-10 text-xs border-zinc-200 bg-zinc-100/30 font-mono text-zinc-500 rounded-xl flex-1 select-all"
+                        />
+                        <Button 
+                          onClick={() => {
+                            setCopiedBoletoLine(true);
+                            navigator.clipboard.writeText(`00191.00009 01234.567894 01000.123456 1 987600000${getActiveAmount().toFixed(0).padStart(4, '0')}`);
+                            setTimeout(() => setCopiedBoletoLine(false), 2000);
+                          }} 
+                          variant="outline" 
+                          className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0"
+                        >
+                          {copiedBoletoLine ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 flex flex-col gap-2">
+                      <Button
+                        onClick={handleGenerateBoleto}
+                        variant="outline"
+                        className="w-full border-zinc-200 text-zinc-700 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 font-bold h-11 rounded-xl text-xs flex items-center justify-center gap-2"
+                      >
                         <Download className="w-4 h-4 text-zinc-500" />
-                        <span>Baixar Boleto em PDF</span>
-                      </>
-                    )}
-                  </Button>
+                        <span>Baixar Boleto Novamente</span>
+                      </Button>
 
-                  <Button
-                    onClick={() => processSuccess('Boleto')}
-                    className="w-full bg-green-600 hover:bg-green-600/95 text-white font-bold h-11 rounded-xl shadow-md text-xs"
-                  >
-                    Simular Compensação do Boleto (Sucesso)
-                  </Button>
-                </div>
+                      <Button
+                        onClick={() => processSuccess('Boleto')}
+                        className="w-full bg-green-600 hover:bg-green-600/95 text-white font-bold h-11 rounded-xl shadow-md text-xs"
+                      >
+                        Simular Compensação do Boleto (Sucesso)
+                      </Button>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -704,7 +961,26 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                   </select>
                 </div>
 
-                <div className="flex flex-col items-center text-center space-y-2 pt-2">
+                <div className="p-3 bg-white dark:bg-zinc-950 border border-zinc-150 dark:border-zinc-850 rounded-xl flex justify-between items-center text-xs">
+                  <div>
+                    <span className="text-[10px] text-zinc-400 block font-bold uppercase">Valor a Transferir</span>
+                    <span className="text-sm font-black text-zinc-800 dark:text-zinc-100 font-mono">
+                      {selectedCrypto === 'btc' && `${(getActiveAmount() / btcRate).toFixed(8)} BTC`}
+                      {selectedCrypto === 'eth' && `${(getActiveAmount() / ethRate).toFixed(6)} ETH`}
+                      {selectedCrypto === 'usdt' && `${(getActiveAmount() / usdtRate).toFixed(2)} USDT`}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] text-zinc-400 block font-bold uppercase">Rede Recomendada</span>
+                    <span className="text-xs font-black text-brand-pink uppercase tracking-wide">
+                      {selectedCrypto === 'btc' && 'Rede Bitcoin'}
+                      {selectedCrypto === 'eth' && 'Rede Ethereum ERC-20'}
+                      {selectedCrypto === 'usdt' && 'Rede Tron TRC-20'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center text-center space-y-2 pt-1">
                   <div className="bg-white p-3 rounded-2xl border border-zinc-200 shadow-sm w-36 h-36 flex items-center justify-center relative">
                     <svg className="w-full h-full text-zinc-900" viewBox="0 0 100 100">
                       <rect x="5" y="5" width="25" height="25" fill="none" stroke="currentColor" strokeWidth="6" />
@@ -716,10 +992,15 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                       <path d="M40,10 h15 M40,20 h20 M50,40 h10 M70,70 h25 M80,80 h10 M40,80 h15 M90,40 h5" stroke="currentColor" strokeWidth="6" strokeLinecap="square" />
                     </svg>
                   </div>
-                  <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Escaneie o QR Code</span>
+                  <div className="space-y-0.5">
+                    <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider block">Garantia de Cotação</span>
+                    <span className="text-xs font-black text-zinc-700 dark:text-zinc-300 font-mono">
+                      Cotação expira em {Math.floor(cryptoTimeLeft / 60)}:{(cryptoTimeLeft % 60).toString().padStart(2, '0')}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="space-y-1.5 pt-2">
+                <div className="space-y-1.5 pt-1">
                   <Label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Endereço da Carteira ({selectedCrypto.toUpperCase()})</Label>
                   <div className="flex gap-2">
                     <Input
@@ -727,18 +1008,29 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
                       value={CRYPTO_WALLETS[selectedCrypto]}
                       className="h-10 text-xs border-zinc-200 bg-zinc-100/30 font-mono text-zinc-500 rounded-xl flex-1 select-all"
                     />
-                    <Button onClick={() => handleCopy(CRYPTO_WALLETS[selectedCrypto])} variant="outline" className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0">
-                      {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
+                    <Button 
+                      onClick={() => {
+                        setCopiedCryptoWallet(true);
+                        navigator.clipboard.writeText(CRYPTO_WALLETS[selectedCrypto]);
+                        setTimeout(() => setCopiedCryptoWallet(false), 2000);
+                      }} 
+                      variant="outline" 
+                      className="h-10 w-10 shrink-0 border-zinc-200 rounded-xl hover:bg-zinc-200/50 flex items-center justify-center p-0"
+                    >
+                      {copiedCryptoWallet ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-zinc-500" />}
                     </Button>
                   </div>
                 </div>
 
                 <div className="pt-2 border-t border-zinc-200/60 dark:border-zinc-800 flex flex-col gap-2">
                   <span className="text-[9px] text-zinc-450 dark:text-zinc-550 leading-normal text-center">
-                    Atenção: envie apenas {selectedCrypto.toUpperCase()} para o endereço acima. O envio de outro ativo resultará em perda permanente.
+                    Atenção: envie apenas {selectedCrypto.toUpperCase()} para o endereço acima utilizando a rede indicada. O envio de outro ativo resultará em perda permanente.
                   </span>
                   <Button
-                    onClick={() => processSuccess('Criptomoedas')}
+                    onClick={() => {
+                      const randHash = 'TX-' + crypto.randomUUID().replace(/-/g, '').toUpperCase().slice(0, 24);
+                      processSuccess('Criptomoedas', 'single', randHash);
+                    }}
                     disabled={loading}
                     className="w-full bg-green-600 hover:bg-green-600/95 text-white font-bold h-11 rounded-xl shadow-md text-xs mt-1"
                   >

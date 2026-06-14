@@ -1133,6 +1133,27 @@ export async function createDonation(donation: Donation): Promise<void> {
   });
 }
 
+export async function updateDonation(id: string, updates: Partial<Donation>): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('donations', 'readwrite');
+    const store = tx.objectStore('donations');
+    const getReq = store.get(id);
+    getReq.onsuccess = () => {
+      const data = getReq.result;
+      if (!data) {
+        reject(new Error('Doação não encontrada'));
+        return;
+      }
+      const updated = { ...data, ...updates };
+      const putReq = store.put(updated);
+      putReq.onsuccess = () => resolve();
+      putReq.onerror = () => reject(putReq.error);
+    };
+    getReq.onerror = () => reject(getReq.error);
+  });
+}
+
 export async function getDonationsByCpf(cpf: string): Promise<Donation[]> {
   const db = await initDb();
   const cleanCpf = cpf.replace(/\D/g, "");

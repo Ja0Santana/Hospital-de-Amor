@@ -153,7 +153,7 @@ export interface Donation {
   donorCpf: string;
   amount: number;
   method: 'Pix' | 'Cartão de Crédito' | 'Boleto' | 'Criptomoedas';
-  status: 'Confirmada' | 'Pendente' | 'Cancelada' | 'Aguardando Pagamento' | 'Expirado';
+  status: 'Confirmada' | 'Pendente' | 'Cancelada' | 'Aguardando Pagamento' | 'Expirado' | 'Processando' | 'Estornada';
   date: string;
   type: 'single' | 'recurring';
   hash: string;

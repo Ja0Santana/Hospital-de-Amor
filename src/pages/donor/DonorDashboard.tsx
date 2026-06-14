@@ -658,22 +658,41 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                 <History className="w-4 h-4 text-brand-pink" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Histórico de Contribuições</h3>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const mostRecentYear = donations
-                    .filter((d) => d.status === 'Confirmada')
-                    .map((d) => new Date(d.date).getFullYear())
-                    .sort((a, b) => b - a)[0];
-                  setSelectedTaxYear(mostRecentYear ? mostRecentYear.toString() : new Date().getFullYear().toString());
-                  setIsTaxModalOpen(true);
-                }}
-                className="h-8 border-brand-pink/30 hover:border-brand-pink text-brand-pink font-bold text-[10px] rounded-lg gap-1.5 active:scale-[0.98] transition-all uppercase tracking-wider"
-              >
-                <FileText className="w-3.5 h-3.5" />
-                Declaração de IR
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const lastYear = (new Date().getFullYear() - 1).toString();
+                    generateTaxDeclarationPdf({
+                      donorName,
+                      donorCpf,
+                      year: lastYear,
+                      donations
+                    });
+                  }}
+                  className="h-8 border-brand-pink/30 hover:border-brand-pink text-brand-pink font-bold text-[10px] rounded-lg gap-1.5 active:scale-[0.98] transition-all uppercase tracking-wider"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  IR {new Date().getFullYear() - 1} (Download Direto)
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const mostRecentYear = donations
+                      .filter((d) => d.status === 'Confirmada')
+                      .map((d) => new Date(d.date).getFullYear())
+                      .sort((a, b) => b - a)[0];
+                    setSelectedTaxYear(mostRecentYear ? mostRecentYear.toString() : new Date().getFullYear().toString());
+                    setIsTaxModalOpen(true);
+                  }}
+                  className="h-8 border-brand-pink/30 hover:border-brand-pink text-brand-pink font-bold text-[10px] rounded-lg gap-1.5 active:scale-[0.98] transition-all uppercase tracking-wider"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  Declaração de IR
+                </Button>
+              </div>
             </div>
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-zinc-50 dark:bg-zinc-900/40 border border-zinc-100 dark:border-zinc-850 p-4 rounded-2xl gap-3">
@@ -734,6 +753,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                   <thead>
                     <tr className="text-zinc-400 border-b border-zinc-100 dark:border-zinc-800 font-bold uppercase tracking-wider text-[9px]">
                       <th className="py-2.5">Data</th>
+                      <th className="py-2.5">ID/Hash</th>
                       <th className="py-2.5">Valor</th>
                       <th className="py-2.5">Método</th>
                       <th className="py-2.5">Destinação</th>
@@ -745,6 +765,11 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                     {filteredDonations.map((d) => (
                       <tr key={d.id} className="text-zinc-700 dark:text-zinc-300">
                         <td className="py-3 font-mono">{new Date(d.date).toLocaleDateString('pt-BR')}</td>
+                        <td className="py-3">
+                          <span className="font-mono text-zinc-500 max-w-[120px] truncate block" title={d.hash || d.id}>
+                            {d.hash || d.id}
+                          </span>
+                        </td>
                         <td className="py-3 font-extrabold text-zinc-900 dark:text-zinc-100">R$ {d.amount.toFixed(2)}</td>
                         <td className="py-3">{d.method}</td>
                         <td className="py-3">{d.projectDestiny || 'Geral'}</td>
@@ -753,8 +778,12 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
                             d.status === 'Confirmada' 
                               ? 'bg-green-50 text-green-600 dark:bg-green-950/20 dark:text-green-400' 
-                              : d.status === 'Aguardando Pagamento' || d.status === 'Pendente'
+                              : d.status === 'Aguardando Pagamento' || d.status === 'Pendente' || d.status === 'Processando'
                               ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/20 dark:text-amber-400'
+                              : d.status === 'Expirado' || d.status === 'Cancelada'
+                              ? 'bg-red-50 text-red-650 dark:bg-red-950/20 dark:text-red-400'
+                              : d.status === 'Estornada'
+                              ? 'bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400'
                               : 'bg-zinc-100 text-zinc-400'
                           }`}>
                             {d.status}
