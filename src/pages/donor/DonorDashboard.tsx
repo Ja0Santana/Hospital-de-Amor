@@ -3,9 +3,9 @@ import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Label } from '../../components/ui/label';
-import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige, addDonorPoints } from '../../services/db';
+import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige, addDonorPoints, saveSupportMessage, getUserByCpf } from '../../services/db';
 import type { Donation, DonorPoints, RecurringSubscription } from '../../types';
-import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X, FileText, Download, Copy, Check, Send } from 'lucide-react';
+import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X, FileText, Download, Copy, Check, Send, AlertTriangle, Mail } from 'lucide-react';
 import { generateTaxDeclarationPdf } from '../../utils/generateTaxDeclarationPdf';
 
 const BADGE_STYLES: Record<string, { color: string; bg: string }> = {
@@ -46,6 +46,10 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
 
   const [copiedRefLink, setCopiedRefLink] = useState(false);
   const [referredUsers, setReferredUsers] = useState<{ id: string; name: string; date: string; status: 'Pendente' | 'Doou (100 pts)'; amount?: number }[]>([]);
+  const [transparencyTab, setTransparencyTab] = useState<'finance' | 'gratitude' | 'support' | 'emails'>('finance');
+  const [supportMsgAvulsa, setSupportMsgAvulsa] = useState('');
+  const [isAuthAvulsa, setIsAuthAvulsa] = useState(true);
+  const [supportSuccessAvulsa, setSupportSuccessAvulsa] = useState(false);
 
   useEffect(() => {
     const key = `referred_users_${donorCpf}`;
@@ -93,7 +97,45 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
   };
 
   const handleSimulateShare = (channel: string) => {
+    if (channel === 'E-mail') {
+      const key = `email_limit_${donorCpf}`;
+      const now = Date.now();
+      const stored = localStorage.getItem(key);
+      const timestamps: number[] = stored ? JSON.parse(stored) : [];
+      const tenMinutesAgo = now - 600000;
+      const recentSends = timestamps.filter(t => t > tenMinutesAgo);
+      
+      if (recentSends.length >= 3) {
+        alert('Limite de segurança atingido: Para evitar spam, você só pode enviar até 3 convites por e-mail a cada 10 minutos. Recomendamos copiar o link e compartilhar manualmente.');
+        return;
+      }
+      
+      recentSends.push(now);
+      localStorage.setItem(key, JSON.stringify(recentSends));
+    }
     alert(`Simulação: Compartilhando link de indicação via ${channel}. Mensagem enviada com sucesso!`);
+  };
+
+  const handleSendSupportMsgAvulsa = async () => {
+    if (!supportMsgAvulsa.trim()) return;
+    try {
+      const cleanCpf = donorCpf.replace(/\D/g, "");
+      const donor = await getUserByCpf(cleanCpf);
+      const donorNameLabel = donor && isAuthAvulsa ? donor.name.split(' ')[0] : 'Doador Anônimo';
+      
+      await saveSupportMessage({
+        id: crypto.randomUUID(),
+        donorName: donorNameLabel,
+        message: supportMsgAvulsa.trim(),
+        date: new Date().toISOString(),
+        isAuthorized: isAuthAvulsa
+      });
+      setSupportMsgAvulsa('');
+      setSupportSuccessAvulsa(true);
+      setTimeout(() => setSupportSuccessAvulsa(false), 3000);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => {
@@ -376,6 +418,18 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
           <p className="text-zinc-500 mt-1">Obrigado por fazer a diferença. Acompanhe seu impacto hoje.</p>
         </div>
       </div>
+
+      {points && points.balance > 0 && (
+        <div className="bg-amber-50/10 dark:bg-amber-950/15 border border-amber-500/20 p-4 rounded-2xl flex gap-3 items-start animate-in fade-in slide-in-from-top duration-300">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="text-xs font-bold text-zinc-900 dark:text-zinc-50 leading-tight">Pontos Expirando Em Breve</h4>
+            <p className="text-[10px] text-zinc-500 leading-normal">
+              Você possui <strong>{Math.min(350, points.balance)} pontos</strong> que expiram em 15 dias (ano fiscal corrente). Aproveite para trocá-los por selos de honra na aba de Fidelidade!
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-stretch">
         <div className="md:col-span-6 flex flex-col">
@@ -800,92 +854,278 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
       </div>
 
       <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6">
-        <h2 className="text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans mb-4">Mural de Transparência do Hospital</h2>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-6">
-          <div className="lg:col-span-6">
-            <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl h-full flex flex-col justify-between items-center text-center space-y-4">
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Distribuição de Recursos</h4>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Como suas doações são aplicadas nos setores</p>
-              </div>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 pb-2 border-b border-zinc-150 dark:border-zinc-850">
+          <h2 className="text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">Mural de Transparência e Engajamento</h2>
+          <div className="flex gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            <Button
+              variant={transparencyTab === 'finance' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransparencyTab('finance')}
+              className={`h-8 text-[10px] font-bold rounded-lg uppercase tracking-wider ${transparencyTab === 'finance' ? 'bg-primary text-white' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+            >
+              Prestação de Contas
+            </Button>
+            <Button
+              variant={transparencyTab === 'gratitude' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransparencyTab('gratitude')}
+              className={`h-8 text-[10px] font-bold rounded-lg uppercase tracking-wider ${transparencyTab === 'gratitude' ? 'bg-primary text-white' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+            >
+              Mural de Gratidão
+            </Button>
+            <Button
+              variant={transparencyTab === 'support' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransparencyTab('support')}
+              className={`h-8 text-[10px] font-bold rounded-lg uppercase tracking-wider ${transparencyTab === 'support' ? 'bg-primary text-white' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+            >
+              Mensagem de Apoio
+            </Button>
+            <Button
+              variant={transparencyTab === 'emails' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTransparencyTab('emails')}
+              className={`h-8 text-[10px] font-bold rounded-lg uppercase tracking-wider flex items-center gap-1.5 ${transparencyTab === 'emails' ? 'bg-primary text-white' : 'border-zinc-200 text-zinc-700 hover:bg-zinc-50'}`}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              Notificações (RF07)
+            </Button>
+          </div>
+        </div>
 
-              <div className="relative w-40 h-40 flex items-center justify-center">
-                <svg className="w-full h-full" viewBox="0 0 160 160">
-                  {getDonutSegments()}
-                </svg>
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest max-w-[85px] truncate">
-                    {activeSegment ? activeSegment.name : 'Total Investido'}
-                  </span>
-                  <span className="text-lg font-black text-zinc-800 dark:text-zinc-100 font-mono mt-0.5">
-                    {activeSegment ? `${activeSegment.value}%` : 'R$ 1.25M'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] w-full text-left pt-2 border-t border-zinc-50 dark:border-zinc-900">
-                {donutData.map((d, index) => (
-                  <div 
-                    key={index}
-                    onMouseEnter={() => setHoveredInvestment(index)}
-                    onMouseLeave={() => setHoveredInvestment(null)}
-                    className={`flex items-center gap-1.5 cursor-pointer p-1 rounded-lg transition-all ${hoveredInvestment === index ? 'bg-zinc-50 dark:bg-zinc-900 scale-102' : ''}`}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
-                    <span className="text-zinc-500 font-medium truncate">{d.name}</span>
-                    <span className="font-bold text-zinc-800 dark:text-zinc-200 ml-auto">{d.value}%</span>
+        {transparencyTab === 'finance' && (
+          <div className="space-y-6 animate-in fade-in duration-200">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-6">
+              <div className="lg:col-span-6">
+                <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl h-full flex flex-col justify-between items-center text-center space-y-4">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Distribuição de Recursos</h4>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">Como suas doações são aplicadas nos setores</p>
                   </div>
-                ))}
+
+                  <div className="relative w-40 h-40 flex items-center justify-center">
+                    <svg className="w-full h-full" viewBox="0 0 160 160">
+                      {getDonutSegments()}
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest max-w-[85px] truncate">
+                        {activeSegment ? activeSegment.name : 'Total Investido'}
+                      </span>
+                      <span className="text-lg font-black text-zinc-800 dark:text-zinc-100 font-mono mt-0.5">
+                        {activeSegment ? `${activeSegment.value}%` : 'R$ 1.25M'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[10px] w-full text-left pt-2 border-t border-zinc-50 dark:border-zinc-900">
+                    {donutData.map((d, index) => (
+                      <div 
+                        key={index}
+                        onMouseEnter={() => setHoveredInvestment(index)}
+                        onMouseLeave={() => setHoveredInvestment(null)}
+                        className={`flex items-center gap-1.5 cursor-pointer p-1 rounded-lg transition-all ${hoveredInvestment === index ? 'bg-zinc-50 dark:bg-zinc-900 scale-102' : ''}`}
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
+                        <span className="text-zinc-500 font-medium truncate">{d.name}</span>
+                        <span className="font-bold text-zinc-800 dark:text-zinc-200 ml-auto">{d.value}%</span>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
               </div>
-            </Card>
+
+              <div className="lg:col-span-6">
+                <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl h-full flex flex-col justify-between items-center text-center space-y-4">
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Volume de Atendimentos Clínicos</h4>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">Financiados pelas doações no semestre</p>
+                  </div>
+
+                  <div className="w-full flex justify-center py-1">
+                    <svg className="w-full max-w-[280px] h-[140px]" viewBox="0 0 280 140">
+                      <line x1="20" y1="20" x2="260" y2="20" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
+                      <line x1="20" y1="50" x2="260" y2="50" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
+                      <line x1="20" y1="80" x2="260" y2="80" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
+                      <line x1="20" y1="110" x2="260" y2="110" stroke="#cbd5e1" strokeWidth="1" />
+                      {getBarSegments()}
+                    </svg>
+                  </div>
+
+                  <div className="text-[10px] text-zinc-400 w-full pt-2 border-t border-zinc-50 dark:border-zinc-900 flex justify-between items-center">
+                    <span>Janeiro a Junho de 2026</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">Total: 4.800 atendimentos</span>
+                  </div>
+                </Card>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
+                <Users className="w-5 h-5 text-primary mx-auto" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Impacto Gerado</span>
+                <span className="text-2xl font-black text-zinc-800 dark:text-zinc-100">4.520</span>
+                <span className="text-[9px] text-zinc-400 block">Atendimentos clínicos financiados</span>
+              </Card>
+              <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
+                <TrendingUp className="w-5 h-5 text-primary mx-auto" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Investimento Total</span>
+                <span className="text-2xl font-black text-zinc-800 dark:text-zinc-100">R$ 1.250.000</span>
+                <span className="text-[9px] text-zinc-400 block">Arrecadado e investido no ano fiscal</span>
+              </Card>
+              <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
+                <Award className="w-5 h-5 text-primary mx-auto" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Selo Parceiro</span>
+                <span className="text-2xl font-black text-brand-pink">Ouro</span>
+                <span className="text-[9px] text-zinc-400 block">Classificação institucional ativa</span>
+              </Card>
+            </div>
           </div>
+        )}
 
-          <div className="lg:col-span-6">
-            <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl h-full flex flex-col justify-between items-center text-center space-y-4">
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Volume de Atendimentos Clínicos</h4>
-                <p className="text-[10px] text-zinc-500 mt-0.5">Financiados pelas doações no semestre</p>
-              </div>
-
-              <div className="w-full flex justify-center py-1">
-                <svg className="w-full max-w-[280px] h-[140px]" viewBox="0 0 280 140">
-                  <line x1="20" y1="20" x2="260" y2="20" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
-                  <line x1="20" y1="50" x2="260" y2="50" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
-                  <line x1="20" y1="80" x2="260" y2="80" stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3 3" opacity="0.3" />
-                  <line x1="20" y1="110" x2="260" y2="110" stroke="#cbd5e1" strokeWidth="1" />
-                  {getBarSegments()}
-                </svg>
-              </div>
-
-              <div className="text-[10px] text-zinc-400 w-full pt-2 border-t border-zinc-50 dark:border-zinc-900 flex justify-between items-center">
-                <span>Janeiro a Junho de 2026</span>
-                <span className="font-bold text-zinc-800 dark:text-zinc-200">Total: 4.800 atendimentos</span>
-              </div>
-            </Card>
+        {transparencyTab === 'gratitude' && (
+          <div className="p-6 bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-150 dark:border-zinc-850 space-y-4 animate-in fade-in duration-200">
+            <div>
+              <h4 className="text-sm font-black text-zinc-800 dark:text-zinc-100">Mural de Gratidão do Hospital</h4>
+              <p className="text-[10px] text-zinc-500 mt-0.5">Reconhecimento público aos doadores que resgataram selos de honra</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              {[
+                { name: 'Carlos D.', badge: 'Defensor da Vida (Ouro)', date: '10/06/2026', color: 'from-yellow-500/20 to-yellow-600/10 border-yellow-500/30 text-yellow-600' },
+                { name: 'Mariana S.', badge: 'Apoiador da Esperança (Bronze)', date: '12/06/2026', color: 'from-amber-600/20 to-amber-700/10 border-amber-600/30 text-amber-700' },
+                { name: 'Tiago A.', badge: 'Pilar da Solidariedade (Diamante)', date: '13/06/2026', color: 'from-pink-500/20 to-indigo-650/20 border-pink-500/30 text-brand-pink' },
+                ...(points?.redeemedBadges?.map((b) => {
+                  const firstLetter = donorName.split(' ')[1] ? ` ${donorName.split(' ')[1].charAt(0)}.` : '';
+                  return {
+                    name: `${donorName.split(' ')[0]}${firstLetter}`,
+                    badge: b.name,
+                    date: new Date(b.date).toLocaleDateString('pt-BR'),
+                    color: 'from-pink-500/20 to-indigo-650/20 border-pink-500/30 text-brand-pink'
+                  };
+                }) || [])
+              ].map((item, idx) => (
+                <Card key={idx} className="p-4 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 rounded-2xl flex flex-col justify-between space-y-3 shadow-xs">
+                  <div className="flex gap-2.5 items-center">
+                    <div className={`p-2 bg-gradient-to-br ${item.color} rounded-xl border shrink-0`}>
+                      <Award className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-550 block truncate">{item.name}</span>
+                      <span className="text-[9px] text-zinc-400 block font-mono">{item.date}</span>
+                    </div>
+                  </div>
+                  <div className="pt-1 border-t border-zinc-100 dark:border-zinc-900">
+                    <span className="text-[10px] font-black text-brand-pink leading-tight block">{item.badge}</span>
+                  </div>
+                </Card>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
-            <Users className="w-5 h-5 text-primary mx-auto" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Impacto Gerado</span>
-            <span className="text-2xl font-black text-zinc-800 dark:text-zinc-100">4.520</span>
-            <span className="text-[9px] text-zinc-400 block">Atendimentos clínicos financiados</span>
-          </Card>
-          <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
-            <TrendingUp className="w-5 h-5 text-primary mx-auto" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Investimento Total</span>
-            <span className="text-2xl font-black text-zinc-800 dark:text-zinc-100">R$ 1.250.000</span>
-            <span className="text-[9px] text-zinc-400 block">Arrecadado e investido no ano fiscal</span>
-          </Card>
-          <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
-            <Award className="w-5 h-5 text-primary mx-auto" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Selo Parceiro</span>
-            <span className="text-2xl font-black text-brand-pink">Ouro</span>
-            <span className="text-[9px] text-zinc-400 block">Classificação institucional ativa</span>
-          </Card>
-        </div>
+        {transparencyTab === 'support' && (
+          <div className="p-6 bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-150 dark:border-zinc-850 space-y-4 animate-in fade-in duration-200">
+            <div className="space-y-0.5">
+              <h4 className="text-sm font-black text-zinc-800 dark:text-zinc-100">Enviar Mensagem de Apoio (Avulsa)</h4>
+              <p className="text-[10px] text-zinc-500">Deixe uma mensagem de apoio de até 300 caracteres para nossos pacientes e equipe.</p>
+            </div>
+
+            {supportSuccessAvulsa && (
+              <div className="p-3 bg-green-50/10 border border-green-200/50 text-green-600 text-xs font-semibold rounded-xl flex gap-2.5 items-start">
+                <Check className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>Mensagem enviada com sucesso! A administração avaliará a exibição nos painéis do hospital.</span>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="supportMsgAvulsa" className="text-xs font-bold text-zinc-600 flex justify-between items-center">
+                  <span>Mensagem de Apoio</span>
+                  <span className="text-[9px] font-mono text-zinc-400">{supportMsgAvulsa.length}/300</span>
+                </Label>
+                <textarea
+                  id="supportMsgAvulsa"
+                  placeholder="Escreva sua mensagem de incentivo e carinho aqui..."
+                  value={supportMsgAvulsa}
+                  onChange={(e) => setSupportMsgAvulsa(e.target.value.slice(0, 300))}
+                  maxLength={300}
+                  className="w-full min-h-[96px] border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-pink rounded-xl text-xs resize-none p-3 text-zinc-900 dark:text-zinc-50 leading-normal"
+                />
+              </div>
+
+              <div className="flex gap-2 items-center">
+                <input
+                  type="checkbox"
+                  id="authMsgAvulsa"
+                  checked={isAuthAvulsa}
+                  onChange={(e) => setIsAuthAvulsa(e.target.checked)}
+                  className="rounded border-zinc-300 text-brand-pink focus:ring-brand-pink h-4 w-4"
+                />
+                <Label htmlFor="authMsgAvulsa" className="text-[10px] text-zinc-500 cursor-pointer select-none">
+                  Autorizo exibir meu primeiro nome junto à mensagem nos painéis do hospital.
+                </Label>
+              </div>
+
+              <Button
+                onClick={handleSendSupportMsgAvulsa}
+                disabled={!supportMsgAvulsa.trim() || loading}
+                className="bg-brand-pink hover:bg-brand-pink/90 text-white font-bold h-10 px-6 rounded-xl shadow-md text-xs w-full sm:w-auto"
+              >
+                Enviar Mensagem
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {transparencyTab === 'emails' && (
+          <div className="p-6 bg-zinc-50 dark:bg-zinc-900/30 rounded-2xl border border-zinc-150 dark:border-zinc-850 space-y-4 animate-in fade-in duration-200">
+            <div>
+              <h4 className="text-sm font-black text-zinc-800 dark:text-zinc-100">Notificações por E-mail (RF07)</h4>
+              <p className="text-[10px] text-zinc-500 mt-0.5">Histórico simulado de comunicações oficiais enviadas para o seu e-mail cadastrado</p>
+            </div>
+
+            <div className="space-y-2.5">
+              {points && points.balance > 0 && (
+                <div className="p-3.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-1.5 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Aviso de Expiração (RF10-4)</span>
+                    <span className="text-[9px] text-zinc-400 font-mono">{new Date().toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <h5 className="text-xs font-black text-zinc-900 dark:text-zinc-50">Seus pontos de fidelidade expiram em breve!</h5>
+                  <p className="text-[10px] text-zinc-505 dark:text-zinc-400 leading-normal">
+                    Olá {donorName.split(' ')[0]}, informamos que o seu saldo de <strong>{Math.min(350, points.balance)} pontos</strong> expira em 15 dias. Acesse o portal e resgate seus selos!
+                  </p>
+                </div>
+              )}
+
+              {referredUsers.filter(r => r.status.includes('Doou')).map((ref, idx) => (
+                <div key={idx} className="p-3.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-1.5 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-green-600 bg-green-50 dark:bg-green-950/20 px-2 py-0.5 rounded-full uppercase tracking-wider">Bônus de Indicação (RF19-5)</span>
+                    <span className="text-[9px] text-zinc-400 font-mono">{new Date(ref.date).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <h5 className="text-xs font-black text-zinc-900 dark:text-zinc-50">Seu convidado realizou uma doação!</h5>
+                  <p className="text-[10px] text-zinc-550 dark:text-zinc-400 leading-normal">
+                    Olá {donorName.split(' ')[0]}, seu amigo indicado <strong>{ref.name}</strong> concluiu a primeira doação confirmada! Você recebeu <strong>100 pontos</strong> de bônus como agradecimento.
+                  </p>
+                </div>
+              ))}
+
+              {donations.filter(d => d.status === 'Confirmada').slice(0, 2).map((d, idx) => (
+                <div key={idx} className="p-3.5 bg-white dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl space-y-1.5 shadow-2xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] font-bold text-primary bg-zinc-50 dark:bg-zinc-900 px-2 py-0.5 rounded-full uppercase tracking-wider">Comprovante de Doação</span>
+                    <span className="text-[9px] text-zinc-400 font-mono">{new Date(d.date).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <h5 className="text-xs font-black text-zinc-900 dark:text-zinc-50">Doação Confirmada — Hospital de Amor</h5>
+                  <p className="text-[10px] text-zinc-505 dark:text-zinc-400 leading-normal">
+                    Recebemos com sucesso sua doação de <strong>R$ {d.amount.toFixed(2)}</strong> via {d.method}. Seu saldo de fidelidade subiu em <strong>{d.amount * 10} pontos</strong>. Obrigado pelo apoio!
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {isPrestigeModalOpen && createPortal(

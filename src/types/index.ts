@@ -116,6 +116,7 @@ export interface PatientUser {
   };
   lastConsentAt?: string;
   readBooklets?: string[];
+  referredBy?: string;
 }
 
 export interface SymptomLog {

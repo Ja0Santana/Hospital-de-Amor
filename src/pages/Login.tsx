@@ -56,6 +56,43 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
 
   const [blockedSecondsLeft, setBlockedSecondsLeft] = useState(0);
 
+  const [referrerCpf, setReferrerCpf] = useState<string | null>(null);
+  const [referrerName, setReferrerName] = useState<string | null>(null);
+
+  useEffect(() => {
+    const getReferrer = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      let ref = searchParams.get('ref');
+      if (!ref && window.location.hash) {
+        const hashQuery = window.location.hash.split('?')[1];
+        if (hashQuery) {
+          const hashParams = new URLSearchParams(hashQuery);
+          ref = hashParams.get('ref');
+        } else {
+          const hashParts = window.location.hash.split('ref=');
+          if (hashParts.length > 1) {
+            ref = hashParts[1].split('&')[0];
+          }
+        }
+      }
+      if (ref) {
+        const cleanRef = ref.replace(/\D/g, "");
+        if (cleanRef.length === 11) {
+          try {
+            const user = await getUserByCpf(cleanRef);
+            if (user) {
+              setReferrerCpf(cleanRef);
+              setReferrerName(user.name);
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      }
+    };
+    getReferrer();
+  }, []);
+
   useEffect(() => {
     if (blockedSecondsLeft <= 0) return;
     const timer = setInterval(() => {
@@ -253,8 +290,29 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
         email: regEmail,
         phone: regPhone,
         passwordHash: regPassword,
-        role: activeRole
+        role: activeRole,
+        referredBy: referrerCpf || undefined
       });
+
+      if (referrerCpf) {
+        const key = `referred_users_${referrerCpf}`;
+        const stored = localStorage.getItem(key);
+        const list = stored ? JSON.parse(stored) : [
+          { id: 'ref-1', name: 'Marcos de Oliveira', date: '2026-06-01T14:32:00.000Z', status: 'Doou (100 pts)', amount: 50 },
+          { id: 'ref-2', name: 'Carla Dias Souza', date: '2026-06-05T09:15:00.000Z', status: 'Pendente' }
+        ];
+        const alreadyExists = list.some((item: any) => item.id === `ref-${cleanCpf}`);
+        if (!alreadyExists) {
+          list.unshift({
+            id: `ref-${cleanCpf}`,
+            name: cleanName,
+            date: new Date().toISOString(),
+            status: 'Pendente'
+          });
+          localStorage.setItem(key, JSON.stringify(list));
+        }
+      }
+
       setLoading(false);
       onLoginSuccess(formatCpf(cleanCpf), activeRole);
     } catch (err: any) {
@@ -458,6 +516,19 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
 
           {view === 'login' && (
             <div className="space-y-6">
+              {referrerName && (
+                <div className="p-4 bg-gradient-to-r from-brand-pink/20 to-primary/10 border border-brand-pink/30 rounded-2xl flex gap-3 items-start animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Heart className="w-5 h-5 text-brand-pink shrink-0 mt-0.5 animate-bounce" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-black text-zinc-800 dark:text-zinc-100">
+                      {referrerName.split(' ')[0]} convidou você para apoiar o Hospital de Amor. Faça parte dessa causa!
+                    </p>
+                    <p className="text-[10px] text-zinc-550 dark:text-zinc-400 leading-normal">
+                      O Hospital de Amor é referência nacional na luta contra o câncer, oferecendo atendimento humanizado e de excelência de forma 100% gratuita. Seu apoio salva vidas.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
                   {activeRole === 'donor' ? 'Portal do Doador' : 'Portal do Paciente'}
@@ -554,6 +625,20 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
                 </Button>
                 <span className="text-xs font-semibold text-zinc-500">Voltar ao Login</span>
               </div>
+
+              {referrerName && (
+                <div className="p-4 bg-gradient-to-r from-brand-pink/20 to-primary/10 border border-brand-pink/30 rounded-2xl flex gap-3 items-start animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Heart className="w-5 h-5 text-brand-pink shrink-0 mt-0.5 animate-bounce" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-black text-zinc-800 dark:text-zinc-100">
+                      {referrerName.split(' ')[0]} convidou você para apoiar o Hospital de Amor. Faça parte dessa causa!
+                    </p>
+                    <p className="text-[10px] text-zinc-550 dark:text-zinc-400 leading-normal">
+                      O Hospital de Amor é referência nacional na luta contra o câncer, oferecendo atendimento humanizado e de excelência de forma 100% gratuita. Seu apoio salva vidas.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">
