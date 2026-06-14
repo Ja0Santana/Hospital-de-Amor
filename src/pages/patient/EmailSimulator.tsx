@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { getAppointmentByCpf, getUserByCpf } from '../../services/db';
+import { getAppointmentByCpf, getUserByCpf, getEmailQueue } from '../../services/db';
 import type { Appointment, PatientUser } from '../../types';
 import { Mail, MailOpen, Inbox, Clock, Calendar, MapPin, AlertCircle, ChevronRight } from 'lucide-react';
 import logoHospitalDeAmor from '../../assets/logoHospitalDeAmor.png';
@@ -53,6 +53,7 @@ export default function EmailSimulator({ patientCpf, patientName, onNavigate }: 
       const cleanCpf = patientCpf.replace(/\D/g, '');
       const user: PatientUser | null = await getUserByCpf(cleanCpf);
       const appointments: Appointment[] = await getAppointmentByCpf(patientCpf);
+      const queueItems = await getEmailQueue();
 
       const list: Email[] = [];
 
@@ -77,32 +78,61 @@ export default function EmailSimulator({ patientCpf, patientName, onNavigate }: 
         ctaAction: 'dashboard'
       });
 
-      appointments.forEach((app) => {
-        const appDate = new Date(app.createdAt);
+      const patientEmails = queueItems.filter((item) => {
+        const matchEmail = item.recipientEmail.trim().toLowerCase() === (user?.email || '').trim().toLowerCase();
+        const matchProtocol = appointments.some((app) => app.protocol === item.appointmentProtocol);
+        return matchEmail || matchProtocol;
+      });
 
+      patientEmails.forEach((item, index) => {
+        const app = appointments.find((a) => a.protocol === item.appointmentProtocol);
         list.push({
-          id: `sent-${app.id}`,
+          id: `queue-${item.id || index}`,
           sender: 'regulacao@hospitalamor.org (Hospital de Amor)',
-          recipient: user?.email || 'paciente@email.com',
-          subject: `Confirmação de Envio - Protocolo ${app.protocol}`,
-          date: appDate.toLocaleString('pt-BR'),
-          preview: `Seu pedido de agendamento para ${app.examName} foi recebido e está na fila.`,
+          recipient: item.recipientEmail,
+          subject: item.subject,
+          date: app ? new Date(app.createdAt).toLocaleString('pt-BR') : new Date().toLocaleString('pt-BR'),
+          preview: item.body.slice(0, 100) + '...',
           isRead: false,
           body: (
-            <div className="space-y-4">
-              <p>Olá, <strong>{patientName}</strong>.</p>
-              <p>Confirmamos o recebimento da sua solicitação de agendamento para o exame/consulta de <strong>{app.examName}</strong>.</p>
-              <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800 space-y-1">
-                <p><strong>Protocolo:</strong> {app.protocol}</p>
-                <p><strong>Especialidade:</strong> {app.specialtyName}</p>
-                <p><strong>Data de Envio:</strong> {appDate.toLocaleDateString('pt-BR')}</p>
-              </div>
-              <p>O seu pedido foi encaminhado para a nossa fila de triagem médica. O prazo médio de avaliação de documentos é de **48 horas úteis**. Avisaremos você por e-mail sobre qualquer atualização.</p>
+            <div className="space-y-4 whitespace-pre-line">
+              {item.body}
             </div>
           ),
           ctaText: 'Acompanhar Solicitação',
-          ctaAction: `status-${app.protocol}`
+          ctaAction: `status-${item.appointmentProtocol}`
         });
+      });
+
+      appointments.forEach((app) => {
+        const appDate = new Date(app.createdAt);
+        const hasEnqueuedEmail = patientEmails.some((email) => email.appointmentProtocol === app.protocol);
+
+        if (!hasEnqueuedEmail) {
+          list.push({
+            id: `sent-${app.id}`,
+            sender: 'regulacao@hospitalamor.org (Hospital de Amor)',
+            recipient: user?.email || 'paciente@email.com',
+            subject: `Confirmação de Envio - Protocolo ${app.protocol}`,
+            date: appDate.toLocaleString('pt-BR'),
+            preview: `Seu pedido de agendamento para ${app.examName} foi recebido e está na fila.`,
+            isRead: false,
+            body: (
+              <div className="space-y-4">
+                <p>Olá, <strong>{patientName}</strong>.</p>
+                <p>Confirmamos o recebimento da sua solicitação de agendamento para o exame/consulta de <strong>{app.examName}</strong>.</p>
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-100 dark:border-zinc-800 space-y-1">
+                  <p><strong>Protocolo:</strong> {app.protocol}</p>
+                  <p><strong>Especialidade:</strong> {app.specialtyName}</p>
+                  <p><strong>Data de Envio:</strong> {appDate.toLocaleDateString('pt-BR')}</p>
+                </div>
+                <p>O seu pedido foi encaminhado para a nossa fila de triagem médica. O prazo médio de avaliação de documentos é de **48 horas úteis**. Avisaremos você por e-mail sobre qualquer atualização.</p>
+              </div>
+            ),
+            ctaText: 'Acompanhar Solicitação',
+            ctaAction: `status-${app.protocol}`
+          });
+        }
 
         if (app.status === 'Em análise' || app.status === 'Confirmado' || app.status === 'Cancelado') {
           const analysisDate = new Date(appDate.getTime() + 2 * 60 * 60 * 1000);

@@ -16,6 +16,7 @@ interface Unit {
   address: string;
   phone: string;
   hours: string;
+  specialties: string[];
 }
 
 const UNITS_DATA: Unit[] = [
@@ -29,7 +30,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção', 'Tratamento', 'Reabilitação'],
     address: 'Rua Antenor Duarte Villela, 1331 - Dr. Paulo Prata',
     phone: '(17) 3321-6600',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Oncologia', 'Mastologia', 'Radiologia', 'Ginecologia']
   },
   {
     id: 'unit-lagarto',
@@ -41,7 +43,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção', 'Tratamento'],
     address: 'Rodovia Lourival Baptista, s/n - Centro',
     phone: '(79) 3631-9300',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Mastologia', 'Ginecologia']
   },
   {
     id: 'unit-portovelho',
@@ -53,7 +56,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção', 'Tratamento', 'Reabilitação'],
     address: 'BR-364, Km 17 - Rural',
     phone: '(69) 3219-4900',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Oncologia', 'Radiologia', 'Ginecologia']
   },
   {
     id: 'unit-jales',
@@ -65,7 +69,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Tratamento'],
     address: 'Avenida Francisco Jalles, 3737 - Jardim Estados Unidos',
     phone: '(17) 3624-3900',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Oncologia', 'Mastologia']
   },
   {
     id: 'unit-fernandopolis',
@@ -77,7 +82,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Avenida Litério Greco, 300 - Vila Neves',
     phone: '(17) 3465-4300',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Mastologia', 'Ginecologia']
   },
   {
     id: 'unit-palmas',
@@ -89,7 +95,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção', 'Tratamento'],
     address: 'Quadra Arso 111, Alameda 19, s/n - Plano Diretor Sul',
     phone: '(63) 3218-4900',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Oncologia', 'Ginecologia']
   },
   {
     id: 'unit-goiania',
@@ -101,7 +108,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Tratamento'],
     address: 'Avenida Leste-Oeste, 3212 - Setor Marechal Rondon',
     phone: '(62) 3416-2600',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Oncologia', 'Radiologia']
   },
   {
     id: 'unit-campogrande',
@@ -113,7 +121,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Avenida Aero Clube, 140 - Vila Sobrinho',
     phone: '(67) 3304-6600',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Mastologia', 'Radiologia']
   },
   {
     id: 'unit-juazeiro',
@@ -125,7 +134,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Rodovia Lomanto Júnior, s/n - João XXIII',
     phone: '(74) 3614-9100',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Ginecologia']
   },
   {
     id: 'unit-campinagrande',
@@ -137,7 +147,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Rua Pedro I, 550 - Centro',
     phone: '(83) 3310-4400',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Mastologia', 'Ginecologia']
   },
   {
     id: 'unit-macapa',
@@ -149,7 +160,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Rodovia Duca Serra, Km 4 - Cabralzinho',
     phone: '(96) 3131-2900',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Mastologia']
   },
   {
     id: 'unit-boavista',
@@ -161,7 +173,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Avenida Via das Flores, 2035 - Pricumã',
     phone: '(95) 3621-1500',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Ginecologia']
   },
   {
     id: 'unit-riobranco',
@@ -173,7 +186,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Via Verde, 120 - Distrito Industrial',
     phone: '(68) 3215-4600',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Mastologia', 'Radiologia']
   },
   {
     id: 'unit-araguaina',
@@ -185,7 +199,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção', 'Reabilitação'],
     address: 'Avenida Filadélfia, s/n - Setor Oeste',
     phone: '(63) 3411-8900',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Oncologia', 'Mastologia']
   },
   {
     id: 'unit-unai',
@@ -197,7 +212,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Rua Prefeito João Costa, 450 - Centro',
     phone: '(38) 3677-7400',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Ginecologia']
   },
   {
     id: 'unit-patrocinio',
@@ -209,7 +225,8 @@ const UNITS_DATA: Unit[] = [
     types: ['Prevenção'],
     address: 'Avenida João Alves do Nascimento, 1000 - Centro',
     phone: '(34) 3831-2900',
-    hours: 'Segunda a Sexta, 07:00 às 17:00'
+    hours: 'Segunda a Sexta, 07:00 às 17:00',
+    specialties: ['Mastologia', 'Ginecologia']
   }
 ];
 
@@ -220,8 +237,13 @@ interface UnitsProps {
 export default function Units({ onNavigate }: UnitsProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('Todos');
+  const [filterCity, setFilterCity] = useState<string>('Todas');
+  const [filterSpecialty, setFilterSpecialty] = useState<string>('Todas');
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoStatus, setGeoStatus] = useState<'idle' | 'prompting' | 'granted' | 'denied' | 'error'>('idle');
+
+  const cities = Array.from(new Set(UNITS_DATA.map(u => u.city))).sort();
+  const specialties = ['Oncologia', 'Mastologia', 'Radiologia', 'Ginecologia'];
 
   useEffect(() => {
     if ('geolocation' in navigator) {
@@ -271,6 +293,14 @@ export default function Units({ onNavigate }: UnitsProps) {
 
     if (filterType !== 'Todos') {
       list = list.filter((u) => u.types.includes(filterType as any));
+    }
+
+    if (filterCity !== 'Todas') {
+      list = list.filter((u) => u.city === filterCity);
+    }
+
+    if (filterSpecialty !== 'Todas') {
+      list = list.filter((u) => u.specialties.includes(filterSpecialty));
     }
 
     if (userCoords) {
@@ -338,7 +368,7 @@ export default function Units({ onNavigate }: UnitsProps) {
         )}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-4 items-center">
+      <div className="flex flex-col lg:flex-row gap-4 items-center">
         <div className="relative flex-1 w-full">
           <Input
             id="unit-search"
@@ -350,20 +380,44 @@ export default function Units({ onNavigate }: UnitsProps) {
           />
           <Search className="absolute left-3 top-3 w-4 h-4 text-zinc-400" />
         </div>
-        <div className="flex gap-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 shrink-0">
-          {['Todos', 'Prevenção', 'Tratamento', 'Reabilitação'].map((t) => (
-            <button
-              key={t}
-              onClick={() => setFilterType(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shrink-0 ${
-                filterType === t
-                  ? 'bg-primary border-primary text-white shadow-sm'
-                  : 'bg-white border-zinc-200 text-zinc-650 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-850 dark:text-zinc-400'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-2.5 w-full lg:w-auto justify-start sm:justify-end shrink-0">
+          <div className="flex gap-1 overflow-x-auto pb-1 sm:pb-0 shrink-0">
+            {['Todos', 'Prevenção', 'Tratamento', 'Reabilitação'].map((t) => (
+              <button
+                key={t}
+                onClick={() => setFilterType(t)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border shrink-0 ${
+                  filterType === t
+                    ? 'bg-primary border-primary text-white shadow-sm'
+                    : 'bg-white border-zinc-200 text-zinc-650 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-850 dark:text-zinc-400'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          <select
+            value={filterCity}
+            onChange={(e) => setFilterCity(e.target.value)}
+            className="h-9 px-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 text-xs font-semibold focus-visible:outline-none text-zinc-700 dark:text-zinc-300 cursor-pointer"
+          >
+            <option value="Todas">Todas as Cidades</option>
+            {cities.map((city) => (
+              <option key={city} value={city}>{city}</option>
+            ))}
+          </select>
+
+          <select
+            value={filterSpecialty}
+            onChange={(e) => setFilterSpecialty(e.target.value)}
+            className="h-9 px-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 text-xs font-semibold focus-visible:outline-none text-zinc-700 dark:text-zinc-300 cursor-pointer"
+          >
+            <option value="Todas">Todas as Especialidades</option>
+            {specialties.map((spec) => (
+              <option key={spec} value={spec}>{spec}</option>
+            ))}
+          </select>
         </div>
       </div>
 
@@ -396,6 +450,13 @@ export default function Units({ onNavigate }: UnitsProps) {
                         {getTypeIcon(type)}
                         {type}
                       </Badge>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-2.5">
+                    {unit.specialties.map((spec) => (
+                      <span key={spec} className="px-2 py-0.5 bg-zinc-150/40 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400 rounded-lg text-[8px] font-black border border-zinc-200/20">
+                        {spec}
+                      </span>
                     ))}
                   </div>
                 </CardHeader>

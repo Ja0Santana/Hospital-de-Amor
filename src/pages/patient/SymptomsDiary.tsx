@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { Activity, Save, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Activity, Save, AlertCircle, CheckCircle, Loader2, Download } from 'lucide-react';
 import { addSymptomLog, getSymptomLogs } from '../../services/db';
 import type { SymptomLog } from '../../types';
 
@@ -17,7 +17,13 @@ const MOODS = [
   { label: 'Ótimo', emoji: '😀', value: 5, color: 'bg-green-50 text-green-600 border-green-200 active-bg-green-600 ring-green-400' },
 ];
 
-const PREDEFINED_SYMPTOMS = ['Náusea', 'Fadiga', 'Falta de apetite', 'Dor de cabeça', 'Tontura'];
+const PREDEFINED_SYMPTOMS = ['Febre', 'Náusea', 'Fadiga', 'Falta de apetite', 'Dor de cabeça', 'Tontura'];
+
+const GRAVE_KEYWORDS = ['febre', 'falta de ar', 'dispneia', 'dor forte', 'dor intensa', 'sangramento', 'convulsão'];
+
+const isSymptomGrave = (symptom: string) => {
+  return GRAVE_KEYWORDS.some(kw => symptom.toLowerCase().includes(kw));
+};
 
 export default function SymptomsDiary({ patientCpf }: SymptomsDiaryProps) {
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
@@ -57,6 +63,32 @@ export default function SymptomsDiary({ patientCpf }: SymptomsDiaryProps) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleExportSymptoms = () => {
+    if (logs.length === 0) return;
+    let content = 'HOSPITAL DE AMOR\n';
+    content += 'RELATÓRIO DE ACOMPANHAMENTO - DIÁRIO DE SINTOMAS\n';
+    content += `Paciente CPF: ${patientCpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}\n`;
+    content += `Data do Relatório: ${new Date().toLocaleString('pt-BR')}\n`;
+    content += '==================================================\n\n';
+    logs.forEach((log, index) => {
+      content += `Registro #${index + 1}\n`;
+      content += `Data: ${new Date(log.createdAt).toLocaleString('pt-BR')}\n`;
+      content += `Estado de Humor: ${log.mood}\n`;
+      content += `Sintomas Relatados: ${log.symptoms.length > 0 ? log.symptoms.join(', ') : 'Nenhum'}\n`;
+      content += `Notas/Observações: ${log.notes || 'Sem observações'}\n`;
+      content += '--------------------------------------------------\n';
+    });
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `historico_sintomas_${patientCpf.replace(/\D/g, '')}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleToggleSymptom = (symptom: string) => {
@@ -249,9 +281,21 @@ export default function SymptomsDiary({ patientCpf }: SymptomsDiaryProps) {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Diário de Sintomas</h1>
-        <p className="text-zinc-500 text-sm">Registre diariamente seu estado de saúde para acompanhamento contínuo da equipe médica.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-50">Diário de Sintomas</h1>
+          <p className="text-zinc-500 text-sm">Registre diariamente seu estado de saúde para acompanhamento contínuo da equipe médica.</p>
+        </div>
+        {logs.length > 0 && (
+          <Button
+            onClick={handleExportSymptoms}
+            variant="outline"
+            className="border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 font-bold rounded-2xl gap-2 text-xs h-11 shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            Exportar Histórico
+          </Button>
+        )}
       </div>
 
       {saveSuccess && (
@@ -398,6 +442,18 @@ export default function SymptomsDiary({ patientCpf }: SymptomsDiaryProps) {
               />
             </div>
 
+            {selectedSymptoms.some(isSymptomGrave) && (
+              <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-650 dark:text-red-400 text-xs font-bold rounded-2xl flex gap-2 items-start animate-in fade-in duration-200">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div>
+                  <span className="block font-black">Atenção: Sintoma Grave Selecionado</span>
+                  <span className="text-[10px] opacity-90 leading-relaxed block mt-0.5">
+                    Você selecionou sintomas que requerem atenção médica imediata. Se apresentar temperatura corporal acima de 37.8°C ou dificuldade respiratória, por favor dirija-se à unidade mais próxima ou fale com o suporte.
+                  </span>
+                </div>
+              </div>
+            )}
+
             <Button
               type="submit"
               disabled={!selectedMood}
@@ -479,6 +535,13 @@ export default function SymptomsDiary({ patientCpf }: SymptomsDiaryProps) {
                       <p className="text-xs text-zinc-400 leading-relaxed italic">Sem observações descritas.</p>
                     )}
                   </div>
+
+                  {selectedLogForDetails.symptoms.some(isSymptomGrave) && (
+                    <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 text-red-650 dark:text-red-400 text-xs font-bold rounded-2xl flex gap-2 items-start mt-2">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>Sintoma grave reportado. Se houver febre persistente ou dificuldade para respirar, procure atendimento de emergência ou ligue para o suporte.</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </Card>

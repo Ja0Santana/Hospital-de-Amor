@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import QRCode from 'qrcode';
 import { createPortal } from 'react-dom';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { getAppointmentByCpf, getSpecialties, updateAppointment } from '../../services/db';
+import { getAppointmentByCpf, getSpecialties, updateAppointment, getAverageTriageTime, createAuditLog, saveFeedback, triggerConfirmationEmail } from '../../services/db';
 import type { Appointment, Specialty } from '../../types';
 import { formatCpf } from '../../lib/sanitizer';
 import { Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare, X, Upload, FileText, Eye, Trash2, ChevronDown, ChevronUp, Search } from 'lucide-react';
@@ -22,11 +23,13 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const [loading, setLoading] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todos' | Appointment['status']>('Todos');
+  const [averageTriageTime, setAverageTriageTime] = useState<string>('');
   
   const [npsScore, setNpsScore] = useState<number | null>(null);
   const [npsComment, setNpsComment] = useState('');
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
+  const [simulatedHours, setSimulatedHours] = useState(0);
 
   const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -43,8 +46,26 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const [cancelReason, setCancelReason] = useState('');
   const [cancelSuccess, setCancelSuccess] = useState(false);
 
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+
+  const appointment = appointments.find((app) => app.protocol === selectedProtocol) || null;
+
+  useEffect(() => {
+    if (appointment && appointment.status === 'Confirmado') {
+      QRCode.toDataURL(`HA-QR|${appointment.protocol}|${appointment.id}`, { margin: 1, width: 250 }, (err, url) => {
+        if (!err) {
+          setQrCodeUrl(url);
+        }
+      });
+    } else {
+      setQrCodeUrl('');
+    }
+  }, [appointment]);
+
   useEffect(() => {
     getSpecialties().then(setSpecialties).catch(console.error);
+    getAverageTriageTime().then(setAverageTriageTime).catch(console.error);
     loadAppointments();
   }, [patientCpf]);
 
@@ -124,8 +145,6 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
     };
   }, [isRescheduleOpen]);
 
-  const appointment = appointments.find((app) => app.protocol === selectedProtocol) || null;
-
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!appointment) return;
@@ -137,15 +156,19 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
       setFeedbackError('Por favor, escreva um comentário sobre o seu atendimento.');
       return;
     }
-
     if (!window.confirm(`Confirma o envio da sua avaliação com a nota ${npsScore}?`)) {
       return;
     }
-
     try {
-      appointment.feedbackNps = npsScore;
-      appointment.feedbackComment = npsComment;
-      await updateAppointment(appointment);
+      const sessionId = sessionStorage.getItem('patient_session_id') || 'session-unknown';
+      await saveFeedback({
+        appointmentProtocol: appointment.protocol,
+        npsScore: npsScore,
+        comment: npsComment.trim(),
+        userCpf: appointment.patientCpf,
+        originSessionId: sessionId,
+        originIp: '127.0.0.1'
+      });
       await loadAppointments();
       setFeedbackSuccess(true);
       setFeedbackError('');
@@ -160,7 +183,8 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
     try {
       const updatedApp: Appointment = {
         ...appointment,
-        presenceConfirmed: true
+        presenceConfirmed: true,
+        presenceConfirmedAt: new Date().toISOString()
       };
       await updateAppointment(updatedApp);
       await loadAppointments();
@@ -172,8 +196,77 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
     }
   };
 
+  const canCancelPresence = () => {
+    if (!appointment || !appointment.rescheduledDate) return false;
+    const appointmentDateTime = new Date(`${appointment.rescheduledDate}T${appointment.rescheduledTime || '08:00'}:00`);
+    const now = new Date();
+    const diffMs = appointmentDateTime.getTime() - now.getTime();
+    return diffMs > 24 * 60 * 60 * 1000;
+  };
+
+  const handleCancelPresence = async () => {
+    if (!appointment) return;
+    try {
+      const updatedApp: Appointment = {
+        ...appointment,
+        presenceConfirmed: false,
+        presenceConfirmedAt: undefined
+      };
+      await updateAppointment(updatedApp);
+      await loadAppointments();
+      alert('Confirmação de presença cancelada com sucesso!');
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  const handleSendEmail = async () => {
+    if (!appointment) return;
+    try {
+      await triggerConfirmationEmail(appointment);
+      alert('Comprovante enviado por e-mail com sucesso!');
+    } catch (e) {
+      console.error(e);
+      alert('Erro ao enviar o comprovante por e-mail.');
+    }
+  };
+
+  const handleSendWhatsapp = () => {
+    if (!appointment) return;
+    const dateStr = appointment.rescheduledDate ? new Date(appointment.rescheduledDate + 'T12:00:00').toLocaleDateString('pt-BR') : '';
+    const text = `Olá! Segue o comprovante do meu agendamento no Hospital de Amor:\n\nProtocolo: ${appointment.protocol}\nExame: ${appointment.examName}\nEspecialidade: ${appointment.specialtyName}\nData: ${dateStr}\nHora: ${appointment.rescheduledTime || ''}\nSala: ${appointment.scheduledRoom || ''}\nMédico: ${appointment.scheduledDoctor || ''}\n\nPara instruções de preparo e acesso ao comprovante completo, utilize o link:\n${window.location.origin}?page=status-check&protocol=${appointment.protocol}`;
+    window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+  };
+
+  const getFeedbackStatus = () => {
+    if (!appointment) return { visible: false, reason: 'none' };
+    const historyItem = [...(appointment.statusHistory || [])]
+      .reverse()
+      .find(h => h.status === 'Confirmado' || h.status === 'Concluído');
+    const baseDate = historyItem ? new Date(historyItem.changedAt) : new Date(appointment.createdAt);
+    const changeTime = baseDate.getTime();
+    const simulatedNow = new Date().getTime() + simulatedHours * 60 * 60 * 1000;
+    const hoursElapsed = (simulatedNow - changeTime) / (1000 * 60 * 60);
+    if (hoursElapsed < 24) {
+      const availableDate = new Date(changeTime + 24 * 60 * 60 * 1000);
+      return {
+        visible: false,
+        reason: 'pending_24h',
+        availableAt: availableDate.toLocaleString('pt-BR')
+      };
+    }
+    if (hoursElapsed > 24 + (7 * 24)) {
+      return { visible: false, reason: 'expired' };
+    }
+    return { visible: true };
+  };
+
   const handleRescheduleSubmit = async () => {
     if (!appointment || !selectedDate || !selectedTime) return;
+    if (!rescheduleReason.trim()) {
+      setRescheduleError('Por favor, informe o motivo da solicitação de reagendamento.');
+      return;
+    }
     setRescheduleError('');
     try {
       const formattedDate = selectedDate.toISOString().split('T')[0];
@@ -181,7 +274,8 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
         ...appointment,
         status: 'Reagendamento Pendente',
         rescheduledDate: formattedDate,
-        rescheduledTime: selectedTime
+        rescheduledTime: selectedTime,
+        rescheduleReason: rescheduleReason.trim()
       };
       await updateAppointment(updatedApp);
       await loadAppointments();
@@ -272,6 +366,14 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
         observations: cancelReason.trim() ? `Cancelado pelo paciente: ${cancelReason.trim()}` : 'Cancelado pelo paciente.'
       };
       await updateAppointment(updatedApp);
+      await createAuditLog({
+        userCpf: appointment.patientCpf,
+        userName: appointment.patientName,
+        action: `Cancelamento da solicitação de agendamento ${appointment.protocol}`,
+        module: 'Paciente',
+        ipAddress: '127.0.0.1',
+        details: `Justificativa do paciente: ${cancelReason.trim() || 'Nenhuma justificativa fornecida.'}`
+      });
       await loadAppointments();
       setIsCancelOpen(false);
       setCancelReason('');
@@ -299,13 +401,29 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   };
 
   const getStatusConfig = (status: Appointment['status']) => {
-    const config = {
+    const config: Record<Appointment['status'], { color: string; icon: React.ComponentType<any>; desc: React.ReactNode }> = {
       'Pendente': { color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400', icon: Clock, desc: 'Sua solicitação está na fila de espera e será revisada por nossa equipe médica em até 48 horas úteis.' },
-      'Em análise': { color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400', icon: Clock, desc: 'Nossos recepcionistas estão revisando o documento e o encaminhamento enviado. Estimativa de resposta: 24 horas úteis.' },
+      'Em análise': {
+        color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400',
+        icon: Clock,
+        desc: (
+          <span>
+            Nossos recepcionistas estão revisando o documento e o encaminhamento enviado. Estimativa de resposta:{' '}
+            {averageTriageTime ? (
+              <span className="font-semibold">{averageTriageTime}</span>
+            ) : (
+              <span className="inline-block w-20 h-3 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded align-middle" />
+            )}
+            .
+          </span>
+        )
+      },
       'Confirmado': { color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle2, desc: 'Parabéns! Sua triagem foi concluída e sua consulta/exame está agendado e confirmado.' },
       'Cancelado': { color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400', icon: XCircle, desc: 'Sua solicitação de agendamento foi cancelada pela triagem administrativa.' },
       'Reagendamento Pendente': { color: 'bg-amber-100 text-amber-800 border-amber-250 dark:bg-amber-900/30 dark:text-amber-400', icon: Clock, desc: 'Sua solicitação de alteração de horário foi enviada para a triagem e está sob análise administrativa.' },
-      'Aguardando Follow-up': { color: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400', icon: Clock, desc: 'Sua solicitação possui pendências sob acompanhamento. Aguarde contato da nossa equipe.' }
+      'Aguardando Follow-up': { color: 'bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400', icon: Clock, desc: 'Sua solicitação possui pendências sob acompanhamento. Aguarde contato da nossa equipe.' },
+      'Concluído': { color: 'bg-zinc-100 text-zinc-800 border-zinc-200 dark:bg-zinc-800/30 dark:text-zinc-400', icon: CheckCircle2, desc: 'Seu atendimento foi concluído com sucesso. Agradecemos pela sua confiança!' },
+      'Arquivado por Documentação Pendente': { color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400', icon: XCircle, desc: 'Sua solicitação foi arquivada por falta de envio dos documentos solicitados dentro do prazo.' }
     };
     return config[status] || config['Pendente'];
   };
@@ -471,6 +589,47 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                       </div>
                     </div>
 
+                    <div className="space-y-3 pt-2">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-400">Histórico de Atualizações</h4>
+                      <div className="bg-white dark:bg-zinc-950 border border-zinc-200/50 dark:border-zinc-800 p-5 rounded-2xl shadow-xs space-y-4">
+                        {(() => {
+                          const history = appointment.statusHistory && appointment.statusHistory.length > 0
+                            ? appointment.statusHistory
+                            : [{ status: 'Pendente' as const, changedAt: appointment.createdAt }];
+                          
+                          return (
+                            <div className="relative pl-6 space-y-4 border-l border-zinc-150 dark:border-zinc-805">
+                              {history.map((h, index) => {
+                                const isLast = index === history.length - 1;
+                                return (
+                                  <div key={index} className="relative">
+                                    <div className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full border-4 border-white dark:border-zinc-950 flex items-center justify-center ${
+                                      isLast ? 'bg-primary' : 'bg-zinc-300 dark:bg-zinc-700'
+                                    }`} />
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-xs font-bold ${isLast ? 'text-primary' : 'text-zinc-750 dark:text-zinc-350'}`}>
+                                          {h.status}
+                                        </span>
+                                        <span className="text-[10px] text-zinc-400">
+                                          {new Date(h.changedAt).toLocaleString('pt-BR')}
+                                        </span>
+                                      </div>
+                                      {h.note && (
+                                        <p className="text-[11px] text-zinc-500 leading-relaxed bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded-lg mt-1 border border-zinc-100 dark:border-zinc-900">
+                                          {h.note}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+
                     {appointment.status === 'Confirmado' && (
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
                         <div className="md:col-span-2 space-y-5">
@@ -524,9 +683,21 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
 
                             <div className="flex flex-wrap gap-2.5 pt-3 border-t border-zinc-150 dark:border-zinc-800/50">
                               {appointment.presenceConfirmed ? (
-                                <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-800/40 font-bold px-3 py-1.5 text-[11px] rounded-xl flex items-center gap-1.5">
-                                  <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
-                                  Presença Confirmada
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/40 dark:border-emerald-800/40 font-bold px-3 py-1.5 text-[11px] rounded-xl flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-3.5 h-3.5 fill-emerald-100 dark:fill-emerald-950" />
+                                    Presença Confirmada
+                                  </div>
+                                  {canCancelPresence() && (
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={handleCancelPresence}
+                                      className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/20 h-9 px-3 rounded-xl text-xs flex items-center gap-1 transition-all active:scale-95"
+                                    >
+                                      Cancelar Confirmação
+                                    </Button>
+                                  )}
                                 </div>
                               ) : (
                                 <Button
@@ -544,6 +715,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                                 onClick={() => {
                                   setSelectedDate(getNext5BusinessDays()[0]);
                                   setSelectedTime('08:30');
+                                  setRescheduleReason('');
                                   setRescheduleError('');
                                   setIsRescheduleOpen(true);
                                 }}
@@ -567,34 +739,35 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
 
                         <div className="flex flex-col items-center justify-center p-5 border border-zinc-200/80 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 text-center space-y-4 shadow-xs">
                           <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Credencial de Acesso</span>
-                          <div className="bg-white p-3 rounded-2xl shadow-md border border-zinc-100">
-                            <svg className="w-32 h-32 text-zinc-900" viewBox="0 0 100 100">
-                              <rect width="100" height="100" fill="white" />
-                              <path d="M10,10 h25 v10 h-15 v15 h-10 z" fill="currentColor" />
-                              <path d="M90,10 h-25 v10 h-15 v15 h-10" fill="none" stroke="currentColor" strokeWidth="6" />
-                              <path d="M10,90 h25 v-10 h-15 v-15 h-10 z" fill="currentColor" />
-                              <path d="M90,90 h-25 v-10 h15 v-15 h10 z" fill="currentColor" />
-                              <rect x="25" y="25" width="12" height="12" fill="currentColor" />
-                              <rect x="63" y="25" width="12" height="12" fill="currentColor" />
-                              <rect x="25" y="63" width="12" height="12" fill="currentColor" />
-                              <rect x="44" y="44" width="12" height="12" fill="currentColor" />
-                              <rect x="63" y="63" width="6" height="6" fill="currentColor" />
-                              <rect x="53" y="69" width="6" height="6" fill="currentColor" />
-                              <rect x="69" y="53" width="6" height="6" fill="currentColor" />
-                            </svg>
+                          <div className="bg-white p-3 rounded-2xl shadow-md border border-zinc-100 flex items-center justify-center">
+                            {qrCodeUrl ? (
+                              <img src={qrCodeUrl} alt="QR Code da Credencial" className="w-32 h-32" />
+                            ) : (
+                              <div className="w-32 h-32 bg-zinc-150 animate-pulse rounded-lg" />
+                            )}
                           </div>
-                          <div className="space-y-1">
+                          <div className="space-y-1 w-full">
                             <span className="text-xs font-bold text-zinc-900 dark:text-zinc-50 block">QR Code para Recepção</span>
-                            <span className="text-[10px] text-zinc-400 block">Apresente na entrada da recepção para confirmar sua presença.</span>
+                            <span className="text-[10px] text-zinc-400 block mb-2">Apresente na entrada da recepção.</span>
+                            <div className="flex flex-col gap-2 w-full">
+                              <Button type="button" variant="outline" onClick={() => window.print()} className="w-full text-xs font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                                Imprimir Credencial
+                              </Button>
+                              <div className="flex gap-2 w-full">
+                                <Button type="button" variant="outline" onClick={handleSendEmail} className="flex-1 text-[11px] font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                                  Enviar por E-mail
+                                </Button>
+                                <Button type="button" variant="outline" onClick={handleSendWhatsapp} className="flex-1 text-[11px] font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                                  Enviar WhatsApp
+                                </Button>
+                              </div>
+                            </div>
                           </div>
-                          <Button type="button" variant="outline" onClick={() => window.print()} className="w-full text-xs font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950">
-                            Imprimir Credencial
-                          </Button>
                         </div>
                       </div>
                     )}
 
-                    {(appointment.status === 'Pendente' || appointment.status === 'Em análise') && (
+                    {(appointment.status !== 'Confirmado' && appointment.status !== 'Cancelado' && appointment.status !== 'Concluído') && (
                       <div className="pt-4 border-t border-zinc-150 dark:border-zinc-800/50 space-y-4">
                         <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-400">Ações da Solicitação</h4>
                         {cancelSuccess ? (
@@ -791,7 +964,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                       </div>
                     </div>
 
-                    {appointment.status === 'Confirmado' && (
+                    {(appointment.status === 'Confirmado' || appointment.status === 'Concluído') && (
                       <div className="pt-4 border-t border-zinc-150 dark:border-zinc-850">
                         <Card className="border-zinc-200 dark:border-zinc-800 shadow-xs rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
                           <CardHeader className="pb-3">
@@ -809,7 +982,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                                 <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
                                 <span className="text-sm font-semibold text-green-800 dark:text-green-400">Obrigado! Seu feedback (NPS) foi registrado com sucesso.</span>
                               </div>
-                            ) : (
+                            ) : getFeedbackStatus().visible ? (
                               <form onSubmit={handleFeedbackSubmit} className="space-y-5">
                                 {feedbackError && (
                                   <div className="p-3 bg-red-50/10 border border-red-200 rounded-xl text-red-500 text-xs font-semibold flex items-center gap-1.5">
@@ -854,11 +1027,40 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                                   />
                                 </div>
 
-                                <Button type="submit" className="bg-primary hover:bg-primary/95 text-white font-semibold h-10 px-5 shadow-sm text-xs rounded-xl">
-                                  <MessageSquare className="w-4 h-4 mr-1.5" />
-                                  Enviar Avaliação
-                                </Button>
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                                  <Button type="submit" className="bg-primary hover:bg-primary/95 text-white font-semibold h-10 px-5 shadow-sm text-xs rounded-xl">
+                                    <MessageSquare className="w-4 h-4 mr-1.5" />
+                                    Enviar Avaliação
+                                  </Button>
+                                  <Button type="button" variant="ghost" onClick={() => setSimulatedHours(h => h + 168)} className="text-[10px] font-bold text-zinc-400 hover:text-zinc-600 h-8 px-2.5">
+                                    Simular +7 Dias (Expirar Link)
+                                  </Button>
+                                </div>
                               </form>
+                            ) : getFeedbackStatus().reason === 'pending_24h' ? (
+                              <div className="space-y-3">
+                                <div className="p-4 bg-amber-50 dark:bg-amber-950/10 border border-amber-200/30 dark:border-amber-800/20 rounded-2xl flex flex-col gap-2">
+                                  <span className="text-xs font-semibold text-amber-800 dark:text-amber-400 flex items-center gap-1.5">
+                                    <Clock className="w-4 h-4" />
+                                    Pesquisa pendente: A avaliação estará disponível a partir de {getFeedbackStatus().availableAt} (24 horas pós-confirmação).
+                                  </span>
+                                </div>
+                                <Button type="button" variant="outline" onClick={() => setSimulatedHours(25)} className="text-xs font-bold border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-900/50 dark:text-amber-400">
+                                  Simular +24 horas (Liberar Pesquisa)
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <div className="p-4 bg-red-50 dark:bg-red-950/10 border border-red-200/30 dark:border-red-800/20 rounded-2xl flex flex-col gap-2">
+                                  <span className="text-xs font-semibold text-red-800 dark:text-red-400 flex items-center gap-1.5">
+                                    <AlertCircle className="w-4 h-4" />
+                                    O link desta pesquisa de feedback expirou (validade máxima de 7 dias após o envio).
+                                  </span>
+                                </div>
+                                <Button type="button" variant="outline" onClick={() => setSimulatedHours(0)} className="text-xs font-bold border-zinc-200 text-zinc-650 bg-white dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">
+                                  Resetar Simulação de Tempo
+                                </Button>
+                              </div>
                             )}
                           </CardContent>
                         </Card>
@@ -892,6 +1094,10 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
               </Button>
             </CardHeader>
             <CardContent className="p-5 space-y-4">
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200/30 dark:border-amber-800/30 text-amber-850 dark:text-amber-400 rounded-2xl text-[11px] font-semibold flex items-start gap-1.5 animate-in fade-in leading-relaxed">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>Atenção: A alteração de data/horário está sujeita à aprovação da triagem clínica do hospital.</span>
+              </div>
               {rescheduleError && (
                 <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 text-red-850 dark:text-red-400 rounded-2xl text-[11px] font-semibold flex items-center gap-1.5 animate-in fade-in">
                   <AlertCircle className="w-4 h-4 shrink-0" />
@@ -942,7 +1148,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                         className={`py-2 rounded-xl text-xs font-bold border transition-all ${
                           isSelected
                             ? 'bg-primary border-primary text-white scale-[1.02] shadow-sm'
-                            : 'bg-zinc-50 border-zinc-150 text-zinc-600 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-850 dark:text-zinc-400'
+                            : 'bg-zinc-50 border-zinc-150 text-zinc-650 hover:border-primary/20 dark:bg-zinc-950 dark:border-zinc-850 dark:text-zinc-400'
                         }`}
                       >
                         {time}
@@ -950,6 +1156,19 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                     );
                   })}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="rescheduleReason" className="text-[0.625rem] uppercase font-bold text-zinc-400 block tracking-wider">Motivo da Solicitação *</label>
+                <textarea
+                  id="rescheduleReason"
+                  rows={2}
+                  value={rescheduleReason}
+                  onChange={(e) => setRescheduleReason(e.target.value)}
+                  placeholder="Explique brevemente por que precisa alterar a data/horário..."
+                  className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-3 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-primary focus:outline-none dark:text-zinc-100"
+                  required
+                />
               </div>
 
               <div className="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex gap-3">
