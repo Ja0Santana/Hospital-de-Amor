@@ -1,7 +1,7 @@
 import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 10;
+const DB_VERSION = 11;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -139,6 +139,10 @@ export function initDb(): Promise<IDBDatabase> {
 
       if (!db.objectStoreNames.contains('custom_roles')) {
         db.createObjectStore('custom_roles', { keyPath: 'id' });
+      }
+
+      if (!db.objectStoreNames.contains('email_queue')) {
+        db.createObjectStore('email_queue', { keyPath: 'id', autoIncrement: true });
       }
     };
   }).then((db) => {
@@ -561,6 +565,25 @@ export async function checkDuplicateRequest(cpf: string, examId: string): Promis
   });
 }
 
+export async function triggerConfirmationEmail(appointment: Appointment): Promise<void> {
+  const db = await initDb();
+  const emailItem = {
+    recipientEmail: appointment.patientEmail,
+    subject: `Confirmação de Solicitação de Agendamento - Protocolo ${appointment.protocol}`,
+    body: `Olá, ${appointment.patientName}.\n\nSua solicitação de agendamento para o exame/consulta "${appointment.examName}" (${appointment.specialtyName}) foi registrada com sucesso sob o protocolo ${appointment.protocol} em ${new Date(appointment.createdAt).toLocaleString('pt-BR')}.\n\nVocê pode acompanhar o status desta solicitação pelo Portal do Paciente utilizando o seu CPF ou o número do protocolo.\n\nAtenciosamente,\nHospital de Amor`,
+    status: 'pending',
+    appointmentProtocol: appointment.protocol
+  };
+
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('email_queue', 'readwrite');
+    const store = tx.objectStore('email_queue');
+    const request = store.add(emailItem);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 export async function createAppointment(
   data: Omit<Appointment, 'id' | 'protocol' | 'createdAt' | 'status' | 'feedbackNps' | 'feedbackComment'>
 ): Promise<Appointment> {
@@ -569,21 +592,36 @@ export async function createAppointment(
   const id = crypto.randomUUID();
   const createdAt = new Date().toISOString();
 
+  let originSessionId = sessionStorage.getItem('patient_session_id');
+  if (!originSessionId) {
+    originSessionId = crypto.randomUUID();
+    sessionStorage.setItem('patient_session_id', originSessionId);
+  }
+
   const appointment: Appointment = {
     ...data,
     id,
     protocol,
     createdAt,
     status: 'Pendente',
+    statusHistory: [{ status: 'Pendente', changedAt: createdAt }],
     feedbackNps: null,
-    feedbackComment: null
+    feedbackComment: null,
+    originSessionId
   };
 
   return new Promise((resolve, reject) => {
     const tx = db.transaction('appointments', 'readwrite');
     const store = tx.objectStore('appointments');
     const request = store.add(appointment);
-    request.onsuccess = () => resolve(appointment);
+    request.onsuccess = async () => {
+      try {
+        await triggerConfirmationEmail(appointment);
+        resolve(appointment);
+      } catch (err) {
+        reject(err);
+      }
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -627,63 +665,83 @@ export async function updateAppointment(appointment: Appointment): Promise<void>
     const tx = db.transaction(['appointments', 'calendar_blocks', 'capacity_limits'], 'readwrite');
     const appStore = tx.objectStore('appointments');
 
-    if (appointment.status === 'Reagendamento Pendente' && appointment.rescheduledDate) {
-      const date = appointment.rescheduledDate;
-      const dateObj = new Date(date + 'T12:00:00');
-      const dayOfWeek = dateObj.getDay();
-
-      if (dayOfWeek === 0 || dayOfWeek === 6) {
-        reject(new Error('Agendamentos não são permitidos nos finais de semana.'));
-        return;
+    const getReq = appStore.get(appointment.id);
+    getReq.onsuccess = () => {
+      const current = getReq.result as Appointment | undefined;
+      if (current) {
+        if (current.status !== appointment.status) {
+          const history = appointment.statusHistory || current.statusHistory || [];
+          appointment.statusHistory = [
+            ...history,
+            {
+              status: appointment.status,
+              changedAt: new Date().toISOString(),
+              note: appointment.observations
+            }
+          ];
+        } else if (!appointment.statusHistory && current.statusHistory) {
+          appointment.statusHistory = current.statusHistory;
+        }
       }
 
-      const calStore = tx.objectStore('calendar_blocks');
-      const calReq = calStore.get(date);
-      calReq.onsuccess = () => {
-        const block = calReq.result as CalendarDay | undefined;
-        if (block && !block.isWorkingDay) {
-          reject(new Error(`A data selecionada está bloqueada no calendário: ${block.label}`));
+      if (appointment.status === 'Reagendamento Pendente' && appointment.rescheduledDate) {
+        const date = appointment.rescheduledDate;
+        const dateObj = new Date(date + 'T12:00:00');
+        const dayOfWeek = dateObj.getDay();
+
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+          reject(new Error('Agendamentos não são permitidos nos finais de semana.'));
           return;
         }
 
-        const limitStore = tx.objectStore('capacity_limits');
-        const limitReq = limitStore.get(appointment.examId);
-        limitReq.onsuccess = () => {
-          const limitConfig = limitReq.result as CapacityLimit | undefined;
-          if (limitConfig) {
-            const dailyLimit = limitConfig.dailyLimit;
-            const getAllReq = appStore.getAll();
-            getAllReq.onsuccess = () => {
-              const appointments = getAllReq.result as Appointment[];
-              const count = appointments.filter(app => {
-                if (app.id === appointment.id) return false;
-                if (app.examId !== appointment.examId) return false;
-                const appDate = app.rescheduledDate || '';
-                return (app.status === 'Confirmado' || app.status === 'Reagendamento Pendente') && appDate === date;
-              }).length;
+        const calStore = tx.objectStore('calendar_blocks');
+        const calReq = calStore.get(date);
+        calReq.onsuccess = () => {
+          const block = calReq.result as CalendarDay | undefined;
+          if (block && !block.isWorkingDay) {
+            reject(new Error(`A data selecionada está bloqueada no calendário: ${block.label}`));
+            return;
+          }
 
-              if (count >= dailyLimit) {
-                reject(new Error(`Capacidade máxima atingida para o exame "${appointment.examName}" no dia ${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}. Limite: ${dailyLimit} vagas.`));
-                return;
-              }
+          const limitStore = tx.objectStore('capacity_limits');
+          const limitReq = limitStore.get(appointment.examId);
+          limitReq.onsuccess = () => {
+            const limitConfig = limitReq.result as CapacityLimit | undefined;
+            if (limitConfig) {
+              const dailyLimit = limitConfig.dailyLimit;
+              const getAllReq = appStore.getAll();
+              getAllReq.onsuccess = () => {
+                const appointments = getAllReq.result as Appointment[];
+                const count = appointments.filter(app => {
+                  if (app.id === appointment.id) return false;
+                  if (app.examId !== appointment.examId) return false;
+                  const appDate = app.rescheduledDate || '';
+                  return (app.status === 'Confirmado' || app.status === 'Reagendamento Pendente') && appDate === date;
+                }).length;
 
+                if (count >= dailyLimit) {
+                  reject(new Error(`Capacidade máxima atingida para o exame "${appointment.examName}" no dia ${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}. Limite: ${dailyLimit} vagas.`));
+                  return;
+                }
+
+                const request = appStore.put(appointment);
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+              };
+            } else {
               const request = appStore.put(appointment);
               request.onsuccess = () => resolve();
               request.onerror = () => reject(request.error);
-            };
-          } else {
-            const request = appStore.put(appointment);
-            request.onsuccess = () => resolve();
-            request.onerror = () => reject(request.error);
-          }
+            }
+          };
         };
-      };
-    } else {
-      const request = appStore.put(appointment);
-      request.onsuccess = () => resolve();
-      request.onerror = () => reject(request.error);
-    }
-
+      } else {
+        const request = appStore.put(appointment);
+        request.onsuccess = () => resolve();
+        request.onerror = () => reject(request.error);
+      }
+    };
+    getReq.onerror = () => reject(getReq.error);
     tx.onerror = () => reject(tx.error);
   });
 }
@@ -2007,5 +2065,53 @@ export async function getEmployeePermissions(role: string): Promise<string[]> {
   return custom ? custom.permissions : [];
 }
 
+export async function getAverageTriageTime(): Promise<string> {
+  const db = await initDb();
+  return new Promise<string>((resolve, reject) => {
+    const tx = db.transaction('appointments', 'readonly');
+    const store = tx.objectStore('appointments');
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const appointments = request.result as Appointment[];
+      const samples: number[] = [];
 
+      for (const app of appointments) {
+        if (!app.createdAt || !app.statusHistory) {
+          continue;
+        }
+        const transition = app.statusHistory.find(
+          (h) => h.status === 'Confirmado' || h.status === 'Cancelado'
+        );
+        if (transition) {
+          const startTime = new Date(app.createdAt).getTime();
+          const endTime = new Date(transition.changedAt).getTime();
+          if (endTime > startTime) {
+            const diffHours = (endTime - startTime) / (1000 * 60 * 60);
+            samples.push(diffHours);
+          }
+        }
+      }
 
+      if (samples.length < 5) {
+        resolve('24 horas úteis');
+        return;
+      }
+
+      const recentSamples = samples.slice(-30);
+      const total = recentSamples.reduce((sum, val) => sum + val, 0);
+      const average = Math.round(total / recentSamples.length);
+      resolve(`~${average} horas úteis`);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+export async function getEmailQueue(): Promise<any[]> {
+  const db = await initDb();
+  return new Promise<any[]>((resolve, reject) => {
+    const tx = db.transaction('email_queue', 'readonly');
+    const store = tx.objectStore('email_queue');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}

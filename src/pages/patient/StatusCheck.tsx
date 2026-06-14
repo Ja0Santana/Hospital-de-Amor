@@ -4,7 +4,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { getAppointmentByCpf, getSpecialties, updateAppointment } from '../../services/db';
+import { getAppointmentByCpf, getSpecialties, updateAppointment, getAverageTriageTime } from '../../services/db';
 import type { Appointment, Specialty } from '../../types';
 import { formatCpf } from '../../lib/sanitizer';
 import { Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare, X, Upload, FileText, Eye, Trash2, ChevronDown, ChevronUp, Search } from 'lucide-react';
@@ -22,6 +22,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const [loading, setLoading] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todos' | Appointment['status']>('Todos');
+  const [averageTriageTime, setAverageTriageTime] = useState<string>('');
   
   const [npsScore, setNpsScore] = useState<number | null>(null);
   const [npsComment, setNpsComment] = useState('');
@@ -45,6 +46,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
 
   useEffect(() => {
     getSpecialties().then(setSpecialties).catch(console.error);
+    getAverageTriageTime().then(setAverageTriageTime).catch(console.error);
     loadAppointments();
   }, [patientCpf]);
 
@@ -299,9 +301,23 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   };
 
   const getStatusConfig = (status: Appointment['status']) => {
-    const config = {
+    const config: Record<Appointment['status'], { color: string; icon: React.ComponentType<any>; desc: React.ReactNode }> = {
       'Pendente': { color: 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400', icon: Clock, desc: 'Sua solicitação está na fila de espera e será revisada por nossa equipe médica em até 48 horas úteis.' },
-      'Em análise': { color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400', icon: Clock, desc: 'Nossos recepcionistas estão revisando o documento e o encaminhamento enviado. Estimativa de resposta: 24 horas úteis.' },
+      'Em análise': {
+        color: 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400',
+        icon: Clock,
+        desc: (
+          <span>
+            Nossos recepcionistas estão revisando o documento e o encaminhamento enviado. Estimativa de resposta:{' '}
+            {averageTriageTime ? (
+              <span className="font-semibold">{averageTriageTime}</span>
+            ) : (
+              <span className="inline-block w-20 h-3 bg-zinc-200 dark:bg-zinc-800 animate-pulse rounded align-middle" />
+            )}
+            .
+          </span>
+        )
+      },
       'Confirmado': { color: 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle2, desc: 'Parabéns! Sua triagem foi concluída e sua consulta/exame está agendado e confirmado.' },
       'Cancelado': { color: 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400', icon: XCircle, desc: 'Sua solicitação de agendamento foi cancelada pela triagem administrativa.' },
       'Reagendamento Pendente': { color: 'bg-amber-100 text-amber-800 border-amber-250 dark:bg-amber-900/30 dark:text-amber-400', icon: Clock, desc: 'Sua solicitação de alteração de horário foi enviada para a triagem e está sob análise administrativa.' },
@@ -468,6 +484,47 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                         <p className="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
                           {getStatusConfig(appointment.status).desc}
                         </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 pt-2">
+                      <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-400">Histórico de Atualizações</h4>
+                      <div className="bg-white dark:bg-zinc-950 border border-zinc-200/50 dark:border-zinc-800 p-5 rounded-2xl shadow-xs space-y-4">
+                        {(() => {
+                          const history = appointment.statusHistory && appointment.statusHistory.length > 0
+                            ? appointment.statusHistory
+                            : [{ status: 'Pendente' as const, changedAt: appointment.createdAt }];
+                          
+                          return (
+                            <div className="relative pl-6 space-y-4 border-l border-zinc-150 dark:border-zinc-805">
+                              {history.map((h, index) => {
+                                const isLast = index === history.length - 1;
+                                return (
+                                  <div key={index} className="relative">
+                                    <div className={`absolute -left-[31px] top-1 w-4 h-4 rounded-full border-4 border-white dark:border-zinc-950 flex items-center justify-center ${
+                                      isLast ? 'bg-primary' : 'bg-zinc-300 dark:bg-zinc-700'
+                                    }`} />
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className={`text-xs font-bold ${isLast ? 'text-primary' : 'text-zinc-750 dark:text-zinc-350'}`}>
+                                          {h.status}
+                                        </span>
+                                        <span className="text-[10px] text-zinc-400">
+                                          {new Date(h.changedAt).toLocaleString('pt-BR')}
+                                        </span>
+                                      </div>
+                                      {h.note && (
+                                        <p className="text-[11px] text-zinc-500 leading-relaxed bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded-lg mt-1 border border-zinc-100 dark:border-zinc-900">
+                                          {h.note}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
 

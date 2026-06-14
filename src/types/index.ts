@@ -61,6 +61,10 @@ export interface Appointment {
   priority?: 'Baixa' | 'Média' | 'Alta';
   followUpDate?: string;
   followUpSuspended?: boolean;
+  region?: string;
+  isLegalPriority?: boolean;
+  originSessionId?: string;
+  statusHistory?: Array<{ status: AppointmentStatus; changedAt: string; note?: string }>;
   internalNotes?: Array<{
     id: string;
     authorName: string;

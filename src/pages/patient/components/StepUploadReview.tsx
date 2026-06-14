@@ -20,6 +20,7 @@ interface StepUploadReviewProps {
     examName: string;
     fileAttachment: FileAttachment | null;
     consentLgpd: boolean;
+    isLegalPriority?: boolean;
   };
   onChange: (data: Partial<StepUploadReviewProps['formData']>) => void;
   onEditStep: (step: number) => void;
@@ -29,6 +30,37 @@ interface StepUploadReviewProps {
 
 export default function StepUploadReview({ formData, onChange, onEditStep, errors, setErrors }: StepUploadReviewProps) {
   const [fileError, setFileError] = useState('');
+
+  const getPriorityInfo = () => {
+    const reasons: string[] = [];
+
+    if (formData.patientBirthDate) {
+      const birth = new Date(formData.patientBirthDate);
+      const today = new Date();
+      let age = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+        age--;
+      }
+      if (age >= 60) {
+        reasons.push('Idoso (Estatuto do Idoso)');
+      }
+    }
+
+    if (formData.specialtyName === 'Oncologia') {
+      reasons.push('Caso Oncológico Urgente');
+    }
+
+    return { isPriority: reasons.length > 0, reasonText: reasons.join(' e ') };
+  };
+
+  const priorityInfo = getPriorityInfo();
+
+  React.useEffect(() => {
+    if (priorityInfo.isPriority !== formData.isLegalPriority) {
+      onChange({ isLegalPriority: priorityInfo.isPriority });
+    }
+  }, [priorityInfo.isPriority, formData.isLegalPriority, onChange]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -170,6 +202,20 @@ export default function StepUploadReview({ formData, onChange, onEditStep, error
 
       <div className="space-y-4 pt-6 border-t border-zinc-100 dark:border-zinc-800">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Revisão dos Dados</h3>
+
+        {priorityInfo.isPriority && (
+          <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-800/30 rounded-xl text-amber-850 dark:text-amber-300">
+            <div className="p-2 bg-amber-150/40 dark:bg-amber-900/30 rounded-lg text-amber-700 dark:text-amber-400 shrink-0 mt-0.5">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-shield-alert"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            </div>
+            <div>
+              <span className="font-bold text-sm block text-amber-900 dark:text-amber-300">Prioridade Legal Reconhecida</span>
+              <span className="text-xs text-amber-800 dark:text-amber-400/90 block mt-1 leading-relaxed">
+                Prioridade Legal reconhecida — {priorityInfo.reasonText}. Esta solicitação receberá atendimento prioritário na triagem.
+              </span>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="shadow-sm border-zinc-100 dark:border-zinc-800">
