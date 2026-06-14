@@ -4,7 +4,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { Search, BookOpen, Download, HelpCircle, ChevronDown, Check, Send, Sparkles, FileText } from 'lucide-react';
+import { Search, BookOpen, Download, HelpCircle, ChevronDown, Check, Send, Sparkles, FileText, Play, Pause, Captions } from 'lucide-react';
+import { getUserByCpf, updatePatientUser, getAppointmentByCpf } from '../../services/db';
+
+interface HelpCenterProps {
+  patientCpf: string;
+}
 
 interface Booklet {
   id: string;
@@ -84,7 +89,7 @@ interface ChatMessage {
   timestamp: string;
 }
 
-export default function HelpCenter() {
+export default function HelpCenter({ patientCpf }: HelpCenterProps) {
   const [activeTab, setActiveTab] = useState<'faq' | 'booklets'>('faq');
   const [faqSearch, setFaqSearch] = useState('');
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
@@ -92,6 +97,86 @@ export default function HelpCenter() {
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
   const [downloadSuccessId, setDownloadSuccessId] = useState<string | null>(null);
+
+  const [readBooklets, setReadBooklets] = useState<string[]>([]);
+  const [recommendedBooklet, setRecommendedBooklet] = useState<Booklet | null>(null);
+
+  // Player de Vídeo Simulado
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [isSubtitles, setIsSubtitles] = useState(true);
+  const [isLibras, setIsLibras] = useState(true);
+  const [currentCaption, setCurrentCaption] = useState('Clique em Play para iniciar o vídeo educativo.');
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!patientCpf) return;
+      try {
+        const cleanCpf = patientCpf.replace(/\D/g, "");
+        const patient = await getUserByCpf(cleanCpf);
+        if (patient) {
+          setReadBooklets(patient.readBooklets || []);
+        }
+        const apps = await getAppointmentByCpf(cleanCpf);
+
+        const upcoming = apps.find(a => ['Pendente', 'Confirmado', 'Em análise'].includes(a.status));
+        if (upcoming) {
+          const exam = upcoming.examName.toLowerCase();
+          if (exam.includes('mamografia')) {
+            setRecommendedBooklet(BOOKLETS.find(b => b.id === 'b1') || null);
+          } else if (exam.includes('tomografia') || exam.includes('ressonância') || exam.includes('ressonancia')) {
+            setRecommendedBooklet(BOOKLETS.find(b => b.id === 'b4') || null);
+          } else {
+            setRecommendedBooklet(BOOKLETS.find(b => b.id === 'b4') || null);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    loadData();
+  }, [patientCpf]);
+
+  useEffect(() => {
+    let interval: any;
+    if (isPlaying) {
+      interval = setInterval(() => {
+        setProgress((prev) => {
+          const next = prev + 1;
+          if (next >= 100) {
+            setIsPlaying(false);
+            setCurrentCaption('Vídeo concluído. Obrigado por assistir!');
+            return 0;
+          }
+          if (next < 20) {
+            setCurrentCaption('Olá! Seja bem-vindo ao guia de acolhimento do Hospital de Amor.');
+          } else if (next < 40) {
+            setCurrentCaption('Neste vídeo, vamos explicar como se preparar adequadamente para seus exames.');
+          } else if (next < 60) {
+            setCurrentCaption('Lembre-se sempre de trazer seus documentos originais e encaminhamento médico.');
+          } else if (next < 80) {
+            setCurrentCaption('Se apresentar sintomas incomuns pós-tratamento, entre em contato imediatamente.');
+          } else {
+            setCurrentCaption('Sua saúde é nossa maior prioridade. Conte com toda a nossa equipe de suporte!');
+          }
+          return next;
+        });
+      }, 300);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying]);
+
+  const handleMarkAsRead = async (bookletId: string) => {
+    if (!patientCpf || readBooklets.includes(bookletId)) return;
+    const updated = [...readBooklets, bookletId];
+    setReadBooklets(updated);
+    try {
+      const cleanCpf = patientCpf.replace(/\D/g, "");
+      await updatePatientUser(cleanCpf, { readBooklets: updated });
+    } catch (err) {
+      console.error('Erro ao marcar como lida:', err);
+    }
+  };
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { sender: 'bot', text: 'Olá! Sou o Assistente Virtual do Hospital de Amor. Estou aqui para tirar suas dúvidas de saúde, preparo para exames e funcionamento. O que você gostaria de saber hoje?', timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
@@ -142,6 +227,7 @@ export default function HelpCenter() {
 
             setDownloadingId(null);
             setDownloadSuccessId(booklet.id);
+            handleMarkAsRead(booklet.id);
             setTimeout(() => setDownloadSuccessId(null), 3000);
           }, 400);
           return 100;
@@ -400,65 +486,190 @@ export default function HelpCenter() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {BOOKLETS.map((booklet) => {
-            const isDownloading = downloadingId === booklet.id;
-            const isSuccess = downloadSuccessId === booklet.id;
-            return (
-              <Card
-                key={booklet.id}
-                className="border-zinc-200/60 dark:border-zinc-800 hover:border-primary/20 shadow-sm rounded-3xl bg-white dark:bg-zinc-950 transition-all flex flex-col justify-between"
-              >
-                <CardHeader className="pb-3 flex flex-row items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-secondary/10 dark:bg-zinc-900 border border-secondary/20 dark:border-zinc-800 flex items-center justify-center text-secondary shrink-0">
-                    <FileText className="w-6 h-6" />
-                  </div>
-                  <div className="space-y-1">
-                    <Badge variant="outline" className="px-2 py-0.5 text-[8px] font-bold rounded-lg uppercase tracking-wider border-zinc-200 text-zinc-400 dark:border-zinc-800">
-                      {booklet.category} • {booklet.size}
-                    </Badge>
-                    <CardTitle className="text-sm sm:text-base font-extrabold text-zinc-900 dark:text-zinc-100">
-                      {booklet.title}
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-5 pt-0">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                    {booklet.description}
+        <div className="space-y-8">
+          {recommendedBooklet && (
+            <Card className="border-2 border-primary/20 shadow-md bg-gradient-to-r from-primary/5 via-white to-secondary/5 rounded-3xl overflow-hidden p-6 relative">
+              <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Sparkles className="w-24 h-24 text-primary" />
+              </div>
+              <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between relative z-10">
+                <div className="space-y-2">
+                  <Badge className="bg-primary text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg">
+                    ✨ Recomendado para o preparo do seu próximo exame
+                  </Badge>
+                  <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-50">
+                    {recommendedBooklet.title}
+                  </h3>
+                  <p className="text-xs text-zinc-500 max-w-xl leading-relaxed">
+                    {recommendedBooklet.description}
                   </p>
-                  
-                  <div className="pt-2 border-t border-zinc-100 dark:border-zinc-900 flex items-center gap-3">
-                    <Button
-                      onClick={() => handleDownload(booklet)}
-                      disabled={downloadingId !== null}
-                      className={`flex-1 font-bold h-10 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all ${
-                        isSuccess
-                          ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
-                          : 'bg-primary hover:bg-primary/95 text-white'
-                      }`}
-                    >
-                      {isDownloading ? (
-                        <>
-                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          <span>Baixando ({downloadProgress}%)</span>
-                        </>
-                      ) : isSuccess ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          <span>Download Concluído</span>
-                        </>
-                      ) : (
-                        <>
-                          <Download className="w-4 h-4" />
-                          <span>Download PDF</span>
-                        </>
-                      )}
-                    </Button>
+                </div>
+                <Button 
+                  onClick={() => {
+                    handleDownload(recommendedBooklet);
+                    handleMarkAsRead(recommendedBooklet.id);
+                  }}
+                  className="bg-primary hover:bg-primary/95 text-white font-bold h-10 px-5 rounded-xl text-xs gap-2 shrink-0 shadow-lg shadow-primary/15"
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar Guia Recomendado
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {BOOKLETS.map((booklet) => {
+              const isDownloading = downloadingId === booklet.id;
+              const isSuccess = downloadSuccessId === booklet.id;
+              return (
+                <Card
+                  key={booklet.id}
+                  className="border-zinc-200/60 dark:border-zinc-800 hover:border-primary/20 shadow-sm rounded-3xl bg-white dark:bg-zinc-955 transition-all flex flex-col justify-between"
+                >
+                  <CardHeader className="pb-3 flex flex-row items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-secondary/10 dark:bg-zinc-900 border border-secondary/20 dark:border-zinc-800 flex items-center justify-center text-secondary shrink-0">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Badge variant="outline" className="px-2 py-0.5 text-[8px] font-bold rounded-lg uppercase tracking-wider border-zinc-200 text-zinc-400 dark:border-zinc-800">
+                          {booklet.category} • {booklet.size}
+                        </Badge>
+                        {readBooklets.includes(booklet.id) && (
+                          <Badge variant="secondary" className="px-2 py-0.5 text-[8px] font-bold rounded-lg uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border-none">
+                            ✓ Lido
+                          </Badge>
+                        )}
+                      </div>
+                      <CardTitle className="text-sm sm:text-base font-extrabold text-zinc-900 dark:text-zinc-100">
+                        {booklet.title}
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-5 pt-0">
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                      {booklet.description}
+                    </p>
+                    
+                    <div className="pt-2 border-t border-zinc-100 dark:border-zinc-900 flex items-center gap-3">
+                      <Button
+                        onClick={() => {
+                          handleDownload(booklet);
+                          handleMarkAsRead(booklet.id);
+                        }}
+                        disabled={downloadingId !== null}
+                        className={`flex-1 font-bold h-10 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition-all ${
+                          isSuccess
+                            ? 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                            : 'bg-primary hover:bg-primary/95 text-white'
+                        }`}
+                      >
+                        {isDownloading ? (
+                          <>
+                            <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                            <span>Baixando ({downloadProgress}%)</span>
+                          </>
+                        ) : isSuccess ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            <span>Download Concluído</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4" />
+                            <span>Download PDF</span>
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <Card className="border border-zinc-200/70 dark:border-zinc-800 shadow-xl rounded-3xl overflow-hidden bg-white dark:bg-zinc-950">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="bg-secondary/15 text-secondary font-black rounded-lg uppercase tracking-wider text-[9px] px-2 py-0.5">
+                  Vídeo com Acessibilidade
+                </Badge>
+              </div>
+              <CardTitle className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-50 mt-1">
+                Orientações Gerais de Acolhimento e Cuidados
+              </CardTitle>
+              <CardDescription className="text-xs text-zinc-500">
+                Vídeo explicativo oficial com suporte a Legendas e intérprete virtual de Libras.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="relative aspect-video w-full max-w-2xl mx-auto rounded-2xl overflow-hidden bg-slate-950 border border-slate-900 flex flex-col justify-between p-4 shadow-inner">
+                {isLibras && (
+                  <div className="absolute bottom-16 right-4 w-24 h-24 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex flex-col items-center justify-center text-center p-1.5 z-20 animate-in zoom-in-95 duration-200">
+                    <span className="text-3xl animate-bounce duration-1000 select-none">
+                      {isPlaying ? ['🖐️', '👌', '👍', '👋'][Math.floor(progress / 5) % 4] : '🙋'}
+                    </span>
+                    <span className="text-[8px] font-bold text-white uppercase tracking-wider mt-1 opacity-90">Libras</span>
                   </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                )}
+
+                <div className="w-full flex justify-between items-center text-white/70 text-[10px] z-10">
+                  <span className="bg-black/35 px-2.5 py-1 rounded-lg font-bold backdrop-blur-xs font-mono">Offline Simulator</span>
+                  <span className="bg-black/35 px-2.5 py-1 rounded-lg font-bold backdrop-blur-xs font-mono">Acolhimento.mp4</span>
+                </div>
+
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                  <Button
+                    onClick={() => setIsPlaying(!isPlaying)}
+                    className="w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 hover:bg-primary/90 p-0 border-none"
+                  >
+                    {isPlaying ? <Pause className="w-6 h-6 fill-white text-white" /> : <Play className="w-6 h-6 fill-white text-white ml-0.5" />}
+                  </Button>
+                </div>
+
+                <div className="w-full flex flex-col items-center gap-3 z-10">
+                  {isSubtitles && (
+                    <div className="w-full max-w-lg bg-black/65 backdrop-blur-xs border border-white/5 py-1.5 px-3 rounded-xl text-center text-[10px] sm:text-xs text-white leading-relaxed animate-in fade-in duration-200">
+                      {currentCaption}
+                    </div>
+                  )}
+
+                  <div className="w-full bg-black/35 backdrop-blur-xs p-2.5 rounded-xl border border-white/5 space-y-2">
+                    <div className="w-full bg-white/20 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-primary h-full rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-white/80">
+                      <div className="flex items-center gap-4">
+                        <button onClick={() => setIsPlaying(!isPlaying)} className="hover:text-white font-bold uppercase">
+                          {isPlaying ? 'Pausar' : 'Iniciar'}
+                        </button>
+                        <span>{isPlaying ? `0:${progress.toString().padStart(2, '0')}` : '0:00'} / 0:30</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          onClick={() => setIsSubtitles(!isSubtitles)}
+                          variant="ghost"
+                          className={`h-7 px-2.5 rounded-lg font-extrabold flex items-center gap-1 transition-colors text-[10px] border-none ${isSubtitles ? 'bg-primary text-white hover:bg-primary' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                        >
+                          <Captions className="w-3.5 h-3.5" />
+                          <span>Legendas</span>
+                        </Button>
+                        <Button
+                          onClick={() => setIsLibras(!isLibras)}
+                          variant="ghost"
+                          className={`h-7 px-2.5 rounded-lg font-extrabold flex items-center gap-1 transition-colors text-[10px] border-none ${isLibras ? 'bg-primary text-white hover:bg-primary' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                        >
+                          <span>🙋</span>
+                          <span>Libras</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

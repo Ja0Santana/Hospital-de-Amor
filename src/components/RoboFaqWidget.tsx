@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { X, Send, Sparkles, MessageSquare } from 'lucide-react';
+import { saveChatbotQuery } from '../services/db';
 
 interface ChatMessage {
   sender: 'user' | 'bot';
@@ -11,10 +12,10 @@ interface ChatMessage {
 }
 
 interface RoboFaqWidgetProps {
-  currentPage: string;
+  onNavigate?: (page: string) => void;
 }
 
-export default function RoboFaqWidget({ currentPage }: RoboFaqWidgetProps) {
+export default function RoboFaqWidget({ onNavigate }: RoboFaqWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { sender: 'bot', text: 'Olá! Sou o Robo-FAQ. Tire suas dúvidas sobre preparo de exames, febre pós-quimioterapia, transporte municipal ou direitos do paciente. Como posso ajudar?', timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
@@ -54,7 +55,7 @@ export default function RoboFaqWidget({ currentPage }: RoboFaqWidgetProps) {
       return 'Olá! Como posso ajudar você hoje? Pergunte-me sobre preparo, febre, direitos ou transporte municipal.';
     }
 
-    return 'Não consegui compreender bem. Tente termos simples como "preparo mamografia", "febre na quimioterapia" ou "direitos sociais". Você também pode consultar as FAQs completas no menu Ajuda!';
+    return 'Não consegui compreender bem. Tente termos simples como "preparo mamografia", "febre na quimioterapia" ou "direitos sociais". Se precisar, fale com a administração pelo telefone (17) 3321-6600 ou pelo e-mail suporte@hospitaldeamor.com.br.';
   };
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -71,6 +72,9 @@ export default function RoboFaqWidget({ currentPage }: RoboFaqWidgetProps) {
 
     setTimeout(() => {
       const reply = getBotResponse(userMsg);
+      const understood = !reply.startsWith('Não consegui compreender bem');
+      saveChatbotQuery(userMsg, understood).catch(console.error);
+
       setChatMessages((prev) => [
         ...prev,
         { sender: 'bot', text: reply, timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
@@ -88,6 +92,9 @@ export default function RoboFaqWidget({ currentPage }: RoboFaqWidgetProps) {
 
     setTimeout(() => {
       const reply = getBotResponse(text);
+      const understood = !reply.startsWith('Não consegui compreender bem');
+      saveChatbotQuery(text, understood).catch(console.error);
+
       setChatMessages((prev) => [
         ...prev,
         { sender: 'bot', text: reply, timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
@@ -95,10 +102,6 @@ export default function RoboFaqWidget({ currentPage }: RoboFaqWidgetProps) {
       setIsBotTyping(false);
     }, 850);
   };
-
-  if (currentPage === 'help-center') {
-    return null;
-  }
 
   return (
     <div className="fixed right-6 bottom-6 z-40 font-sans">
@@ -156,6 +159,18 @@ export default function RoboFaqWidget({ currentPage }: RoboFaqWidgetProps) {
           <div className="p-2.5 border-t border-zinc-100 dark:border-zinc-850 shrink-0 space-y-1 bg-white dark:bg-zinc-950">
             <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-wider block">Sugestões:</span>
             <div className="flex flex-wrap gap-1">
+              {onNavigate && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onNavigate('new-request');
+                    setIsOpen(false);
+                  }}
+                  className="px-2 py-0.5 bg-pink-100 hover:bg-pink-200 border border-pink-250 text-pink-700 rounded-lg text-[8px] font-bold transition-colors"
+                >
+                  Novo Agendamento 📅
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => selectShortcut('Preparo Mamografia')}

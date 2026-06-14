@@ -25,6 +25,8 @@ const INITIAL_FORM_DATA = {
   patientEmail: '',
   state: '',
   city: '',
+  region: '',
+  isLegalPriority: false,
   specialtyId: '',
   specialtyName: '',
   examId: '',
@@ -46,6 +48,7 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
   const [isReadyToSave, setIsReadyToSave] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [draftData, setDraftData] = useState<any | null>(null);
+  const [showDraftSavedToast, setShowDraftSavedToast] = useState(false);
 
   useEffect(() => {
     const initForm = async () => {
@@ -87,6 +90,8 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
     const interval = setInterval(async () => {
       if (successData) return;
       await saveAppointmentDraft(patientCpf, { formData, currentStep });
+      setShowDraftSavedToast(true);
+      setTimeout(() => setShowDraftSavedToast(false), 3000);
     }, 30000);
 
     return () => clearInterval(interval);
@@ -217,6 +222,8 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
         patientEmail: formData.patientEmail,
         state: formData.state,
         city: formData.city,
+        region: formData.region,
+        isLegalPriority: formData.isLegalPriority,
         specialtyId: formData.specialtyId,
         specialtyName: formData.specialtyName,
         examId: formData.examId,
@@ -427,6 +434,12 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
           </div>
         </div>,
         document.body
+      )}
+      {showDraftSavedToast && (
+        <div className="fixed bottom-4 right-4 bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 z-[9999] border border-zinc-700/30 animate-in fade-in slide-in-from-bottom-5 duration-350">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+          <span className="text-xs font-bold font-sans">Rascunho salvo automaticamente</span>
+        </div>
       )}
     </div>
   );

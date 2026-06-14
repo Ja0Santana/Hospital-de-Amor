@@ -17,6 +17,7 @@ interface StepPatientDataProps {
     patientEmail: string;
     state: string;
     city: string;
+    region?: string;
   };
   onChange: (data: Partial<StepPatientDataProps['formData']>) => void;
   errors: Record<string, string>;
@@ -64,6 +65,7 @@ export default function StepPatientData({ formData, onChange, errors, setErrors 
     if (clean.startsWith('79')) {
       updates.state = 'SE';
       updates.city = 'Lagarto';
+      updates.region = 'Região de Lagarto';
     }
 
     onChange(updates);
@@ -257,7 +259,8 @@ export default function StepPatientData({ formData, onChange, errors, setErrors 
           <Select
             value={formData.city}
             onValueChange={(val) => {
-              onChange({ city: val });
+              const matchedCity = availableCities.find((c) => c.name === val);
+              onChange({ city: val, region: matchedCity ? matchedCity.region : 'Outra' });
               if (errors.city) {
                 setErrors((prev) => {
                   const next = { ...prev };

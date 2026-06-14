@@ -595,7 +595,7 @@ function App() {
                 onPhotoUpdate={(url) => setPatientPhotoUrl(url)}
               />
             )}
-            {currentPage === 'help-center' && <HelpCenter />}
+            {currentPage === 'help-center' && <HelpCenter patientCpf={patientCpf} />}
             {currentPage === 'units' && userRole === 'patient' && <Units onNavigate={navigateTo} />}
             {currentPage === 'email-simulator' && userRole === 'patient' && (
               <EmailSimulator 
@@ -607,7 +607,7 @@ function App() {
           </div>
         </main>
         {userRole === 'patient' && <SymptomFloatingWidget patientCpf={patientCpf} currentPage={currentPage} />}
-        {userRole === 'patient' && <RoboFaqWidget currentPage={currentPage} />}
+        {userRole === 'patient' && <RoboFaqWidget onNavigate={navigateTo} />}
         {userRole === 'patient' && <DigitalCard patientCpf={patientCpf} isOpen={isCardOpen} onClose={() => setIsCardOpen(false)} />}
         <DonationModal
           isOpen={isDonationModalOpen}
