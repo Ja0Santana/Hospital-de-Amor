@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
-import { createDonation, updateDonation, addDonorPoints, saveSupportMessage, getUserByCpf, createRecurringSubscription } from '../../services/db';
+import { createDonation, updateDonation, addDonorPoints, saveSupportMessage, getUserByCpf, createRecurringSubscription, getDonationsByCpf } from '../../services/db';
 import { X, CheckCircle2, AlertTriangle, CreditCard, QrCode, FileText, Copy, Check, Download, AlertCircle, Coins } from 'lucide-react';
 import type { Donation } from '../../types';
 import jsPDF from 'jspdf';
@@ -259,6 +259,32 @@ export default function DonationModal({ isOpen, onClose, donorCpf, onDonationSuc
           date: new Date().toISOString(),
           isAuthorized
         });
+      }
+
+      const existingDonations = await getDonationsByCpf(donorCpf);
+      const confirmedDonations = existingDonations.filter(d => d.status === 'Confirmada');
+      const isFirstConfirmedDonation = confirmedDonations.length <= 1;
+
+      if (isFirstConfirmedDonation) {
+        const cleanDonorCpf = donorCpf.replace(/\D/g, "");
+        const donorUser = await getUserByCpf(cleanDonorCpf);
+        if (donorUser && donorUser.referredBy) {
+          const referrerCpf = donorUser.referredBy.replace(/\D/g, "");
+          await addDonorPoints(referrerCpf, 100);
+
+          const key = `referred_users_${referrerCpf}`;
+          const stored = localStorage.getItem(key);
+          if (stored) {
+            const list = JSON.parse(stored);
+            const itemIndex = list.findIndex((item: any) => item.id === `ref-${cleanDonorCpf}`);
+            if (itemIndex !== -1) {
+              list[itemIndex].status = 'Doou (100 pts)';
+              list[itemIndex].amount = donationAmount;
+              list[itemIndex].date = new Date().toISOString();
+              localStorage.setItem(key, JSON.stringify(list));
+            }
+          }
+        }
       }
       
       setSuccessData({
