@@ -27,6 +27,8 @@ export interface FileAttachment {
   type: string;
   size: number;
   base64: string;
+  status?: 'Pendente' | 'Aprovado' | 'Ilegível' | 'Pendente de Correção';
+  feedback?: string;
 }
 
 export type AppointmentStatus = 'Pendente' | 'Confirmado' | 'Cancelado' | 'Em análise' | 'Reagendamento Pendente' | 'Aguardando Follow-up' | 'Concluído' | 'Arquivado por Documentação Pendente';
@@ -48,6 +50,7 @@ export interface Appointment {
   createdAt: string;
   status: AppointmentStatus;
   fileAttachment: FileAttachment | null;
+  rejectedFilesHistory?: FileAttachment[];
   observations: string;
   consentLgpd: boolean;
   feedbackNps: number | null;

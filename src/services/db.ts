@@ -353,6 +353,35 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
             consentLgpd: true,
             feedbackNps: null,
             feedbackComment: null
+          },
+          {
+            id: 'mock-app-4',
+            protocol: 'HA-2026-0004',
+            patientName: 'Anna Beatriz',
+            patientCpf: '123.456.789-00',
+            patientBirthDate: '1985-08-15',
+            patientPhone: '(79) 99999-9999',
+            patientEmail: 'anna.beatriz@email.com',
+            state: 'SE',
+            city: 'Lagarto',
+            specialtyId: 'spec-2',
+            specialtyName: 'Mastologia',
+            examId: 'exam-2-2',
+            examName: 'Consulta Mastologia',
+            createdAt: '2026-01-12T09:00:00.000Z',
+            status: 'Cancelado',
+            fileAttachment: {
+              name: 'encaminhamento_ilegivel.png',
+              type: 'image/png',
+              size: 204800,
+              base64: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+              status: 'Ilegível',
+              feedback: 'O encaminhamento médico anexado possui rasuras na data de emissão. Favor anexar uma cópia legível.'
+            },
+            observations: 'Documentação Ilegível: A foto do encaminhamento médico anexada está borrada e impossibilita a leitura do carimbo do profissional de saúde.',
+            consentLgpd: true,
+            feedbackNps: null,
+            feedbackComment: null
           }
         ];
         mockApps.forEach((app) => appStore.put(app));
