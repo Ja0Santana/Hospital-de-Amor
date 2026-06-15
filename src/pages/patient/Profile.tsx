@@ -26,9 +26,10 @@ interface ProfileProps {
   theme: string;
   setTheme: (theme: string) => void;
   onPhotoUpdate?: (url: string) => void;
+  userRole?: 'patient' | 'donor';
 }
 
-export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, setFontSize, theme, setTheme, onPhotoUpdate }: ProfileProps) {
+export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, setFontSize, theme, setTheme, onPhotoUpdate, userRole = 'patient' }: ProfileProps) {
   const [user, setUser] = useState<PatientUser | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -193,7 +194,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
         email,
         phone,
       };
-      if (user?.role !== 'donor') {
+      if (userRole !== 'donor') {
         Object.assign(updateData, {
           bloodType,
           allergies,
@@ -210,7 +211,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
           email,
           phone,
         };
-        if (user.role !== 'donor') {
+        if (userRole !== 'donor') {
           Object.assign(updated, {
             bloodType,
             allergies,
@@ -320,7 +321,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
         legislacao: "Lei Geral de Protecao de Dados Pessoais (LGPD) - Lei nº 13.709/2018",
       };
 
-      if (user.role === 'donor') {
+      if (userRole === 'donor') {
         const donations = await getDonationsByCpf(cleanCpf);
         report.dadosDoador = {
           nome: user.name,
@@ -375,7 +376,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
       const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(report, null, 2));
       const downloadAnchor = document.createElement('a');
       downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", user.role === 'donor' ? `dados_doador_${cleanCpf}.json` : `dados_paciente_${cleanCpf}.json`);
+      downloadAnchor.setAttribute("download", userRole === 'donor' ? `dados_doador_${cleanCpf}.json` : `dados_paciente_${cleanCpf}.json`);
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
@@ -551,7 +552,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                   </div>
                 </div>
 
-                {user?.role !== 'donor' && (
+                {userRole !== 'donor' && (
                   <>
                     <div className="border-t border-zinc-200 dark:border-zinc-800 my-6" />
 

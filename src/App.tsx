@@ -593,6 +593,7 @@ function App() {
                 theme={theme}
                 setTheme={setTheme}
                 onPhotoUpdate={(url) => setPatientPhotoUrl(url)}
+                userRole={userRole}
               />
             )}
             {currentPage === 'help-center' && <HelpCenter patientCpf={patientCpf} />}
