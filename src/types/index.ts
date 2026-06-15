@@ -229,4 +229,35 @@ export interface CustomRole {
   permissions: string[];
 }
 
+export interface TransparencyProject {
+  id: string;
+  title: string;
+  description: string;
+  completedDate: string;
+  amountRaised: number;
+}
+
+export interface TransparencyMonthlyRecord {
+  month: string;
+  entradas: number;
+  saidas: number;
+  atendimentos: number;
+}
+
+export interface SectorDistribution {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export interface TransparencyData {
+  id: string;
+  lastUpdatedAt: string;
+  totalArrecadadoAno: number;
+  atendimentosAno: number;
+  sectors: SectorDistribution[];
+  monthlyRecords: TransparencyMonthlyRecord[];
+  projects: TransparencyProject[];
+}
+
 

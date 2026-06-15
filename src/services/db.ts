@@ -1,7 +1,7 @@
-import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole, FeedbackResponse } from '../types';
+import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole, FeedbackResponse, TransparencyData } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 13;
+const DB_VERSION = 14;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -152,6 +152,10 @@ export function initDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('chatbot_queries')) {
         db.createObjectStore('chatbot_queries', { keyPath: 'id', autoIncrement: true });
       }
+
+      if (!db.objectStoreNames.contains('transparency_data')) {
+        db.createObjectStore('transparency_data', { keyPath: 'id' });
+      }
     };
   }).then(async (db) => {
     await seedData(db);
@@ -166,7 +170,7 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'calendar_blocks', 'capacity_limits', 'custom_roles', 'feedbacks', 'chatbot_queries'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'calendar_blocks', 'capacity_limits', 'custom_roles', 'feedbacks', 'chatbot_queries', 'transparency_data'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
@@ -542,6 +546,49 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
           status: 'Ativa',
           cardMaskedNumber: '•••• •••• •••• 4321',
           createdAt: new Date('2026-05-05T09:00:00.000Z').toISOString()
+        });
+      }
+    };
+
+    const transparencyStore = tx.objectStore('transparency_data');
+    const transparencyReq = transparencyStore.get('active');
+    transparencyReq.onsuccess = () => {
+      if (!transparencyReq.result) {
+        transparencyStore.put({
+          id: 'active',
+          lastUpdatedAt: new Date().toISOString(),
+          totalArrecadadoAno: 1250000,
+          atendimentosAno: 4800,
+          sectors: [
+            { name: 'Oncologia', value: 45, color: '#e31463' },
+            { name: 'Mastologia', value: 25, color: '#f472b6' },
+            { name: 'Radiologia', value: 15, color: '#3b82f6' },
+            { name: 'Geral', value: 15, color: '#10b981' }
+          ],
+          monthlyRecords: [
+            { month: 'Jan', entradas: 180000, saidas: 150000, atendimentos: 750 },
+            { month: 'Fev', entradas: 210000, saidas: 170000, atendimentos: 800 },
+            { month: 'Mar', entradas: 195000, saidas: 160000, atendimentos: 780 },
+            { month: 'Abr', entradas: 220000, saidas: 185000, atendimentos: 820 },
+            { month: 'Mai', entradas: 235000, saidas: 190000, atendimentos: 850 },
+            { month: 'Jun', entradas: 210000, saidas: 175000, atendimentos: 800 }
+          ],
+          projects: [
+            {
+              id: 'proj-1',
+              title: 'Construção da Nova Ala de Quimioterapia Pediátrica',
+              description: 'Expansão da capacidade de atendimento infantil com 15 novos leitos e brinquedoteca equipada.',
+              completedDate: '2026-03-15',
+              amountRaised: 450000
+            },
+            {
+              id: 'proj-2',
+              title: 'Aquisição de Acelerador Linear para Radioterapia',
+              description: 'Equipamento de última geração para tratamento radioterápico mais preciso e rápido.',
+              completedDate: '2026-05-10',
+              amountRaised: 800000
+            }
+          ]
         });
       }
     };
@@ -2400,5 +2447,27 @@ export async function saveFeedback(feedback: Omit<FeedbackResponse, 'id' | 'crea
     };
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getTransparencyData(): Promise<TransparencyData> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('transparency_data', 'readonly');
+    const store = tx.objectStore('transparency_data');
+    const request = store.get('active');
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveTransparencyData(data: TransparencyData): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('transparency_data', 'readwrite');
+    const store = tx.objectStore('transparency_data');
+    const request = store.put(data);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
   });
 }

@@ -25,16 +25,18 @@ import {
   getCapacityLimits, 
   saveCapacityLimit, 
   getAuditLogs, 
-  addAuditLogAdmin 
+  addAuditLogAdmin,
+  getTransparencyData,
+  saveTransparencyData
 } from '../../services/db';
-import type { Specialty, Exam, CalendarDay, CapacityLimit, AuditLog, PatientUser } from '../../types';
+import type { Specialty, Exam, CalendarDay, CapacityLimit, AuditLog, PatientUser, TransparencyData } from '../../types';
 
 interface AdminConfigProps {
   loggedEmployee: PatientUser;
 }
 
 export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
-  const [activeTab, setActiveTab] = useState<'exams' | 'calendar' | 'logs'>('exams');
+  const [activeTab, setActiveTab] = useState<'exams' | 'calendar' | 'logs' | 'transparency'>('exams');
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [limits, setLimits] = useState<CapacityLimit[]>([]);
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
@@ -55,6 +57,17 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
   const [newBlockDate, setNewBlockDate] = useState<string>('');
   const [newBlockLabel, setNewBlockLabel] = useState<string>('');
   const [newBlockIsWorking, setNewBlockIsWorking] = useState<boolean>(false);
+
+  const [transparencyData, setTransparencyData] = useState<TransparencyData | null>(null);
+  const [oncologiaPercent, setOncologiaPercent] = useState<number>(0);
+  const [mastologiaPercent, setMastologiaPercent] = useState<number>(0);
+  const [radiologiaPercent, setRadiologiaPercent] = useState<number>(0);
+  const [geralPercent, setGeralPercent] = useState<number>(0);
+
+  const [newProjectTitle, setNewProjectTitle] = useState('');
+  const [newProjectDesc, setNewProjectDesc] = useState('');
+  const [newProjectDate, setNewProjectDate] = useState('');
+  const [newProjectAmount, setNewProjectAmount] = useState<number>(0);
 
   useEffect(() => {
     loadData();
@@ -88,6 +101,19 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
         const allLogs = await getAuditLogs();
         const filtered = allLogs.filter(log => log.module === 'Configurações');
         setLogs(filtered.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+      } else if (activeTab === 'transparency') {
+        const trans = await getTransparencyData();
+        if (trans) {
+          setTransparencyData(trans);
+          const onc = trans.sectors.find(s => s.name === 'Oncologia')?.value ?? 0;
+          const mast = trans.sectors.find(s => s.name === 'Mastologia')?.value ?? 0;
+          const rad = trans.sectors.find(s => s.name === 'Radiologia')?.value ?? 0;
+          const ger = trans.sectors.find(s => s.name === 'Geral')?.value ?? 0;
+          setOncologiaPercent(onc);
+          setMastologiaPercent(mast);
+          setRadiologiaPercent(rad);
+          setGeralPercent(ger);
+        }
       }
     } catch (e: any) {
       setActionError(e.message || 'Erro ao carregar dados de configuração.');
@@ -297,6 +323,102 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
     return `${day}/${month}/${year}`;
   };
 
+  const handleMonthlyRecordChange = (index: number, field: 'entradas' | 'saidas' | 'atendimentos', value: number) => {
+    if (!transparencyData) return;
+    const updatedRecords = [...transparencyData.monthlyRecords];
+    updatedRecords[index] = {
+      ...updatedRecords[index],
+      [field]: value
+    };
+    setTransparencyData({
+      ...transparencyData,
+      monthlyRecords: updatedRecords
+    });
+  };
+
+  const handleAddProject = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transparencyData || !newProjectTitle.trim() || !newProjectDesc.trim() || !newProjectDate) {
+      setActionError('Preencha todos os campos do projeto.');
+      return;
+    }
+    const newProj = {
+      id: 'proj-' + crypto.randomUUID().slice(0, 8),
+      title: newProjectTitle.trim(),
+      description: newProjectDesc.trim(),
+      completedDate: newProjectDate,
+      amountRaised: newProjectAmount
+    };
+    setTransparencyData({
+      ...transparencyData,
+      projects: [newProj, ...transparencyData.projects]
+    });
+    setNewProjectTitle('');
+    setNewProjectDesc('');
+    setNewProjectDate('');
+    setNewProjectAmount(0);
+    setActionSuccess('Projeto adicionado à lista local (clique em "Publicar no Mural" para salvar definitivamente).');
+  };
+
+  const handleRemoveProject = (projId: string) => {
+    if (!transparencyData) return;
+    setTransparencyData({
+      ...transparencyData,
+      projects: transparencyData.projects.filter(p => p.id !== projId)
+    });
+    setActionSuccess('Projeto removido da lista local (clique em "Publicar no Mural" para salvar definitivamente).');
+  };
+
+  const handlePublishTransparency = async () => {
+    if (!transparencyData) return;
+    setActionError('');
+    setActionSuccess('');
+
+    const sum = oncologiaPercent + mastologiaPercent + radiologiaPercent + geralPercent;
+    if (sum !== 100) {
+      setActionError(`A soma das porcentagens dos setores deve ser exatamente 100%. Soma atual: ${sum}%.`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const updatedSectors = [
+        { name: 'Oncologia', value: oncologiaPercent, color: '#e31463' },
+        { name: 'Mastologia', value: mastologiaPercent, color: '#f472b6' },
+        { name: 'Radiologia', value: radiologiaPercent, color: '#3b82f6' },
+        { name: 'Geral', value: geralPercent, color: '#10b981' }
+      ];
+
+      const totalArrecadado = transparencyData.monthlyRecords.reduce((acc, curr) => acc + curr.entradas, 0);
+      const totalAtendimentos = transparencyData.monthlyRecords.reduce((acc, curr) => acc + curr.atendimentos, 0);
+
+      const updatedData = {
+        ...transparencyData,
+        lastUpdatedAt: new Date().toISOString(),
+        totalArrecadadoAno: totalArrecadado,
+        atendimentosAno: totalAtendimentos,
+        sectors: updatedSectors
+      };
+
+      await saveTransparencyData(updatedData);
+      setTransparencyData(updatedData);
+
+      await addAuditLogAdmin(
+        `Mural de transparência publicado. Arrecadado no semestre: R$ ${totalArrecadado.toFixed(2)}, Atendimentos: ${totalAtendimentos}, Setores: Oncologia(${oncologiaPercent}%), Mastologia(${mastologiaPercent}%), Radiologia(${radiologiaPercent}%), Geral(${geralPercent}%)`,
+        'Configurações',
+        `Mural de Transparência publicado pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+
+      setActionSuccess('Mural de transparência publicado e atualizado com sucesso para todos os doadores.');
+    } catch (e: any) {
+      setActionError(e.message || 'Erro ao publicar dados de transparência.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-8 animate-in fade-in duration-200">
@@ -345,6 +467,20 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
           <div className="flex items-center gap-1.5 px-1">
             <ShieldAlert className="w-4 h-4" />
             Auditoria de Configurações
+          </div>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('transparency')}
+          className={`pb-3 text-xs font-bold transition-all relative ${
+            activeTab === 'transparency' 
+              ? 'text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400' 
+              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-350'
+          }`}
+        >
+          <div className="flex items-center gap-1.5 px-1">
+            <DollarSign className="w-4 h-4" />
+            Mural de Transparência
           </div>
         </button>
       </div>
@@ -632,6 +768,236 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'transparency' && transparencyData && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8 space-y-6">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-6">
+              <div>
+                <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Distribuição de Recursos & Volume Semestral</h3>
+                <p className="text-zinc-500 text-[0.625rem] mt-0.5">Gerencie os percentuais destinados a cada área e os valores financeiros e de atendimentos por mês.</p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <h4 className="font-bold text-xs text-zinc-800 dark:text-zinc-200 mb-3">Distribuição por Setor (Soma deve ser 100%)</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Oncologia (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={oncologiaPercent}
+                        onChange={(e) => setOncologiaPercent(parseInt(e.target.value) || 0)}
+                        className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Mastologia (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={mastologiaPercent}
+                        onChange={(e) => setMastologiaPercent(parseInt(e.target.value) || 0)}
+                        className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Radiologia (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={radiologiaPercent}
+                        onChange={(e) => setRadiologiaPercent(parseInt(e.target.value) || 0)}
+                        className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Geral (%)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={geralPercent}
+                        onChange={(e) => setGeralPercent(parseInt(e.target.value) || 0)}
+                        className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-right">
+                    <span className={`text-[0.625rem] font-bold px-2 py-0.5 rounded-md ${oncologiaPercent + mastologiaPercent + radiologiaPercent + geralPercent === 100 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
+                      Total: {oncologiaPercent + mastologiaPercent + radiologiaPercent + geralPercent}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="border-t border-zinc-100 dark:border-zinc-800 pt-5">
+                  <h4 className="font-bold text-xs text-zinc-800 dark:text-zinc-200 mb-3">Fluxo Semestral (Entradas, Saídas e Atendimentos)</h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b border-zinc-150 dark:border-zinc-800 text-[0.5625rem] font-bold uppercase tracking-wider text-zinc-400">
+                          <th className="py-2.5 px-3">Mês</th>
+                          <th className="py-2.5 px-3">Entradas (R$)</th>
+                          <th className="py-2.5 px-3">Saídas (R$)</th>
+                          <th className="py-2.5 px-3">Atendimentos</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-zinc-150 dark:divide-zinc-800">
+                        {transparencyData.monthlyRecords.map((record, index) => (
+                          <tr key={record.month} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10">
+                            <td className="py-2 px-3 font-semibold text-zinc-900 dark:text-zinc-50">{record.month}</td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="number"
+                                value={record.entradas}
+                                onChange={(e) => handleMonthlyRecordChange(index, 'entradas', parseFloat(e.target.value) || 0)}
+                                className="w-28 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="number"
+                                value={record.saidas}
+                                onChange={(e) => handleMonthlyRecordChange(index, 'saidas', parseFloat(e.target.value) || 0)}
+                                className="w-28 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                              />
+                            </td>
+                            <td className="py-2 px-2">
+                              <input
+                                type="number"
+                                value={record.atendimentos}
+                                onChange={(e) => handleMonthlyRecordChange(index, 'atendimentos', parseInt(e.target.value) || 0)}
+                                className="w-24 border border-zinc-200 dark:border-zinc-800 rounded-lg p-1.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                  <button
+                    type="button"
+                    onClick={handlePublishTransparency}
+                    disabled={loading}
+                    className="bg-pink-600 hover:bg-pink-700 text-white rounded-xl px-5 h-10 text-xs font-bold transition-all shadow-md shadow-pink-600/10"
+                  >
+                    Publicar no Mural
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 space-y-6">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-4">
+              <div>
+                <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Cadastrar Novo Projeto</h3>
+                <p className="text-zinc-500 text-[0.625rem] mt-0.5">Cadastre projetos concluídos financiados pelas doações.</p>
+              </div>
+
+              <form onSubmit={handleAddProject} className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Título do Projeto *</label>
+                  <input
+                    type="text"
+                    value={newProjectTitle}
+                    onChange={(e) => setNewProjectTitle(e.target.value)}
+                    placeholder="Ex: Ala Infantil"
+                    className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Descrição do Impacto *</label>
+                  <textarea
+                    value={newProjectDesc}
+                    onChange={(e) => setNewProjectDesc(e.target.value)}
+                    placeholder="Descreva o impacto..."
+                    rows={3}
+                    className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Valor Investido (R$) *</label>
+                    <input
+                      type="number"
+                      value={newProjectAmount}
+                      onChange={(e) => setNewProjectAmount(parseFloat(e.target.value) || 0)}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Conclusão *</label>
+                    <input
+                      type="date"
+                      value={newProjectDate}
+                      onChange={(e) => setNewProjectDate(e.target.value)}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full border border-dashed border-zinc-300 dark:border-zinc-800 hover:border-pink-500 text-zinc-750 dark:text-zinc-350 hover:text-pink-600 font-bold h-10 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all bg-zinc-50/50 hover:bg-white"
+                >
+                  Adicionar Projeto
+                </button>
+              </form>
+            </div>
+
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-4">
+              <div>
+                <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Projetos Ativos / Concluídos</h3>
+                <p className="text-zinc-500 text-[0.625rem] mt-0.5">Lista de projetos publicados.</p>
+              </div>
+
+              <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+                {transparencyData.projects.length === 0 ? (
+                  <p className="text-[0.625rem] text-zinc-400 text-center py-6">Nenhum projeto cadastrado.</p>
+                ) : (
+                  transparencyData.projects.map(proj => (
+                    <div key={proj.id} className="p-3 bg-zinc-50 dark:bg-zinc-950/40 border border-zinc-200/50 dark:border-zinc-800/30 rounded-2xl flex flex-col gap-2 relative">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveProject(proj.id)}
+                        className="absolute right-3 top-3 p-1 rounded-lg text-zinc-400 hover:text-red-650 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all active:scale-95"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <div className="pr-6 space-y-1">
+                        <h4 className="font-bold text-[0.6875rem] text-zinc-900 dark:text-zinc-50 leading-tight">{proj.title}</h4>
+                        <p className="text-[0.5625rem] text-zinc-500 dark:text-zinc-450 leading-relaxed">{proj.description}</p>
+                      </div>
+                      <div className="flex justify-between items-center text-[0.5625rem] font-bold text-pink-600 dark:text-pink-400 mt-1">
+                        <span>R$ {proj.amountRaised.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-zinc-400 dark:text-zinc-500">{formatDate(proj.completedDate)}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </div>
       )}
