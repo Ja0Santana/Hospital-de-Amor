@@ -334,22 +334,6 @@ function App() {
                   </Button>
                   <Button
                     variant="ghost"
-                    onClick={() => navigateTo('symptoms')}
-                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'symptoms' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-                  >
-                    <Activity className="w-4 h-4" />
-                    Diário de Sintomas
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => navigateTo('clinical-history')}
-                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'clinical-history' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
-                  >
-                    <FileText className="w-4 h-4" />
-                    Histórico Clínico
-                  </Button>
-                  <Button
-                    variant="ghost"
                     onClick={() => navigateTo('new-request')}
                     className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'new-request' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
                   >
@@ -363,6 +347,22 @@ function App() {
                   >
                     <Calendar className="w-4 h-4" />
                     Meus Agendamentos
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('symptoms')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'symptoms' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <Activity className="w-4 h-4" />
+                    Diário de Sintomas
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => navigateTo('clinical-history')}
+                    className={`w-full justify-start text-xs font-bold h-10 px-3.5 rounded-xl gap-3 ${currentPage === 'clinical-history' ? 'bg-secondary text-secondary-foreground hover:bg-secondary/95 shadow-md shadow-secondary/10' : 'text-blue-100 hover:bg-white/10 hover:text-white dark:text-zinc-400'}`}
+                  >
+                    <FileText className="w-4 h-4" />
+                    Histórico Clínico
                   </Button>
                   <Button
                     variant="ghost"
