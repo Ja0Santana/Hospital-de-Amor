@@ -401,7 +401,8 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
   const handleRequestDelete = async () => {
     try {
       const cleanCpf = patientCpf.replace(/\D/g, "");
-      if (userRole === 'donor') {
+      const isPatient = user?.role === 'patient' || user?.role === 'both';
+      if (!isPatient) {
         setShowDeleteModal(true);
         return;
       }
@@ -1042,7 +1043,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
               <div className="space-y-1.5">
                 <h3 className="font-extrabold text-lg text-zinc-900 dark:text-zinc-50">Excluir conta?</h3>
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  {userRole === 'donor'
+                  {user?.role === 'both'
+                    ? 'Ao confirmar, seu acesso ao portal será encerrado e todos os seus históricos de doações, agendamentos e exames serão removidos permanentemente. Você precisará criar uma nova conta caso queira utilizar o serviço novamente.'
+                    : user?.role === 'donor'
                     ? 'Ao confirmar, seu acesso ao portal será encerrado e todo o seu histórico de doações será removido. Você precisará criar uma nova conta caso queira utilizar o serviço novamente.'
                     : 'Ao confirmar, seu acesso ao portal será encerrado e todo o seu histórico de agendamentos e exames será removido. Você precisará criar uma nova conta caso queira utilizar o serviço novamente.'}
                 </p>
