@@ -401,6 +401,10 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
   const handleRequestDelete = async () => {
     try {
       const cleanCpf = patientCpf.replace(/\D/g, "");
+      if (userRole === 'donor') {
+        setShowDeleteModal(true);
+        return;
+      }
       const allAppointments = await getAppointmentByCpf(cleanCpf);
       const pendingOnes = allAppointments.filter((a) => OPEN_STATUSES.includes(a.status));
       if (pendingOnes.length > 0) {
@@ -427,7 +431,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
           <Card className="border border-zinc-200/80 dark:border-zinc-800 shadow-sm rounded-2xl overflow-hidden bg-white dark:bg-zinc-950">
             <div className="bg-zinc-50 dark:bg-zinc-900/40 px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center gap-2">
               <User className="w-5 h-5 text-primary" aria-hidden="true" />
-              <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">Dados do Paciente</h2>
+              <h2 className="text-base font-bold text-zinc-800 dark:text-zinc-200">
+                {userRole === 'donor' ? 'Dados do Doador' : 'Dados do Paciente'}
+              </h2>
             </div>
             <CardContent className="p-6">
               <form onSubmit={handleUpdateProfile} className="space-y-6">
@@ -852,7 +858,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                   </Tooltip>
                 </p>
                 <p className="text-[11px] text-zinc-500 leading-relaxed">
-                  O Hospital de Amor trata seus dados sensíveis e de saúde de forma segura e estritamente para o processo de regulação e agendamento de consultas e exames oncológicos.
+                  {userRole === 'donor'
+                    ? 'O Hospital de Amor trata seus dados cadastrais e de doação de forma segura e estritamente para o processamento de contribuições, prestação de contas e emissão de comprovantes fiscais.'
+                    : 'O Hospital de Amor trata seus dados sensíveis e de saúde de forma segura e estritamente para o processo de regulação e agendamento de consultas e exames oncológicos.'}
                 </p>
               </div>
 
@@ -911,7 +919,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
 
                 <div className="pt-2 flex justify-between items-center text-[10px] text-zinc-400 border-t border-zinc-150 dark:border-zinc-800">
                   <span>Último consentimento: {lastConsentAt ? new Date(lastConsentAt).toLocaleString('pt-BR') : 'Não registrado'}</span>
-                  <a href="#/paciente/central-ajuda" className="text-primary hover:underline font-bold">Ver Política de Privacidade</a>
+                  <a href={userRole === 'donor' ? '#/doador/central-ajuda' : '#/paciente/central-ajuda'} className="text-primary hover:underline font-bold">Ver Política de Privacidade</a>
                 </div>
 
                 <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-10 rounded-xl text-xs">
@@ -923,12 +931,12 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
 
               <div className="space-y-2">
                 <h3 className="text-xs font-bold uppercase text-zinc-400 tracking-wider">Ações e Direitos do Titular:</h3>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <Button 
                     onClick={handleExportData} 
                     type="button" 
                     variant="outline" 
-                    className="h-10 border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900 font-bold rounded-xl gap-2 text-xs"
+                    className="h-10 w-full border-zinc-200 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900 font-bold rounded-xl gap-2 text-xs justify-start px-4"
                   >
                     <Download className="w-4 h-4" aria-hidden="true" />
                     Exportar Meus Dados
@@ -938,7 +946,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                     onClick={handleRequestDelete} 
                     type="button" 
                     variant="ghost" 
-                    className="h-10 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 text-zinc-500 font-bold rounded-xl gap-2 text-xs"
+                    className="h-10 w-full hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 text-zinc-500 font-bold rounded-xl gap-2 text-xs justify-start px-4"
                   >
                     <Trash2 className="w-4 h-4" aria-hidden="true" />
                     Excluir Meu Cadastro
@@ -1034,7 +1042,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
               <div className="space-y-1.5">
                 <h3 className="font-extrabold text-lg text-zinc-900 dark:text-zinc-50">Excluir conta?</h3>
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  Ao confirmar, seu acesso ao portal será encerrado e todo o seu histórico de agendamentos e exames será removido. Você precisará criar uma nova conta caso queira utilizar o serviço novamente.
+                  {userRole === 'donor'
+                    ? 'Ao confirmar, seu acesso ao portal será encerrado e todo o seu histórico de doações será removido. Você precisará criar uma nova conta caso queira utilizar o serviço novamente.'
+                    : 'Ao confirmar, seu acesso ao portal será encerrado e todo o seu histórico de agendamentos e exames será removido. Você precisará criar uma nova conta caso queira utilizar o serviço novamente.'}
                 </p>
               </div>
             </div>
