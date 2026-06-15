@@ -100,6 +100,9 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
   const [downloadSuccessId, setDownloadSuccessId] = useState<string | null>(null);
 
   const [readBooklets, setReadBooklets] = useState<string[]>([]);
+  const isDownloadingRef = useRef(false);
+  const downloadIntervalRef = useRef<any>(null);
+  const downloadTimeoutRef = useRef<any>(null);
   const [recommendedBooklet, setRecommendedBooklet] = useState<Booklet | null>(null);
 
   // Player de Vídeo Simulado
@@ -204,8 +207,23 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
     };
   }, [downloadingId]);
 
+  useEffect(() => {
+    if (!downloadingId) {
+      if (downloadIntervalRef.current) {
+        clearInterval(downloadIntervalRef.current);
+        downloadIntervalRef.current = null;
+      }
+      if (downloadTimeoutRef.current) {
+        clearTimeout(downloadTimeoutRef.current);
+        downloadTimeoutRef.current = null;
+      }
+      isDownloadingRef.current = false;
+    }
+  }, [downloadingId]);
+
   const handleDownload = (booklet: Booklet) => {
-    if (downloadingId) return;
+    if (downloadingId || isDownloadingRef.current) return;
+    isDownloadingRef.current = true;
 
     setDownloadingId(booklet.id);
     setDownloadProgress(0);
@@ -215,7 +233,9 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
       setDownloadProgress((prev) => {
         if (prev >= 100) {
           clearInterval(interval);
-          setTimeout(() => {
+          downloadIntervalRef.current = null;
+
+          const timeout = setTimeout(() => {
             const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
             const pageWidth = doc.internal.pageSize.getWidth();
             const pageHeight = doc.internal.pageSize.getHeight();
@@ -309,13 +329,19 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
             setDownloadingId(null);
             setDownloadSuccessId(booklet.id);
             handleMarkAsRead(booklet.id);
+            isDownloadingRef.current = false;
+            downloadTimeoutRef.current = null;
             setTimeout(() => setDownloadSuccessId(null), 3000);
           }, 400);
+
+          downloadTimeoutRef.current = timeout;
           return 100;
         }
         return prev + 20;
       });
     }, 250);
+
+    downloadIntervalRef.current = interval;
   };
 
   const getBotResponse = (userText: string): string => {
