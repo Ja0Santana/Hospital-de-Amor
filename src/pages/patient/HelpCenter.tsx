@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import jsPDF from 'jspdf';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -99,6 +100,9 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
   const [downloadSuccessId, setDownloadSuccessId] = useState<string | null>(null);
 
   const [readBooklets, setReadBooklets] = useState<string[]>([]);
+  const isDownloadingRef = useRef(false);
+  const downloadIntervalRef = useRef<any>(null);
+  const downloadTimeoutRef = useRef<any>(null);
   const [recommendedBooklet, setRecommendedBooklet] = useState<Booklet | null>(null);
 
   // Player de Vídeo Simulado
@@ -203,38 +207,143 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
     };
   }, [downloadingId]);
 
+  useEffect(() => {
+    if (!downloadingId) {
+      if (downloadIntervalRef.current) {
+        clearInterval(downloadIntervalRef.current);
+        downloadIntervalRef.current = null;
+      }
+      if (downloadTimeoutRef.current) {
+        clearTimeout(downloadTimeoutRef.current);
+        downloadTimeoutRef.current = null;
+      }
+      isDownloadingRef.current = false;
+    }
+  }, [downloadingId]);
+
   const handleDownload = (booklet: Booklet) => {
-    if (downloadingId) return;
+    if (downloadingId || isDownloadingRef.current) return;
+    isDownloadingRef.current = true;
 
     setDownloadingId(booklet.id);
     setDownloadProgress(0);
     setDownloadSuccessId(null);
 
-    const interval = setInterval(() => {
-      setDownloadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            const blob = new Blob([booklet.content], { type: 'text/plain;charset=utf-8' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `${booklet.title.toLowerCase().replace(/\s+/g, '_')}.txt`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
+    let localProgress = 0;
 
-            setDownloadingId(null);
-            setDownloadSuccessId(booklet.id);
-            handleMarkAsRead(booklet.id);
-            setTimeout(() => setDownloadSuccessId(null), 3000);
-          }, 400);
-          return 100;
-        }
-        return prev + 20;
-      });
+    const interval = setInterval(() => {
+      localProgress += 20;
+      if (localProgress >= 100) {
+        setDownloadProgress(100);
+        clearInterval(interval);
+        downloadIntervalRef.current = null;
+
+        const timeout = setTimeout(() => {
+          const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const marginLeft = 20;
+          const marginRight = pageWidth - 20;
+          const contentWidth = marginRight - marginLeft;
+          let currentPage = 1;
+
+          const drawHeader = () => {
+            doc.setFillColor(227, 20, 99);
+            doc.rect(0, 0, pageWidth, 12, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'bold');
+            doc.text('HOSPITAL DE AMOR — BIBLIOTECA DE ORIENTAÇÕES', marginLeft, 7.5);
+            doc.text('CARTILHA INFORMATIVA', marginRight, 7.5, { align: 'right' });
+          };
+
+          const drawFooter = (pageNum: number) => {
+            doc.setFillColor(245, 245, 248);
+            doc.rect(0, pageHeight - 10, pageWidth, 10, 'F');
+            doc.setFontSize(6.5);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(160, 160, 160);
+            doc.text(
+              `Hospital de Amor — Fundação Pio XII | www.hospitaldeamor.org.br | Página ${pageNum}`,
+              pageWidth / 2,
+              pageHeight - 4,
+              { align: 'center' }
+            );
+          };
+
+          drawHeader();
+
+          let cursorY = 22;
+
+          doc.setTextColor(30, 30, 30);
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text(booklet.title, marginLeft, cursorY);
+
+          cursorY += 6;
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(120, 120, 120);
+          const categoryLabel = booklet.category === 'preparo' ? 'Preparo de Exames' : booklet.category === 'direitos' ? 'Direitos Sociais' : 'Tratamento';
+          doc.text(`Categoria: ${categoryLabel} | ID: ${booklet.id}`, marginLeft, cursorY);
+
+          cursorY += 4;
+          doc.setDrawColor(220, 220, 220);
+          doc.setLineWidth(0.3);
+          doc.line(marginLeft, cursorY, marginRight, cursorY);
+
+          cursorY += 8;
+
+          doc.setFontSize(9.5);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(60, 60, 60);
+
+          const paragraphs = booklet.content.split('\n');
+
+          for (const paragraph of paragraphs) {
+            if (paragraph.trim() === '') {
+              cursorY += 4;
+              continue;
+            }
+
+            const lines = doc.splitTextToSize(paragraph, contentWidth);
+            for (const line of lines) {
+              if (cursorY > pageHeight - 20) {
+                drawFooter(currentPage);
+                doc.addPage();
+                currentPage++;
+                drawHeader();
+                cursorY = 22;
+                doc.setFontSize(9.5);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(60, 60, 60);
+              }
+              doc.text(line, marginLeft, cursorY);
+              cursorY += 5.5;
+            }
+            cursorY += 2.5;
+          }
+
+          drawFooter(currentPage);
+
+          const fileName = `${booklet.title.toLowerCase().replace(/\s+/g, '_')}.pdf`;
+          doc.save(fileName);
+
+          setDownloadingId(null);
+          setDownloadSuccessId(booklet.id);
+          handleMarkAsRead(booklet.id);
+          isDownloadingRef.current = false;
+          downloadTimeoutRef.current = null;
+          setTimeout(() => setDownloadSuccessId(null), 3000);
+        }, 400);
+
+        downloadTimeoutRef.current = timeout;
+      } else {
+        setDownloadProgress(localProgress);
+      }
     }, 250);
+
+    downloadIntervalRef.current = interval;
   };
 
   const getBotResponse = (userText: string): string => {
