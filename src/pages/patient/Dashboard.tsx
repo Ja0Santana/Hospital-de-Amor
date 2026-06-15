@@ -4,7 +4,7 @@ import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
 import { getAppointmentByCpf, getSymptomLogs, getSpecialties } from '../../services/db';
 import type { Appointment } from '../../types';
-import { Search, AlertCircle, CheckCircle2, Clock, XCircle, Info, ChevronRight, FileText } from 'lucide-react';
+import { Search, AlertCircle, CheckCircle2, Clock, XCircle, Info, ChevronRight, ChevronDown, FileText } from 'lucide-react';
 interface DashboardProps {
   onNavigate: (page: string) => void;
   patientCpf: string;
@@ -17,6 +17,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [showDiaryAlert, setShowDiaryAlert] = useState(false);
   const [prepAlerts, setPrepAlerts] = useState<{ id: string; title: string; desc: string }[]>([]);
+  const [expandedPrepId, setExpandedPrepId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAppointmentsAndAlerts();
@@ -53,6 +54,9 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
         };
       });
       setPrepAlerts(alerts);
+      if (alerts.length > 0) {
+        setExpandedPrepId(alerts[0].id);
+      }
     } catch (error) {
       console.error(error);
     }
@@ -104,7 +108,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
       </div>
 
       {(showDiaryAlert || prepAlerts.length > 0) && (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {showDiaryAlert && (
             <div className="p-4 rounded-3xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-in slide-in-from-top-2 duration-300">
               <div className="flex gap-3 items-start text-left">
@@ -123,18 +127,52 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
             </div>
           )}
 
-          {prepAlerts.map((alert) => (
-            <div key={alert.id} className="p-4 rounded-3xl bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/60 dark:border-blue-800/40 flex gap-3 text-left animate-in slide-in-from-top-2 duration-300">
-              <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" aria-hidden="true" />
-              <div className="space-y-0.5">
-                <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-50">{alert.title}</h4>
-                <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-                  <strong className="text-blue-600 dark:text-blue-400 font-semibold">Instruções de preparo: </strong>
-                  {alert.desc}
-                </p>
+          {prepAlerts.length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-250/50 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-md shadow-zinc-100/50 dark:shadow-none animate-in slide-in-from-top-2 duration-300">
+              <div className="bg-zinc-50/80 dark:bg-zinc-900/50 px-5 py-4 border-b border-zinc-150 dark:border-zinc-800 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                    <Info className="w-4 h-4" />
+                  </div>
+                  <h3 className="font-black text-sm text-zinc-800 dark:text-zinc-200">Instruções de Preparo para Exames</h3>
+                </div>
+                <Badge className="bg-blue-600/15 dark:bg-blue-500/20 text-blue-700 dark:text-blue-450 border-none text-[10px] font-black rounded-lg">
+                  {prepAlerts.length} {prepAlerts.length === 1 ? 'Exame' : 'Exames'}
+                </Badge>
+              </div>
+
+              <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                {prepAlerts.map((alert) => {
+                  const isExpanded = expandedPrepId === alert.id;
+                  return (
+                    <div key={alert.id} className="group">
+                      <button
+                        onClick={() => setExpandedPrepId(isExpanded ? null : alert.id)}
+                        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-zinc-50/40 dark:hover:bg-zinc-800/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`w-2 h-2 rounded-full transition-colors ${isExpanded ? 'bg-blue-600 dark:bg-blue-400 scale-110' : 'bg-zinc-300 dark:bg-zinc-650'}`} />
+                          <span className="font-bold text-xs sm:text-sm text-zinc-800 dark:text-zinc-200">{alert.title}</span>
+                        </div>
+                        <ChevronDown className={`w-4 h-4 text-zinc-400 transition-transform duration-250 ${isExpanded ? 'rotate-180 text-blue-600 dark:text-blue-400' : ''}`} />
+                      </button>
+
+                      {isExpanded && (
+                        <div className="px-5 pb-5 pt-1 bg-blue-50/20 dark:bg-blue-950/5 animate-in fade-in slide-in-from-top-1 duration-200">
+                          <div className="pl-5 border-l-2 border-blue-500/35 dark:border-blue-500/20 py-1 space-y-1">
+                            <span className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">Recomendações da equipe médica</span>
+                            <p className="text-xs text-zinc-600 dark:text-zinc-405 leading-relaxed font-medium">
+                              {alert.desc}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
-          ))}
+          )}
         </div>
       )}
 
