@@ -33,7 +33,8 @@ const INITIAL_FORM_DATA = {
   examName: '',
   fileAttachment: null as FileAttachment | null,
   consentLgpd: false,
-  observations: ''
+  observations: '',
+  requiresEncaminhamento: true
 };
 
 export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) {
@@ -140,7 +141,7 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
     setFormData((prev) => ({ ...prev, ...data }));
   };
 
-  const handleExamChange = (data: { specialtyId: string; specialtyName: string; examId: string; examName: string }) => {
+  const handleExamChange = (data: { specialtyId: string; specialtyName: string; examId: string; examName: string; requiresEncaminhamento?: boolean }) => {
     setFormData((prev) => ({ ...prev, ...data }));
   };
 
@@ -160,7 +161,7 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
       if (!formData.specialtyId) newErrors.specialtyId = 'Especialidade médica é obrigatória.';
       if (!formData.examId) newErrors.examId = 'Tipo de exame é obrigatório.';
     } else if (currentStep === 2) {
-      if (!formData.fileAttachment) newErrors.fileAttachment = 'O upload do encaminhamento médico é obrigatório.';
+      if (formData.requiresEncaminhamento && !formData.fileAttachment) newErrors.fileAttachment = 'O upload do encaminhamento médico é obrigatório.';
       if (!formData.consentLgpd) newErrors.consentLgpd = 'Você precisa aceitar a declaração de consentimento de dados (LGPD).';
     }
 

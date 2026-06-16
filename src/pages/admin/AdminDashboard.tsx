@@ -13,7 +13,11 @@ import {
   getClinicalRecords,
   updateAppointment,
   addAuditLogAdmin,
-  getSymptomLogs
+  getSymptomLogs,
+  getEmailQueue,
+  saveFilterCombination,
+  getSavedFilters,
+  deleteSavedFilter
 } from '../../services/db';
 import type { Appointment, City, Specialty, PatientUser, CapacityLimit, AppointmentStatus, SymptomLog } from '../../types';
 import { 
@@ -49,9 +53,16 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   const [selectedCityId, setSelectedCityId] = useState('');
   const [selectedSpecialtyId, setSelectedSpecialtyId] = useState('');
   const [statusFilter, setStatusFilter] = useState('Todos');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
+  const [showColdStorage, setShowColdStorage] = useState(false);
+  const [savedFilters, setSavedFilters] = useState<any[]>([]);
+  const [filterNameInput, setFilterNameInput] = useState('');
+  const [isSavingFilter, setIsSavingFilter] = useState(false);
 
-  const [sortKey, setSortKey] = useState<'createdAt' | 'protocol' | 'patientName' | 'priority' | 'city'>('createdAt');
+  const [sortKey, setSortKey] = useState<string>('fila_priorizada');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [emailQueue, setEmailQueue] = useState<any[]>([]);
 
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   
@@ -251,8 +262,61 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     }
   };
 
+  const loadSavedFilters = async () => {
+    try {
+      const filters = await getSavedFilters(loggedEmployee.cpf);
+      setSavedFilters(filters);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleSaveFilter = async () => {
+    if (!filterNameInput.trim()) return;
+    try {
+      const filterState = {
+        searchQuery,
+        selectedCityId,
+        selectedSpecialtyId,
+        statusFilter,
+        startDateFilter,
+        endDateFilter,
+        showColdStorage
+      };
+      await saveFilterCombination(filterNameInput.trim(), filterState, loggedEmployee.cpf);
+      setFilterNameInput('');
+      setIsSavingFilter(false);
+      await loadSavedFilters();
+      setActionSuccess('Filtro salvo com sucesso!');
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao salvar filtro.');
+    }
+  };
+
+  const handleApplySavedFilter = (filterState: any) => {
+    setSearchQuery(filterState.searchQuery || '');
+    setSelectedCityId(filterState.selectedCityId || '');
+    setSelectedSpecialtyId(filterState.selectedSpecialtyId || '');
+    setStatusFilter(filterState.statusFilter || 'Todos');
+    setStartDateFilter(filterState.startDateFilter || '');
+    setEndDateFilter(filterState.endDateFilter || '');
+    setShowColdStorage(filterState.showColdStorage || false);
+  };
+
+  const handleDeleteSavedFilter = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await deleteSavedFilter(id);
+      await loadSavedFilters();
+      setActionSuccess('Filtro removido com sucesso.');
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao remover filtro.');
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadSavedFilters();
     const storedSort = localStorage.getItem('hospital_amor_admin_sort');
     if (storedSort) {
       try {
@@ -260,12 +324,31 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
         if (key && order) {
           setSortKey(key);
           setSortOrder(order);
+        } else {
+          setSortKey('fila_priorizada');
+          setSortOrder('asc');
         }
       } catch (e) {
         console.error(e);
+        setSortKey('fila_priorizada');
+        setSortOrder('asc');
       }
+    } else {
+      setSortKey('fila_priorizada');
+      setSortOrder('asc');
     }
   }, []);
+
+  useEffect(() => {
+    if (activeApp || isScannerOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [activeApp, isScannerOpen]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -413,7 +496,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     );
   };
 
-  const handleSort = (key: typeof sortKey) => {
+  const handleSort = (key: string) => {
     let nextOrder: 'asc' | 'desc' = 'asc';
     if (sortKey === key) {
       nextOrder = sortOrder === 'asc' ? 'desc' : 'asc';
@@ -436,9 +519,33 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
 
       const allLimits = await getCapacityLimits();
       setCapacityLimits(allLimits);
+
+      const queue = await getEmailQueue();
+      setEmailQueue(queue);
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const hasMailBounce = (app: Appointment) => {
+    const appEmail = app.patientEmail?.trim().toLowerCase();
+    const appProtocol = app.protocol?.trim().toLowerCase();
+    return emailQueue.some((item: any) => 
+      item.bounced && (
+        (item.recipientEmail && item.recipientEmail.trim().toLowerCase() === appEmail) ||
+        (item.appointmentProtocol && item.appointmentProtocol.trim().toLowerCase() === appProtocol)
+      )
+    );
+  };
+
+  const examRequiresEncaminhamento = (examId: string) => {
+    for (const specialty of specialties) {
+      const exam = specialty.exams.find(e => e.id === examId);
+      if (exam) {
+        return exam.requiresEncaminhamento !== false;
+      }
+    }
+    return true;
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -578,32 +685,77 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     const matchesCity = !selectedCityId || app.city.toLowerCase() === cities.find(c => c.id === selectedCityId)?.name.toLowerCase();
     const matchesSpecialty = !selectedSpecialtyId || app.specialtyId === selectedSpecialtyId;
     const matchesStatus = statusFilter === 'Todos' || app.status === statusFilter;
+    const matchesColdStorage = showColdStorage || !app.isColdStorage;
 
-    return matchesSearch && matchesCity && matchesSpecialty && matchesStatus;
+    const matchesDate = (() => {
+      if (!startDateFilter && !endDateFilter) return true;
+      if (!app.rescheduledDate) return false;
+      const appDateStr = app.rescheduledDate;
+      if (startDateFilter && appDateStr < startDateFilter) return false;
+      if (endDateFilter && appDateStr > endDateFilter) return false;
+      return true;
+    })();
+
+    return matchesSearch && matchesCity && matchesSpecialty && matchesStatus && matchesColdStorage && matchesDate;
   });
 
   const sortedAppointments = [...filteredAppointments].sort((a, b) => {
-    let valA: any = a[sortKey] || '';
-    let valB: any = b[sortKey] || '';
+    if (sortKey === 'fila_priorizada') {
+      const weightA = a.isLegalPriority ? 1 : 0;
+      const weightB = b.isLegalPriority ? 1 : 0;
+      if (weightA !== weightB) {
+        return sortOrder === 'asc' ? weightB - weightA : weightA - weightB;
+      }
+
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      if (timeA !== timeB) {
+        return sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+      }
+
+      const pWeight = { 'Alta': 3, 'Média': 2, 'Baixa': 1 };
+      const pA = pWeight[a.priority as 'Alta' | 'Média' | 'Baixa'] || 1;
+      const pB = pWeight[b.priority as 'Alta' | 'Média' | 'Baixa'] || 1;
+      return sortOrder === 'asc' ? pB - pA : pA - pB;
+    }
 
     if (sortKey === 'priority') {
       const weight = { 'Alta': 3, 'Média': 2, 'Baixa': 1 };
-      valA = weight[a.priority as 'Alta' | 'Média' | 'Baixa'] || 0;
-      valB = weight[b.priority as 'Alta' | 'Média' | 'Baixa'] || 0;
+      const valA = weight[a.priority as 'Alta' | 'Média' | 'Baixa'] || 1;
+      const valB = weight[b.priority as 'Alta' | 'Média' | 'Baixa'] || 1;
+      return sortOrder === 'asc' ? valA - valB : valB - valA;
     }
 
     if (sortKey === 'createdAt') {
-      valA = new Date(a.createdAt).getTime();
-      valB = new Date(b.createdAt).getTime();
-    }
-
-    if (typeof valA === 'string') {
-      return sortOrder === 'asc' 
-        ? valA.localeCompare(valB) 
-        : valB.localeCompare(valA);
-    } else {
+      const valA = new Date(a.createdAt).getTime();
+      const valB = new Date(b.createdAt).getTime();
       return sortOrder === 'asc' ? valA - valB : valB - valA;
     }
+
+    if (sortKey === 'changedAt') {
+      const getLatestStatusChange = (app: Appointment) => {
+        if (app.statusHistory && app.statusHistory.length > 0) {
+          const dates = app.statusHistory.map(h => new Date(h.changedAt).getTime());
+          return Math.max(...dates);
+        }
+        return new Date(app.createdAt).getTime();
+      };
+      const valA = getLatestStatusChange(a);
+      const valB = getLatestStatusChange(b);
+      return sortOrder === 'asc' ? valA - valB : valB - valA;
+    }
+
+    if (sortKey === 'assignedTo') {
+      const valA = a.assignedTo || '';
+      const valB = b.assignedTo || '';
+      return sortOrder === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+    }
+
+    const valA = (a[sortKey as keyof Appointment] || '') as string;
+    const valB = (b[sortKey as keyof Appointment] || '') as string;
+    return sortOrder === 'asc' 
+      ? valA.localeCompare(valB) 
+      : valB.localeCompare(valA);
   });
 
   const activeFilters: Array<{ id: string, label: string, clear: () => void }> = [];
@@ -611,12 +763,18 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   if (selectedCityId) activeFilters.push({ id: 'city', label: `Cidade: ${cities.find(c => c.id === selectedCityId)?.name}`, clear: () => setSelectedCityId('') });
   if (selectedSpecialtyId) activeFilters.push({ id: 'specialty', label: `Especialidade: ${specialties.find(s => s.id === selectedSpecialtyId)?.name}`, clear: () => setSelectedSpecialtyId('') });
   if (statusFilter !== 'Todos') activeFilters.push({ id: 'status', label: `Status: ${statusFilter}`, clear: () => setStatusFilter('Todos') });
+  if (startDateFilter) activeFilters.push({ id: 'startDate', label: `Início: ${startDateFilter}`, clear: () => setStartDateFilter('') });
+  if (endDateFilter) activeFilters.push({ id: 'endDate', label: `Fim: ${endDateFilter}`, clear: () => setEndDateFilter('') });
+  if (showColdStorage) activeFilters.push({ id: 'coldStorage', label: `Exibindo Cold Storage`, clear: () => setShowColdStorage(false) });
 
   const handleClearAllFilters = () => {
     setSearchQuery('');
     setSelectedCityId('');
     setSelectedSpecialtyId('');
     setStatusFilter('Todos');
+    setStartDateFilter('');
+    setEndDateFilter('');
+    setShowColdStorage(false);
   };
 
   const getSortIcon = (key: typeof sortKey) => {
@@ -719,7 +877,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
       )}
 
       <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-sm space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div className="relative">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-450" />
             <input
@@ -775,7 +933,117 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
               <option value="Aguardando Follow-up">Aguardando Acompanhamento</option>
             </select>
           </div>
+
+          <div className="relative flex items-center">
+            <Filter className="absolute left-3.5 w-4 h-4 text-zinc-450" />
+            <select
+              value={sortKey}
+              onChange={(e) => {
+                const newKey = e.target.value;
+                setSortKey(newKey);
+                localStorage.setItem('hospital_amor_admin_sort', JSON.stringify({ key: newKey, order: sortOrder }));
+              }}
+              className="w-full pl-10 pr-4 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-2xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 appearance-none cursor-pointer"
+            >
+              <option value="fila_priorizada">Fila Priorizada (Padrão)</option>
+              <option value="protocol">Protocolo</option>
+              <option value="patientName">Paciente</option>
+              <option value="city">Cidade</option>
+              <option value="changedAt">Última alteração de status</option>
+              <option value="assignedTo">Operador responsável</option>
+            </select>
+          </div>
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 border-t border-zinc-100 dark:border-zinc-800 pt-4">
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">Período de Atendimento (Início)</label>
+            <input
+              type="date"
+              value={startDateFilter}
+              onChange={(e) => setStartDateFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-850 rounded-xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">Período de Atendimento (Fim)</label>
+            <input
+              type="date"
+              value={endDateFilter}
+              onChange={(e) => setEndDateFilter(e.target.value)}
+              className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-850 rounded-xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+            />
+          </div>
+          <div className="flex items-center gap-2 mt-5">
+            <input
+              type="checkbox"
+              id="coldStorageCheck"
+              checked={showColdStorage}
+              onChange={(e) => setShowColdStorage(e.target.checked)}
+              className="w-4 h-4 rounded border-zinc-350 text-pink-600 focus:ring-pink-500 dark:border-zinc-800 dark:bg-zinc-950"
+            />
+            <label htmlFor="coldStorageCheck" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 cursor-pointer select-none">
+              Exibir Histórico Antigo (+2 anos)
+            </label>
+          </div>
+          <div className="flex items-end justify-end">
+            {!isSavingFilter ? (
+              <button
+                onClick={() => setIsSavingFilter(true)}
+                className="w-full md:w-auto px-4 py-2 border border-pink-500 text-pink-600 dark:border-pink-400 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-955/15 text-xs font-bold rounded-xl transition-all"
+              >
+                💾 Salvar Filtro Atual
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 w-full">
+                <input
+                  type="text"
+                  placeholder="Nome do filtro..."
+                  value={filterNameInput}
+                  onChange={(e) => setFilterNameInput(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                />
+                <button
+                  onClick={handleSaveFilter}
+                  disabled={!filterNameInput.trim()}
+                  className="px-3 py-2 bg-pink-600 hover:bg-pink-700 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+                >
+                  Salvar
+                </button>
+                <button
+                  onClick={() => {
+                    setIsSavingFilter(false);
+                    setFilterNameInput('');
+                  }}
+                  className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-400 text-xs font-bold rounded-xl transition-all hover:bg-zinc-50 dark:hover:bg-zinc-950"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {savedFilters.length > 0 && (
+          <div className="border-t border-zinc-100 dark:border-zinc-800 pt-4 flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider">Filtros Salvos:</span>
+            {savedFilters.map((f) => (
+              <div
+                key={f.id}
+                onClick={() => handleApplySavedFilter(f.filterState)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-zinc-50 dark:bg-zinc-950 text-zinc-800 dark:text-zinc-250 border border-zinc-200 dark:border-zinc-800 hover:bg-pink-50 dark:hover:bg-pink-955/15 transition-all cursor-pointer"
+              >
+                <span>{f.name}</span>
+                <button
+                  onClick={(e) => handleDeleteSavedFilter(f.id, e)}
+                  className="text-zinc-400 hover:text-red-500 font-extrabold ml-1"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {activeFilters.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 pt-2 animate-in fade-in">
@@ -809,13 +1077,18 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
               </button>
               <button
                 onClick={() => handleLoteStatusChange('Cancelado')}
-                className="flex-1 sm:flex-none h-9 px-4 rounded-xl text-[11px] font-bold bg-red-650 hover:bg-red-700 text-white transition-all shadow-xs"
+                className="flex-1 sm:flex-none h-9 px-4 rounded-xl text-[11px] font-bold bg-red-600 hover:bg-red-700 text-white transition-all shadow-xs"
               >
                 Cancelar Agendamentos
               </button>
             </div>
           </div>
         )}
+        <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400 font-semibold px-1 py-2">
+          <span>
+            Exibindo <strong className="text-zinc-800 dark:text-zinc-200">{filteredAppointments.length}</strong> de <strong className="text-zinc-800 dark:text-zinc-200">{appointments.length}</strong> solicitações na fila.
+          </span>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -922,7 +1195,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                         <div className="space-y-1">
                           <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
                             isOverdue 
-                              ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950/30 dark:text-red-400 border animate-pulse'
+                              ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-955/20 dark:text-red-400 border animate-pulse'
                               : app.status === 'Confirmado' ? 'bg-green-50 text-green-700 dark:bg-green-955/20 dark:text-green-400 border border-green-200/20' :
                               app.status === 'Cancelado' ? 'bg-red-50 text-red-700 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20' :
                               app.status === 'Em análise' ? 'bg-blue-50 text-blue-700 dark:bg-blue-955/20 dark:text-blue-400 border border-blue-200/20' :
@@ -932,6 +1205,11 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                           }`}>
                             {isOverdue ? 'Aguardando Acompanhamento (Vencido)' : app.status === 'Aguardando Follow-up' ? 'Aguardando Acompanhamento' : app.status}
                           </span>
+                          {hasMailBounce(app) && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20 animate-pulse block w-max">
+                              ⚠️ Falha de Envio (E-mail)
+                            </span>
+                          )}
                           {app.status === 'Aguardando Follow-up' && (
                             <div className="text-[9px] font-bold tracking-tight block">
                               {app.followUpSuspended ? (
@@ -947,10 +1225,16 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                       </td>
                       <td className="py-4 px-4">
                         {!app.fileAttachment ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-650 bg-red-50 dark:bg-red-955/20 px-2 py-0.5 rounded-md border border-red-200/20">
-                            <AlertCircle className="w-3.5 h-3.5" />
-                            Falta Anexo!
-                          </span>
+                          examRequiresEncaminhamento(app.examId) ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-650 bg-red-50 dark:bg-red-955/20 px-2 py-0.5 rounded-md border border-red-200/20">
+                              <AlertCircle className="w-3.5 h-3.5" />
+                              Falta Anexo!
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400 bg-zinc-50 dark:bg-zinc-950 px-2 py-0.5 rounded-md border border-zinc-200/20">
+                              Não exigido
+                            </span>
+                          )
                         ) : (
                           <span className="text-[10px] text-zinc-400 font-semibold">OK</span>
                         )}
@@ -1004,6 +1288,21 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {hasMailBounce(activeApp) && (
+                <div className="p-4 bg-red-50 dark:bg-red-955/20 border border-red-205/50 dark:border-red-900/30 text-red-800 dark:text-red-400 rounded-2xl flex flex-col gap-2 animate-in slide-in-from-top-3">
+                  <div className="flex items-center gap-2 font-bold text-xs">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-650" />
+                    <span>Falha de Comunicação: E-mail não entregue (Bounce)</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    A última tentativa de envio de notificação por e-mail para este paciente falhou. 
+                    <strong> Por favor, entre em contato via telefone ou WhatsApp para prosseguir com a triagem.</strong>
+                  </p>
+                  <div className="flex flex-col gap-1 text-[11px] bg-red-100/50 dark:bg-red-955/40 p-2.5 rounded-xl mt-1">
+                    <div><strong>Telefone do Paciente:</strong> {activeApp.patientPhone || 'Não cadastrado'}</div>
+                  </div>
+                </div>
+              )}
               <div className="bg-zinc-50 dark:bg-zinc-950 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-850 space-y-4">
                 <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-400">Dados do Paciente</h4>
                 <div className="grid grid-cols-2 gap-4 text-xs">
@@ -1225,13 +1524,23 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                     </div>
                   </div>
                 ) : (
-                  <div className="p-6 border border-dashed border-red-300 bg-red-50/10 dark:border-red-900/50 dark:bg-red-955/5 rounded-2xl text-center space-y-2">
-                    <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
-                    <h5 className="font-bold text-red-800 dark:text-red-400 text-xs">Documento Ausente</h5>
-                    <p className="text-[10px] text-zinc-400 max-w-xs mx-auto">
-                      O paciente não anexou o documento de encaminhamento médico para esta solicitação.
-                    </p>
-                  </div>
+                  examRequiresEncaminhamento(activeApp.examId) ? (
+                    <div className="p-6 border border-dashed border-red-300 bg-red-50/10 dark:border-red-900/50 dark:bg-red-955/5 rounded-2xl text-center space-y-2">
+                      <AlertCircle className="w-8 h-8 text-red-500 mx-auto" />
+                      <h5 className="font-bold text-red-800 dark:text-red-400 text-xs">Documento Ausente</h5>
+                      <p className="text-[10px] text-zinc-400 max-w-xs mx-auto">
+                        O paciente não anexou o documento de encaminhamento médico para esta solicitação.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="p-6 border border-dashed border-zinc-350 bg-zinc-50/10 dark:border-zinc-800 dark:bg-zinc-950/5 rounded-2xl text-center space-y-2">
+                      <CheckCircle className="w-8 h-8 text-zinc-450 mx-auto" />
+                      <h5 className="font-bold text-zinc-650 dark:text-zinc-350 text-xs">Anexo Opcional</h5>
+                      <p className="text-[10px] text-zinc-400 max-w-xs mx-auto">
+                        Este procedimento não exige documento de encaminhamento médico obrigatório.
+                      </p>
+                    </div>
+                  )
                 )}
               </div>
 

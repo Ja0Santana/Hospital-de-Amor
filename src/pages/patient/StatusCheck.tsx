@@ -42,6 +42,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const [submittingFile, setSubmittingFile] = useState(false);
   const [fileError, setFileError] = useState('');
   const [substituteSuccess, setSubstituteSuccess] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [isCancelOpen, setIsCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelSuccess, setCancelSuccess] = useState(false);
@@ -337,10 +338,21 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
     setFileError('');
 
     try {
+      const history = appointment.rejectedFilesHistory ? [...appointment.rejectedFilesHistory] : [];
+      if (appointment.fileAttachment) {
+        history.push({
+          ...appointment.fileAttachment
+        });
+      }
+
       const updatedApp: Appointment = {
         ...appointment,
         status: 'Em análise',
-        fileAttachment: selectedFile,
+        fileAttachment: {
+          ...selectedFile,
+          status: 'Pendente'
+        },
+        rejectedFilesHistory: history,
         observations: 'Documento substituído pelo paciente.'
       };
 
@@ -824,15 +836,15 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                       </div>
                     )}
 
-                    {appointment.status === 'Cancelado' && (
+                    {(appointment.status === 'Cancelado' || (appointment.fileAttachment && (appointment.fileAttachment.status === 'Ilegível' || appointment.fileAttachment.status === 'Pendente de Correção'))) && (
                       <div className="space-y-4">
                         <div className="bg-red-50/20 dark:bg-red-950/10 border border-red-200/30 dark:border-red-800/20 p-5 rounded-2xl space-y-2">
                           <h4 className="font-extrabold text-sm text-red-800 dark:text-red-400 flex items-center gap-1.5">
                             <AlertCircle className="w-4 h-4" />
-                            Motivo do Cancelamento
+                            Documentação Pendente de Correção
                           </h4>
                           <p className="text-xs text-red-900 dark:text-red-400 font-medium">
-                            {appointment.observations || 'Documentação Ilegível: A foto do encaminhamento médico anexada está borrada e impossibilita a leitura do carimbo do profissional de saúde.'}
+                            {appointment.fileAttachment?.feedback || appointment.observations || 'Documentação Ilegível: A foto do encaminhamento médico anexada está borrada e impossibilita a leitura do carimbo do profissional de saúde.'}
                           </p>
                           <p className="text-[11px] text-zinc-500 pt-2 border-t border-red-200/50 dark:border-red-800/20 mt-2">
                             <strong>O que fazer agora?</strong> Você pode anexar um novo documento legível abaixo para reabrir sua solicitação para análise.
@@ -866,6 +878,59 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                           </div>
                         )}
 
+                        {appointment.rejectedFilesHistory && appointment.rejectedFilesHistory.length > 0 && (
+                          <div className="border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden mt-3">
+                            <button
+                              type="button"
+                              onClick={() => setShowHistory(!showHistory)}
+                              className="w-full flex items-center justify-between px-4 py-3 bg-zinc-50 dark:bg-zinc-900 text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
+                            >
+                              <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
+                                Histórico de Arquivos Recusados ({appointment.rejectedFilesHistory.length})
+                              </span>
+                              {showHistory ? (
+                                <ChevronUp className="w-4 h-4 text-zinc-400" />
+                              ) : (
+                                <ChevronDown className="w-4 h-4 text-zinc-400" />
+                              )}
+                            </button>
+                            {showHistory && (
+                              <div className="p-4 bg-white dark:bg-zinc-950 divide-y divide-zinc-100 dark:divide-zinc-800">
+                                {appointment.rejectedFilesHistory.map((hist, index) => (
+                                  <div key={index} className="py-2.5 first:pt-0 last:pb-0 flex flex-col gap-1.5">
+                                    <div className="flex items-center justify-between gap-4">
+                                      <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-250 truncate max-w-[220px]">
+                                        {hist.name}
+                                      </span>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          const newWindow = window.open();
+                                          if (newWindow) {
+                                            newWindow.document.write(
+                                              `<iframe src="${hist.base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`
+                                            );
+                                          }
+                                        }}
+                                        className="h-7 px-2 text-[10px] font-semibold border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950"
+                                      >
+                                        Visualizar
+                                      </Button>
+                                    </div>
+                                    {hist.feedback && (
+                                      <div className="bg-red-50/10 dark:bg-red-950/5 border border-red-200/20 dark:border-red-800/10 p-2 rounded-lg text-[10px] text-red-800 dark:text-red-400 leading-normal font-medium">
+                                        Motivo: {hist.feedback}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {substituteSuccess ? (
                           <div className="p-4 bg-green-50 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 rounded-2xl flex gap-2.5 items-center">
                             <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
@@ -885,6 +950,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                                     className="hidden"
                                     accept=".pdf,.jpg,.jpeg,.png"
                                     onChange={handleFileChange}
+                                    disabled={submittingFile}
                                   />
                                   <Label htmlFor="substitute-file-upload" className="cursor-pointer flex flex-col items-center gap-2">
                                     <div className="p-2.5 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200/80 dark:border-zinc-800 rounded-full shadow-xs">
@@ -921,10 +987,11 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                                         }
                                       }}
                                       className="h-8 w-8 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 bg-white dark:bg-zinc-950"
+                                      disabled={submittingFile}
                                     >
                                       <Eye className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />
                                     </Button>
-                                    <Button type="button" variant="outline" size="icon" onClick={() => setSelectedFile(null)} className="h-8 w-8 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-900/50 dark:hover:bg-red-950/20 bg-white dark:bg-zinc-950">
+                                    <Button type="button" variant="outline" size="icon" onClick={() => setSelectedFile(null)} className="h-8 w-8 border-red-200 hover:bg-red-50 hover:border-red-300 dark:border-red-900/50 dark:hover:bg-red-950/20 bg-white dark:bg-zinc-950" disabled={submittingFile}>
                                       <Trash2 className="w-3.5 h-3.5 text-red-500" />
                                     </Button>
                                   </div>
@@ -942,7 +1009,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                               disabled={submittingFile || !selectedFile}
                               className="w-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-50 dark:hover:bg-zinc-200 dark:text-zinc-900 font-bold h-10 text-xs rounded-xl transition-all shadow-xs"
                             >
-                              {submittingFile ? 'Substituindo...' : 'Substituir Documento'}
+                              {submittingFile ? 'Processando e criptografando documento...' : 'Substituir Documento'}
                             </Button>
                           </form>
                         )}

@@ -21,6 +21,7 @@ interface StepUploadReviewProps {
     fileAttachment: FileAttachment | null;
     consentLgpd: boolean;
     isLegalPriority?: boolean;
+    requiresEncaminhamento?: boolean;
   };
   onChange: (data: Partial<StepUploadReviewProps['formData']>) => void;
   onEditStep: (step: number) => void;
@@ -136,13 +137,15 @@ export default function StepUploadReview({ formData, onChange, onEditStep, error
     <div className="space-y-8">
       <div className="space-y-4">
         <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-          Anexar Encaminhamento Médico *
+          Anexar Encaminhamento Médico {formData.requiresEncaminhamento !== false ? '*' : '(Opcional)'}
           <Tooltip id="tooltip-attachment" content="Envie fotos nítidas do seu encaminhamento em JPG, PNG ou PDF (máx. 5MB).">
             <HelpCircle className="w-4 h-4 text-zinc-400 hover:text-zinc-650 transition-colors" />
           </Tooltip>
         </h3>
         <p className="text-zinc-500 text-sm">
-          Selecione a foto ou PDF do seu encaminhamento ou pedido de exame emitido pelo médico. O arquivo é obrigatório para validação da triagem.
+          {formData.requiresEncaminhamento !== false 
+            ? 'Selecione a foto ou PDF do seu encaminhamento ou pedido de exame emitido pelo médico. O arquivo é obrigatório para validação da triagem.'
+            : 'Selecione a foto ou PDF do seu encaminhamento ou pedido de exame emitido pelo médico se houver. Para este exame, o envio é opcional.'}
         </p>
 
         {!formData.fileAttachment ? (

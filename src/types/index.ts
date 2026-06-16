@@ -7,6 +7,7 @@ export interface Exam {
   cost?: number;
   requiresEncaminhamento?: boolean;
   isActive?: boolean;
+  maintenanceLimit?: number;
 }
 
 export interface Specialty {
@@ -27,6 +28,8 @@ export interface FileAttachment {
   type: string;
   size: number;
   base64: string;
+  status?: 'Pendente' | 'Aprovado' | 'Ilegível' | 'Pendente de Correção';
+  feedback?: string;
 }
 
 export type AppointmentStatus = 'Pendente' | 'Confirmado' | 'Cancelado' | 'Em análise' | 'Reagendamento Pendente' | 'Aguardando Follow-up' | 'Concluído' | 'Arquivado por Documentação Pendente';
@@ -48,6 +51,7 @@ export interface Appointment {
   createdAt: string;
   status: AppointmentStatus;
   fileAttachment: FileAttachment | null;
+  rejectedFilesHistory?: FileAttachment[];
   observations: string;
   consentLgpd: boolean;
   feedbackNps: number | null;
@@ -76,6 +80,7 @@ export interface Appointment {
   }>;
   rescheduleReason?: string;
   documentReminders?: Array<{ sentAt: string; count: number }>;
+  isColdStorage?: boolean;
 }
 
 export interface FeedbackResponse {
@@ -207,6 +212,8 @@ export interface AuditLog {
   ipAddress: string;
   details: string;
   changes?: Record<string, { old: any; new: any }>;
+  hash?: string;
+  previousHash?: string;
 }
 
 export interface CalendarDay {
@@ -224,6 +231,37 @@ export interface CustomRole {
   id: string;
   name: string;
   permissions: string[];
+}
+
+export interface TransparencyProject {
+  id: string;
+  title: string;
+  description: string;
+  completedDate: string;
+  amountRaised: number;
+}
+
+export interface TransparencyMonthlyRecord {
+  month: string;
+  entradas: number;
+  saidas: number;
+  atendimentos: number;
+}
+
+export interface SectorDistribution {
+  name: string;
+  value: number;
+  color: string;
+}
+
+export interface TransparencyData {
+  id: string;
+  lastUpdatedAt: string;
+  totalArrecadadoAno: number;
+  atendimentosAno: number;
+  sectors: SectorDistribution[];
+  monthlyRecords: TransparencyMonthlyRecord[];
+  projects: TransparencyProject[];
 }
 
 

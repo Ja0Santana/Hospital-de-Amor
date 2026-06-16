@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Label } from '../../components/ui/label';
-import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige, addDonorPoints, saveSupportMessage, getUserByCpf } from '../../services/db';
-import type { Donation, DonorPoints, RecurringSubscription } from '../../types';
+import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige, addDonorPoints, saveSupportMessage, getUserByCpf, getTransparencyData } from '../../services/db';
+import type { Donation, DonorPoints, RecurringSubscription, TransparencyData } from '../../types';
 import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X, FileText, Download, Copy, Check, Send, AlertTriangle, Mail } from 'lucide-react';
 import { generateTaxDeclarationPdf } from '../../utils/generateTaxDeclarationPdf';
 
@@ -27,6 +27,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
   const [donations, setDonations] = useState<Donation[]>([]);
   const [subscriptions, setSubscriptions] = useState<RecurringSubscription[]>([]);
   const [loading, setLoading] = useState(true);
+  const [transparency, setTransparency] = useState<TransparencyData | null>(null);
   
   const [editingSubId, setEditingSubId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState<string>('');
@@ -199,9 +200,13 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
       const p = await getDonorPoints(donorCpf);
       const d = await getDonationsByCpf(donorCpf);
       const subs = await getRecurringSubscriptionsByCpf(donorCpf);
+      const trans = await getTransparencyData();
       setPoints(p);
       setDonations(d);
       setSubscriptions(subs);
+      if (trans) {
+        setTransparency(trans);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -318,21 +323,30 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
   const multiplier = 1 + (prestige * 0.1);
   const isEligibleForPrestige = pointsInfo.level === 'Diamante' && (points?.balance || 0) >= 30000 * multiplier;
 
-  const donutData = [
-    { name: 'Ala Infantil', value: 40, color: '#e31463' },
-    { name: 'Prevenção Móvel', value: 25, color: '#3b82f6' },
-    { name: 'Pesquisa Científica', value: 20, color: '#6366f1' },
+  const donutData = transparency?.sectors || [
+    { name: 'Oncologia', value: 45, color: '#e31463' },
+    { name: 'Mastologia', value: 25, color: '#f472b6' },
+    { name: 'Radiologia', value: 15, color: '#3b82f6' },
     { name: 'Geral', value: 15, color: '#10b981' }
   ];
 
-  const barData = [
-    { label: 'Jan', val: 640 },
-    { label: 'Fev', val: 720 },
-    { label: 'Mar', val: 810 },
-    { label: 'Abr', val: 790 },
-    { label: 'Mai', val: 890 },
-    { label: 'Jun', val: 950 }
+  const barData = transparency?.monthlyRecords.map(r => ({
+    label: r.month,
+    val: r.atendimentos
+  })) || [
+    { label: 'Jan', val: 750 },
+    { label: 'Fev', val: 800 },
+    { label: 'Mar', val: 780 },
+    { label: 'Abr', val: 820 },
+    { label: 'Mai', val: 850 },
+    { label: 'Jun', val: 800 }
   ];
+
+  const totalArrecadadoMural = transparency ? transparency.totalArrecadadoAno : 1250000;
+  const totalAtendimentosMural = transparency ? transparency.atendimentosAno : 4800;
+  const lastUpdatedAtMural = transparency?.lastUpdatedAt 
+    ? new Date(transparency.lastUpdatedAt).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) 
+    : '';
 
   const getDonutSegments = () => {
     let accumulated = 0;
@@ -895,6 +909,11 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
 
         {transparencyTab === 'finance' && (
           <div className="space-y-6 animate-in fade-in duration-200">
+            {lastUpdatedAtMural && (
+              <div className="text-[10px] text-zinc-450 dark:text-zinc-500 font-bold text-right -mt-2">
+                Última atualização: {lastUpdatedAtMural}
+              </div>
+            )}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch mb-6">
               <div className="lg:col-span-6">
                 <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl h-full flex flex-col justify-between items-center text-center space-y-4">
@@ -912,7 +931,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                         {activeSegment ? activeSegment.name : 'Total Investido'}
                       </span>
                       <span className="text-lg font-black text-zinc-800 dark:text-zinc-100 font-mono mt-0.5">
-                        {activeSegment ? `${activeSegment.value}%` : 'R$ 1.25M'}
+                        {activeSegment ? `${activeSegment.value}%` : `R$ ${(totalArrecadadoMural / 1000000).toFixed(2)}M`}
                       </span>
                     </div>
                   </div>
@@ -953,7 +972,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
 
                   <div className="text-[10px] text-zinc-400 w-full pt-2 border-t border-zinc-50 dark:border-zinc-900 flex justify-between items-center">
                     <span>Janeiro a Junho de 2026</span>
-                    <span className="font-bold text-zinc-800 dark:text-zinc-200">Total: 4.800 atendimentos</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">Total: {totalAtendimentosMural.toLocaleString('pt-BR')} atendimentos</span>
                   </div>
                 </Card>
               </div>
@@ -963,13 +982,13 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
                 <Users className="w-5 h-5 text-primary mx-auto" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Impacto Gerado</span>
-                <span className="text-2xl font-black text-zinc-800 dark:text-zinc-100">4.520</span>
+                <span className="text-2xl font-black text-zinc-800 dark:text-zinc-100">{totalAtendimentosMural.toLocaleString('pt-BR')}</span>
                 <span className="text-[9px] text-zinc-400 block">Atendimentos clínicos financiados</span>
               </Card>
               <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
                 <TrendingUp className="w-5 h-5 text-primary mx-auto" />
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Investimento Total</span>
-                <span className="text-2xl font-black text-zinc-800 dark:text-zinc-100">R$ 1.250.000</span>
+                <span className="text-2xl font-black text-zinc-800 dark:text-zinc-100">R$ {totalArrecadadoMural.toLocaleString('pt-BR')}</span>
                 <span className="text-[9px] text-zinc-400 block">Arrecadado e investido no ano fiscal</span>
               </Card>
               <Card className="p-5 border-zinc-200/80 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/20 rounded-2xl text-center space-y-1 shadow-xs">
@@ -978,6 +997,34 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                 <span className="text-2xl font-black text-brand-pink">Ouro</span>
                 <span className="text-[9px] text-zinc-400 block">Classificação institucional ativa</span>
               </Card>
+            </div>
+
+            <div className="border-t border-zinc-100 dark:border-zinc-800 pt-6">
+              <div className="mb-4 text-left">
+                <h4 className="text-sm font-black text-zinc-850 dark:text-zinc-100">Projetos Concluídos e Impacto</h4>
+                <p className="text-[10px] text-zinc-450 mt-0.5">Projetos viabilizados através do apoio de nossos doadores</p>
+              </div>
+
+              {transparency?.projects && transparency.projects.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {transparency.projects.map((proj) => (
+                    <Card key={proj.id} className="p-4 border border-zinc-150 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl flex flex-col justify-between space-y-4 shadow-xs text-left">
+                      <div className="space-y-1.5">
+                        <h5 className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50 leading-tight">{proj.title}</h5>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-relaxed">{proj.description}</p>
+                      </div>
+                      <div className="flex justify-between items-center text-[9px] font-bold text-pink-600 dark:text-pink-400 pt-2 border-t border-zinc-100 dark:border-zinc-850">
+                        <span>Investimento: R$ {proj.amountRaised.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        <span className="text-zinc-400 dark:text-zinc-500">Concluído: {new Date(proj.completedDate + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card className="p-6 border border-zinc-200/80 dark:border-zinc-850 bg-white dark:bg-zinc-950 rounded-2xl text-center">
+                  <p className="text-xs text-zinc-450">Nenhum projeto concluído cadastrado no momento.</p>
+                </Card>
+              )}
             </div>
           </div>
         )}
