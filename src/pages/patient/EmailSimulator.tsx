@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
-import { getAppointmentByCpf, getUserByCpf, getEmailQueue } from '../../services/db';
+import { getAppointmentByCpf, getUserByCpf, getEmailQueue, setMailBounced } from '../../services/db';
 import type { Appointment, PatientUser } from '../../types';
 import { Mail, MailOpen, Inbox, Clock, Calendar, MapPin, AlertCircle, ChevronRight } from 'lucide-react';
 import logoHospitalDeAmor from '../../assets/logoHospitalDeAmor.png';
@@ -371,11 +371,26 @@ export default function EmailSimulator({ patientCpf, patientName, onNavigate }: 
           <Card className="border border-zinc-200 dark:border-zinc-800 rounded-2xl bg-white dark:bg-zinc-950 overflow-hidden flex-1 flex flex-col min-h-[500px]">
             {selectedEmail ? (
               <div className="flex flex-col flex-1">
-                <div className="bg-zinc-50 dark:bg-zinc-900/60 px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 flex flex-col gap-1.5 text-xs text-zinc-500 text-left">
+                <div className="bg-zinc-50 dark:bg-zinc-900/60 px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 flex flex-col gap-1.5 text-xs text-zinc-500 text-left relative">
                   <div><strong className="text-zinc-700 dark:text-zinc-300">De:</strong> {selectedEmail.sender}</div>
-                  <div><strong className="text-zinc-700 dark:text-zinc-300">Para:</strong> {selectedEmail.recipient}</div>
+                  <div><strong className="text-zinc-700 dark:text-zinc-300 font-bold">Para:</strong> {selectedEmail.recipient}</div>
                   <div><strong className="text-zinc-700 dark:text-zinc-300">Data:</strong> {selectedEmail.date}</div>
                   <div><strong className="text-zinc-700 dark:text-zinc-300">Assunto:</strong> <span className="text-zinc-850 dark:text-zinc-200 font-bold">{selectedEmail.subject}</span></div>
+                  {selectedEmail.id.startsWith('queue-') && (
+                    <div className="absolute right-4 top-4">
+                      <Button
+                        onClick={async () => {
+                          const protocol = selectedEmail.ctaAction?.split('status-')[1] || selectedEmail.recipient;
+                          await setMailBounced(protocol, true);
+                          alert('Bounce Técnico Simulado! O e-mail foi marcado com erro de entrega (bounce) no banco local.');
+                        }}
+                        className="text-[9px] h-7 px-2 font-bold bg-red-650 hover:bg-red-700 text-white rounded-lg flex items-center gap-1.5"
+                      >
+                        <AlertCircle className="w-3 h-3 text-white" />
+                        Simular Bounce Técnico
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="p-6 md:p-8 flex-1 flex flex-col items-center justify-between text-center space-y-6">

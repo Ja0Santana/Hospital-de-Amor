@@ -7,6 +7,7 @@ export interface Exam {
   cost?: number;
   requiresEncaminhamento?: boolean;
   isActive?: boolean;
+  maintenanceLimit?: number;
 }
 
 export interface Specialty {
@@ -79,6 +80,7 @@ export interface Appointment {
   }>;
   rescheduleReason?: string;
   documentReminders?: Array<{ sentAt: string; count: number }>;
+  isColdStorage?: boolean;
 }
 
 export interface FeedbackResponse {
@@ -210,6 +212,8 @@ export interface AuditLog {
   ipAddress: string;
   details: string;
   changes?: Record<string, { old: any; new: any }>;
+  hash?: string;
+  previousHash?: string;
 }
 
 export interface CalendarDay {

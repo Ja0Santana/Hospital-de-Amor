@@ -1,7 +1,7 @@
-import type { Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole, FeedbackResponse, TransparencyData } from '../types';
+import type { Exam, Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole, FeedbackResponse, TransparencyData } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 14;
+const DB_VERSION = 15;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -155,6 +155,10 @@ export function initDb(): Promise<IDBDatabase> {
 
       if (!db.objectStoreNames.contains('transparency_data')) {
         db.createObjectStore('transparency_data', { keyPath: 'id' });
+      }
+
+      if (!db.objectStoreNames.contains('saved_filters')) {
+        db.createObjectStore('saved_filters', { keyPath: 'id', autoIncrement: true });
       }
     };
   }).then(async (db) => {
@@ -609,6 +613,133 @@ export async function getSpecialties(): Promise<Specialty[]> {
   });
 }
 
+export async function createSpecialty(name: string): Promise<Specialty> {
+  const db = await initDb();
+  const id = `spec-${Date.now()}`;
+  const newSpecialty: Specialty = {
+    id,
+    name,
+    exams: []
+  };
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('specialties', 'readwrite');
+    const store = tx.objectStore('specialties');
+    const request = store.add(newSpecialty);
+    request.onsuccess = () => resolve(newSpecialty);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function createExam(specialtyId: string, exam: Omit<Exam, 'id'>, dailyLimit: number): Promise<Exam> {
+  const db = await initDb();
+  const id = `exam-${Date.now()}`;
+  const newExam: Exam = {
+    ...exam,
+    id
+  };
+  return new Promise<Exam>((resolve, reject) => {
+    const tx = db.transaction(['specialties', 'capacity_limits'], 'readwrite');
+    const specStore = tx.objectStore('specialties');
+    const limitStore = tx.objectStore('capacity_limits');
+
+    const specReq = specStore.get(specialtyId);
+    specReq.onsuccess = () => {
+      const specialty = specReq.result as Specialty | undefined;
+      if (!specialty) {
+        reject(new Error('Especialidade não encontrada.'));
+        return;
+      }
+      specialty.exams = specialty.exams || [];
+      specialty.exams.push(newExam);
+      specStore.put(specialty);
+
+      const limitRecord: CapacityLimit = {
+        examId: id,
+        dailyLimit
+      };
+      limitStore.put(limitRecord);
+    };
+
+    tx.oncomplete = () => resolve(newExam);
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+
+
+export async function setMailBounced(emailOrProtocol: string, bounced: boolean): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('email_queue', 'readwrite');
+    const store = tx.objectStore('email_queue');
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const items = request.result;
+      for (const item of items) {
+        const matchProtocol = item.appointmentProtocol && item.appointmentProtocol.trim().toLowerCase() === emailOrProtocol.trim().toLowerCase();
+        const matchEmail = item.recipientEmail && item.recipientEmail.trim().toLowerCase() === emailOrProtocol.trim().toLowerCase();
+        if (matchProtocol || matchEmail) {
+          item.bounced = bounced;
+          store.put(item);
+        }
+      }
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function triggerStatusUpdateEmail(
+  appointment: Appointment,
+  note?: string,
+  existingTx?: IDBTransaction
+): Promise<void> {
+  const db = await initDb();
+  let subject = `Atualização de Status - Protocolo ${appointment.protocol}`;
+  let body = '';
+
+  const safeLink = 'https://hospitaldeamor.org.br/portal';
+
+  if (appointment.status === 'Confirmado') {
+    subject = `Agendamento Confirmado - Protocolo ${appointment.protocol}`;
+    body = `Olá, ${appointment.patientName}.\n\nSeu agendamento foi confirmado com sucesso!\n\nDetalhes do Atendimento:\nLocal: Unidade Hospital de Amor - ${appointment.city || 'Principal'}\nData: ${appointment.rescheduledDate || ''}\nHora: ${appointment.rescheduledTime || ''}\nSala: ${appointment.scheduledRoom || ''}\nProfissional: Dr(a). ${appointment.scheduledDoctor || ''}\n\nPreparo:\nConsulte as orientações de preparo específicas para o seu exame no nosso Portal do Paciente.\n\nAcompanhe seu agendamento no link seguro: ${safeLink}\n\nAtenciosamente,\nHospital de Amor`;
+  } else if (appointment.status === 'Cancelado' || appointment.status === 'Reagendamento Pendente' || appointment.status === 'Arquivado por Documentação Pendente') {
+    subject = `Solicitação com Pendência ou Cancelada - Protocolo ${appointment.protocol}`;
+    const obsText = note || appointment.observations || '';
+    body = `Olá, ${appointment.patientName}.\n\nIdentificamos uma necessidade de correção ou cancelamento em sua solicitação sob o protocolo ${appointment.protocol}.\n\nObservações Técnicas:\n${obsText}\n\nComo Corrigir:\nPor favor, acesse o Portal do Paciente, acesse sua solicitação e reenvie os documentos ou anexos corretos de forma legível.\n\nAcesse o portal no link seguro: ${safeLink}\n\nAtenciosamente,\nHospital de Amor`;
+  } else if (appointment.status === 'Em análise') {
+    subject = `Solicitação em Análise - Protocolo ${appointment.protocol}`;
+    body = `Olá, ${appointment.patientName}.\n\nInformamos que a sua solicitação de agendamento sob o protocolo ${appointment.protocol} entrou em etapa de análise documental por nossa equipe de triagem.\n\nVocê será notificado por e-mail assim que a análise for concluída.\n\nAcompanhe o status no link seguro: ${safeLink}\n\nAtenciosamente,\nHospital de Amor`;
+  } else if (appointment.status === 'Aguardando Follow-up') {
+    subject = `Acompanhamento Necessário - Protocolo ${appointment.protocol}`;
+    body = `Olá, ${appointment.patientName}.\n\nIdentificamos a necessidade de acompanhamento clínico para o seu caso vinculado ao protocolo ${appointment.protocol}.\n\nPor favor, verifique o prazo limite de retorno e orientações seguras em nosso portal.\n\nAcesse o portal no link seguro: ${safeLink}\n\nAtenciosamente,\nHospital de Amor`;
+  } else {
+    body = `Olá, ${appointment.patientName}.\n\nO status da sua solicitação sob o protocolo ${appointment.protocol} foi atualizado para: ${appointment.status}.\n\nConsulte os detalhes no link seguro: ${safeLink}\n\nAtenciosamente,\nHospital de Amor`;
+  }
+
+  const emailItem = {
+    recipientEmail: appointment.patientEmail,
+    subject,
+    body,
+    status: 'pending',
+    appointmentProtocol: appointment.protocol
+  };
+
+  if (existingTx) {
+    const store = existingTx.objectStore('email_queue');
+    store.add(emailItem);
+    return;
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('email_queue', 'readwrite');
+    const store = tx.objectStore('email_queue');
+    const request = store.add(emailItem);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
 export async function getCities(): Promise<City[]> {
   const db = await initDb();
   return new Promise((resolve, reject) => {
@@ -966,17 +1097,67 @@ export async function updatePatientUser(cpf: string, data: Partial<Omit<PatientU
     throw new Error('Usuário não encontrado.');
   }
 
+  const oldEmail = user.email;
+  const oldPhone = user.phone;
   const updatedUser: PatientUser = {
     ...user,
     ...data
   };
 
+  const newEmail = updatedUser.email;
+  const newPhone = updatedUser.phone;
+
   return new Promise((resolve, reject) => {
-    const tx = db.transaction('users', 'readwrite');
-    const store = tx.objectStore('users');
-    const request = store.put(updatedUser);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    const tx = db.transaction(['users', 'appointments', 'email_queue'], 'readwrite');
+    const userStore = tx.objectStore('users');
+    const appStore = tx.objectStore('appointments');
+    const emailStore = tx.objectStore('email_queue');
+
+    userStore.put(updatedUser);
+
+    const emailChanged = newEmail?.trim().toLowerCase() !== oldEmail?.trim().toLowerCase();
+    const phoneChanged = newPhone?.trim() !== oldPhone?.trim();
+
+    const getAppsReq = appStore.getAll();
+    getAppsReq.onsuccess = () => {
+      const appointments = getAppsReq.result as Appointment[];
+      const patientApps = appointments.filter(
+        app => app.patientCpf.replace(/\D/g, "") === cleanCpf
+      );
+
+      if (emailChanged || phoneChanged) {
+        patientApps.forEach(app => {
+          if (emailChanged && newEmail) app.patientEmail = newEmail.trim();
+          if (phoneChanged && newPhone) app.patientPhone = newPhone.trim();
+          appStore.put(app);
+        });
+      }
+
+      if (emailChanged && newEmail) {
+        const emailReq = emailStore.getAll();
+        emailReq.onsuccess = () => {
+          const emails = emailReq.result;
+          const patientProtocols = new Set(patientApps.map(app => app.protocol.trim().toLowerCase()));
+          const oldEmailClean = oldEmail?.trim().toLowerCase();
+          const newEmailClean = newEmail.trim().toLowerCase();
+          for (const item of emails) {
+            const itemEmailClean = item.recipientEmail?.trim().toLowerCase();
+            const itemProtoClean = item.appointmentProtocol?.trim().toLowerCase();
+            const matchesEmail = itemEmailClean === oldEmailClean || itemEmailClean === newEmailClean;
+            const matchesProtocol = itemProtoClean && patientProtocols.has(itemProtoClean);
+            if (matchesEmail || matchesProtocol) {
+              if (item.bounced) {
+                item.bounced = false;
+                emailStore.put(item);
+              }
+            }
+          }
+        };
+      }
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -1476,19 +1657,41 @@ export async function getAppointmentsForAdmin(): Promise<Appointment[]> {
   });
 }
 
+async function computeSHA256(message: string): Promise<string> {
+  const msgUint8 = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 export async function createAuditLog(log: Omit<AuditLog, 'id' | 'timestamp'>): Promise<void> {
   const db = await initDb();
-  const newLog: AuditLog = {
-    ...log,
-    id: 'log-' + crypto.randomUUID().slice(0, 8),
-    timestamp: new Date().toISOString()
-  };
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction('audit_logs', 'readwrite');
     const store = tx.objectStore('audit_logs');
-    const request = store.add(newLog);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = async () => {
+      const logs = getAllReq.result || [];
+      const sorted = logs.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      const lastLog = sorted[sorted.length - 1];
+      const previousHash = lastLog ? (lastLog.hash || '0') : '0';
+
+      const newLog: AuditLog = {
+        ...log,
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        previousHash
+      };
+
+      const messageToHash = `${newLog.timestamp}|${newLog.userCpf}|${newLog.action}|${newLog.module}|${newLog.details}|${previousHash}`;
+      const hash = await computeSHA256(messageToHash);
+      newLog.hash = hash;
+
+      const request = store.add(newLog);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    };
+    getAllReq.onerror = () => reject(getAllReq.error);
   });
 }
 
@@ -1537,7 +1740,7 @@ export async function updateAppointmentStatus(
 ): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+    const tx = db.transaction(['appointments', 'audit_logs', 'email_queue'], 'readwrite');
     const appStore = tx.objectStore('appointments');
     const auditStore = tx.objectStore('audit_logs');
 
@@ -1554,6 +1757,7 @@ export async function updateAppointmentStatus(
       app.assignedTo = employeeName;
 
       appStore.put(app);
+      triggerStatusUpdateEmail(app, observations, tx);
 
       const log: AuditLog = {
         id: 'log-' + crypto.randomUUID().slice(0, 8),
@@ -1584,13 +1788,12 @@ export async function confirmAppointmentSchedule(
 ): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(['appointments', 'audit_logs', 'calendar_blocks', 'capacity_limits'], 'readwrite');
+    const tx = db.transaction(['appointments', 'audit_logs', 'calendar_blocks', 'capacity_limits', 'email_queue'], 'readwrite');
     const appStore = tx.objectStore('appointments');
     const auditStore = tx.objectStore('audit_logs');
     const calStore = tx.objectStore('calendar_blocks');
     const limitStore = tx.objectStore('capacity_limits');
 
-    // 1. Finais de semana
     const dateObj = new Date(date + 'T12:00:00');
     const dayOfWeek = dateObj.getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -1598,7 +1801,6 @@ export async function confirmAppointmentSchedule(
       return;
     }
 
-    // 2. Feriados / Bloqueios
     const calReq = calStore.get(date);
     calReq.onsuccess = () => {
       const block = calReq.result as CalendarDay | undefined;
@@ -1607,7 +1809,6 @@ export async function confirmAppointmentSchedule(
         return;
       }
 
-      // 3. Capacidade e Conflitos
       const getAllReq = appStore.getAll();
       getAllReq.onsuccess = () => {
         const appointments = getAllReq.result as Appointment[];
@@ -1620,9 +1821,6 @@ export async function confirmAppointmentSchedule(
             return;
           }
 
-          // Validação estrita (RF90) contra sobreposição de horário:
-          // Mesma data, mesmo horário, e o mesmo médico ou mesma sala.
-          // Ignora o próprio agendamento atual se ele já tiver sido gravado.
           const hasConflict = appointments.some(app => {
             if (app.id === id) return false;
             if (app.status !== 'Confirmado') return false;
@@ -1644,7 +1842,6 @@ export async function confirmAppointmentSchedule(
             return;
           }
 
-          // Verificar capacidade
           const limitReq = limitStore.get(currentApp.examId);
           limitReq.onsuccess = () => {
             const limitConfig = limitReq.result as CapacityLimit | undefined;
@@ -1688,6 +1885,7 @@ export async function confirmAppointmentSchedule(
             currentApp.assignedTo = employeeName;
 
             appStore.put(currentApp);
+            triggerStatusUpdateEmail(currentApp, undefined, tx);
 
             const log: AuditLog = {
               id: 'log-' + crypto.randomUUID().slice(0, 8),
@@ -1915,10 +2113,11 @@ export async function updatePatientContactInfo(
   const db = await initDb();
   const cleanCpf = cpf.replace(/\D/g, "");
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(['users', 'appointments', 'audit_logs'], 'readwrite');
+    const tx = db.transaction(['users', 'appointments', 'audit_logs', 'email_queue'], 'readwrite');
     const userStore = tx.objectStore('users');
     const appStore = tx.objectStore('appointments');
     const auditStore = tx.objectStore('audit_logs');
+    const emailStore = tx.objectStore('email_queue');
 
     const getUserReq = userStore.get(cleanCpf);
     getUserReq.onsuccess = () => {
@@ -1946,6 +2145,29 @@ export async function updatePatientContactInfo(
           app.patientPhone = phone.trim();
           appStore.put(app);
         });
+
+        const emailChanged = email.trim().toLowerCase() !== oldEmail?.trim().toLowerCase();
+        if (emailChanged) {
+          const emailReq = emailStore.getAll();
+          emailReq.onsuccess = () => {
+            const emails = emailReq.result;
+            const patientProtocols = new Set(patientApps.map(app => app.protocol.trim().toLowerCase()));
+            const oldEmailClean = oldEmail?.trim().toLowerCase();
+            const newEmailClean = email.trim().toLowerCase();
+            for (const item of emails) {
+              const itemEmailClean = item.recipientEmail?.trim().toLowerCase();
+              const itemProtoClean = item.appointmentProtocol?.trim().toLowerCase();
+              const matchesEmail = itemEmailClean === oldEmailClean || itemEmailClean === newEmailClean;
+              const matchesProtocol = itemProtoClean && patientProtocols.has(itemProtoClean);
+              if (matchesEmail || matchesProtocol) {
+                if (item.bounced) {
+                  item.bounced = false;
+                  emailStore.put(item);
+                }
+              }
+            }
+          };
+        }
 
         const log: AuditLog = {
           id: 'log-' + crypto.randomUUID().slice(0, 8),
@@ -2044,20 +2266,35 @@ export async function addAuditLogAdmin(
   return new Promise<void>((resolve, reject) => {
     const tx = db.transaction('audit_logs', 'readwrite');
     const store = tx.objectStore('audit_logs');
-    const log: AuditLog = {
-      id: 'log-' + crypto.randomUUID().slice(0, 8),
-      timestamp: new Date().toISOString(),
-      userCpf: employeeCpf,
-      userName: employeeName,
-      action,
-      module,
-      ipAddress: '192.168.1.100',
-      details,
-      changes
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = async () => {
+      const logs = getAllReq.result || [];
+      const sorted = logs.sort((a: any, b: any) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      const lastLog = sorted[sorted.length - 1];
+      const previousHash = lastLog ? (lastLog.hash || '0') : '0';
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: employeeCpf,
+        userName: employeeName,
+        action,
+        module,
+        ipAddress: '192.168.1.100',
+        details,
+        changes,
+        previousHash
+      };
+
+      const messageToHash = `${log.timestamp}|${log.userCpf}|${log.action}|${log.module}|${log.details}|${previousHash}`;
+      const hash = await computeSHA256(messageToHash);
+      log.hash = hash;
+
+      const request = store.add(log);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     };
-    const request = store.add(log);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
+    getAllReq.onerror = () => reject(getAllReq.error);
   });
 }
 
@@ -2274,130 +2511,144 @@ export async function processDailyDocumentReminders(): Promise<void> {
     const emailStore = tx.objectStore('email_queue');
     const auditStore = tx.objectStore('audit_logs');
     
-    const request = appStore.getAll();
-    request.onsuccess = () => {
-      const appointments = request.result as Appointment[];
-      const now = new Date();
-      
-      for (const app of appointments) {
-        if ((app.status === 'Pendente' || app.status === 'Em análise') && app.fileAttachment === null) {
-          const createdAtDate = new Date(app.createdAt);
-          const diffHours = (now.getTime() - createdAtDate.getTime()) / (1000 * 60 * 60);
-          const reminders = app.documentReminders || [];
-          
-          if (reminders.length === 0) {
-            if (diffHours >= 48) {
-              const newReminder = { sentAt: now.toISOString(), count: 1 };
-              app.documentReminders = [newReminder];
-              
-              const subject = `Lembrete #1: Documentação Pendente - Protocolo ${app.protocol}`;
-              const body = `Olá, ${app.patientName}.\n\nEste é o lembrete #1 de que sua solicitação de agendamento (Protocolo ${app.protocol}) está paralisada por falta do documento de encaminhamento médico obrigatório.\n\nPor favor, acesse o link seguro abaixo para realizar o upload do documento:\n${window.location.origin}?page=status-check&protocol=${app.protocol}\n\nAtenciosamente,\nHospital de Amor`;
-              
-              emailStore.add({
-                recipientEmail: app.patientEmail,
-                subject,
-                body,
-                status: 'pending',
-                appointmentProtocol: app.protocol,
-                bounced: false
-              });
-              
-              auditStore.add({
-                id: 'log-' + crypto.randomUUID().slice(0, 8),
-                timestamp: now.toISOString(),
-                userCpf: 'SYSTEM',
-                userName: 'Sistema de Lembretes',
-                action: `Disparo do Lembrete de Documento #1 para o agendamento ${app.protocol}`,
-                module: 'Notificações',
-                ipAddress: '127.0.0.1',
-                details: `E-mail de lembrete enviado para ${app.patientEmail}`
-              });
-              
-              appStore.put(app);
-            }
-          } else if (reminders.length < 3) {
-            const lastReminder = reminders[reminders.length - 1];
-            const lastReminderDate = new Date(lastReminder.sentAt);
-            const diffDaysSinceLast = (now.getTime() - lastReminderDate.getTime()) / (1000 * 60 * 60 * 24);
+    const emailReq = emailStore.getAll();
+    emailReq.onsuccess = () => {
+      const emailQueue = emailReq.result || [];
+      const bouncedEmails = new Set(emailQueue.filter((e: any) => e.bounced).map((e: any) => e.recipientEmail?.trim().toLowerCase()));
+      const bouncedProtocols = new Set(emailQueue.filter((e: any) => e.bounced).map((e: any) => e.appointmentProtocol?.trim().toLowerCase()));
+
+      const request = appStore.getAll();
+      request.onsuccess = () => {
+        const appointments = request.result as Appointment[];
+        const now = new Date();
+        
+        for (const app of appointments) {
+          const appEmail = app.patientEmail?.trim().toLowerCase();
+          const appProtocol = app.protocol?.trim().toLowerCase();
+          if (bouncedEmails.has(appEmail) || bouncedProtocols.has(appProtocol)) {
+            continue;
+          }
+
+          if ((app.status === 'Pendente' || app.status === 'Em análise') && app.fileAttachment === null) {
+            const createdAtDate = new Date(app.createdAt);
+            const diffHours = (now.getTime() - createdAtDate.getTime()) / (1000 * 60 * 60);
+            const reminders = app.documentReminders || [];
             
-            if (diffDaysSinceLast >= 7) {
-              const count = reminders.length + 1;
-              const newReminder = { sentAt: now.toISOString(), count };
-              app.documentReminders = [...reminders, newReminder];
+            if (reminders.length === 0) {
+              if (diffHours >= 48) {
+                const newReminder = { sentAt: now.toISOString(), count: 1 };
+                app.documentReminders = [newReminder];
+                
+                const subject = `Lembrete #1: Documentação Pendente - Protocolo ${app.protocol}`;
+                const body = `Olá, ${app.patientName}.\n\nEste é o lembrete #1 de que sua solicitação de agendamento (Protocolo ${app.protocol}) está paralisada por falta do documento de encaminhamento médico obrigatório.\n\nPor favor, acesse o link seguro abaixo para realizar o upload do documento:\n${window.location.origin}?page=status-check&protocol=${app.protocol}\n\nAtenciosamente,\nHospital de Amor`;
+                
+                emailStore.add({
+                  recipientEmail: app.patientEmail,
+                  subject,
+                  body,
+                  status: 'pending',
+                  appointmentProtocol: app.protocol,
+                  bounced: false
+                });
+                
+                auditStore.add({
+                  id: 'log-' + crypto.randomUUID().slice(0, 8),
+                  timestamp: now.toISOString(),
+                  userCpf: 'SYSTEM',
+                  userName: 'Sistema de Lembretes',
+                  action: `Disparo do Lembrete de Documento #1 para o agendamento ${app.protocol}`,
+                  module: 'Notificações',
+                  ipAddress: '127.0.0.1',
+                  details: `E-mail de lembrete enviado para ${app.patientEmail}`
+                });
+                
+                appStore.put(app);
+              }
+            } else if (reminders.length < 3) {
+              const lastReminder = reminders[reminders.length - 1];
+              const lastReminderDate = new Date(lastReminder.sentAt);
+              const diffDaysSinceLast = (now.getTime() - lastReminderDate.getTime()) / (1000 * 60 * 60 * 24);
               
-              const subject = `Lembrete #${count}: Documentação Pendente - Protocolo ${app.protocol}`;
-              const body = `Olá, ${app.patientName}.\n\nEste é o lembrete #${count} de que sua solicitação de agendamento (Protocolo ${app.protocol}) está paralisada por falta do documento de encaminhamento médico obrigatório.\n\nPor favor, acesse o link seguro abaixo para realizar o upload do documento:\n${window.location.origin}?page=status-check&protocol=${app.protocol}\n\nAtenciosamente,\nHospital de Amor`;
+              if (diffDaysSinceLast >= 7) {
+                const count = reminders.length + 1;
+                const newReminder = { sentAt: now.toISOString(), count };
+                app.documentReminders = [...reminders, newReminder];
+                
+                const subject = `Lembrete #${count}: Documentação Pendente - Protocolo ${app.protocol}`;
+                const body = `Olá, ${app.patientName}.\n\nEste é o lembrete #${count} de que sua solicitação de agendamento (Protocolo ${app.protocol}) está paralisada por falta do documento de encaminhamento médico obrigatório.\n\nPor favor, acesse o link seguro abaixo para realizar o upload do documento:\n${window.location.origin}?page=status-check&protocol=${app.protocol}\n\nAtenciosamente,\nHospital de Amor`;
+                
+                emailStore.add({
+                  recipientEmail: app.patientEmail,
+                  subject,
+                  body,
+                  status: 'pending',
+                  appointmentProtocol: app.protocol,
+                  bounced: false
+                });
+                
+                auditStore.add({
+                  id: 'log-' + crypto.randomUUID().slice(0, 8),
+                  timestamp: now.toISOString(),
+                  userCpf: 'SYSTEM',
+                  userName: 'Sistema de Lembretes',
+                  action: `Disparo do Lembrete de Documento #${count} para o agendamento ${app.protocol}`,
+                  module: 'Notificações',
+                  ipAddress: '127.0.0.1',
+                  details: `E-mail de lembrete enviado para ${app.patientEmail}`
+                });
+                
+                appStore.put(app);
+              }
+            } else if (reminders.length === 3) {
+              const lastReminder = reminders[2];
+              const lastReminderDate = new Date(lastReminder.sentAt);
+              const diffHoursSinceLast = (now.getTime() - lastReminderDate.getTime()) / (1000 * 60 * 60);
               
-              emailStore.add({
-                recipientEmail: app.patientEmail,
-                subject,
-                body,
-                status: 'pending',
-                appointmentProtocol: app.protocol,
-                bounced: false
-              });
-              
-              auditStore.add({
-                id: 'log-' + crypto.randomUUID().slice(0, 8),
-                timestamp: now.toISOString(),
-                userCpf: 'SYSTEM',
-                userName: 'Sistema de Lembretes',
-                action: `Disparo do Lembrete de Documento #${count} para o agendamento ${app.protocol}`,
-                module: 'Notificações',
-                ipAddress: '127.0.0.1',
-                details: `E-mail de lembrete enviado para ${app.patientEmail}`
-              });
-              
-              appStore.put(app);
-            }
-          } else if (reminders.length === 3) {
-            const lastReminder = reminders[2];
-            const lastReminderDate = new Date(lastReminder.sentAt);
-            const diffHoursSinceLast = (now.getTime() - lastReminderDate.getTime()) / (1000 * 60 * 60);
-            
-            if (diffHoursSinceLast >= 24) {
-              app.status = 'Arquivado por Documentação Pendente';
-              const oldHistory = app.statusHistory || [];
-              app.statusHistory = [
-                ...oldHistory,
-                {
-                  status: 'Arquivado por Documentação Pendente',
-                  changedAt: now.toISOString(),
-                  note: 'Arquivado automaticamente por falta de documentação pendente após 3 lembretes.'
-                }
-              ];
-              
-              const subject = `Solicitação Arquivada - Protocolo ${app.protocol}`;
-              const body = `Olá, ${app.patientName}.\n\nSua solicitação de agendamento (Protocolo ${app.protocol}) foi ARQUIVADA por falta de documentação obrigatória após 3 tentativas de lembrete.\n\nCaso ainda deseje atendimento, será necessário realizar uma nova solicitação no portal.\n\nAtenciosamente,\nHospital de Amor`;
-              
-              emailStore.add({
-                recipientEmail: app.patientEmail,
-                subject,
-                body,
-                status: 'pending',
-                appointmentProtocol: app.protocol,
-                bounced: false
-              });
-              
-              auditStore.add({
-                id: 'log-' + crypto.randomUUID().slice(0, 8),
-                timestamp: now.toISOString(),
-                userCpf: 'SYSTEM',
-                userName: 'Sistema de Lembretes',
-                action: `Arquivamento automático do agendamento ${app.protocol} por falta de documentação`,
-                module: 'Triagem',
-                ipAddress: '127.0.0.1',
-                details: 'Arquivamento após 3 lembretes sem envio de anexo.'
-              });
-              
-              appStore.put(app);
+              if (diffHoursSinceLast >= 24) {
+                app.status = 'Arquivado por Documentação Pendente';
+                const oldHistory = app.statusHistory || [];
+                app.statusHistory = [
+                  ...oldHistory,
+                  {
+                    status: 'Arquivado por Documentação Pendente',
+                    changedAt: now.toISOString(),
+                    note: 'Arquivado automaticamente por falta de documentação pendente após 3 lembretes.'
+                  }
+                ];
+                
+                const subject = `Solicitação Arquivada - Protocolo ${app.protocol}`;
+                const body = `Olá, ${app.patientName}.\n\nSua solicitação de agendamento (Protocolo ${app.protocol}) foi ARQUIVADA por falta de documentação obrigatória após 3 tentativas de lembrete.\n\nCaso ainda deseje atendimento, será necessário realizar uma nova solicitação no portal.\n\nAtenciosamente,\nHospital de Amor`;
+                
+                emailStore.add({
+                  recipientEmail: app.patientEmail,
+                  subject,
+                  body,
+                  status: 'pending',
+                  appointmentProtocol: app.protocol,
+                  bounced: false
+                });
+                
+                auditStore.add({
+                  id: 'log-' + crypto.randomUUID().slice(0, 8),
+                  timestamp: now.toISOString(),
+                  userCpf: 'SYSTEM',
+                  userName: 'Sistema de Lembretes',
+                  action: `Arquivamento automático do agendamento ${app.protocol} por falta de documentação`,
+                  module: 'Triagem',
+                  ipAddress: '127.0.0.1',
+                  details: 'Arquivamento após 3 lembretes sem envio de anexo.'
+                });
+                
+                appStore.put(app);
+              }
             }
           }
         }
-      }
-      resolve();
+        resolve();
+      };
+      request.onerror = () => reject(request.error);
     };
-    request.onerror = () => reject(request.error);
+    emailReq.onerror = () => reject(emailReq.error);
   });
 }
 
@@ -2468,6 +2719,74 @@ export async function saveTransparencyData(data: TransparencyData): Promise<void
     const store = tx.objectStore('transparency_data');
     const request = store.put(data);
     request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveFilterCombination(name: string, filterState: any, employeeCpf: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('saved_filters', 'readwrite');
+    const store = tx.objectStore('saved_filters');
+    const item = {
+      name,
+      filterState,
+      employeeCpf,
+      createdAt: new Date().toISOString()
+    };
+    const request = store.add(item);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getSavedFilters(employeeCpf: string): Promise<any[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('saved_filters', 'readonly');
+    const store = tx.objectStore('saved_filters');
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const results = (request.result || []).filter((item: any) => item.employeeCpf === employeeCpf);
+      resolve(results);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteSavedFilter(id: number): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction('saved_filters', 'readwrite');
+    const store = tx.objectStore('saved_filters');
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function runDataLifecycleArchiving(): Promise<number> {
+  const db = await initDb();
+  return new Promise<number>((resolve, reject) => {
+    const tx = db.transaction('appointments', 'readwrite');
+    const store = tx.objectStore('appointments');
+    const request = store.getAll();
+    request.onsuccess = () => {
+      const appointments = request.result || [];
+      const twoYearsAgo = new Date();
+      twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+      let count = 0;
+      for (const app of appointments) {
+        const createdDate = new Date(app.createdAt);
+        const hasFinalStatus = app.status === 'Concluído' || app.status === 'Cancelado' || app.status === 'Arquivado por Documentação Pendente';
+        if (hasFinalStatus && createdDate < twoYearsAgo && !app.isColdStorage) {
+          app.isColdStorage = true;
+          store.put(app);
+          count++;
+        }
+      }
+      resolve(count);
+    };
     request.onerror = () => reject(request.error);
   });
 }
