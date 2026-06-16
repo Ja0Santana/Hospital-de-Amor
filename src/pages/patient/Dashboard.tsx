@@ -19,6 +19,7 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
   const [prepAlerts, setPrepAlerts] = useState<{ id: string; title: string; desc: string }[]>([]);
   const [expandedPrepId, setExpandedPrepId] = useState<string | null>(null);
   const [isPrepCardExpanded, setIsPrepCardExpanded] = useState(true);
+  const [pendingDocApp, setPendingDocApp] = useState<Appointment | null>(null);
 
   useEffect(() => {
     loadAppointmentsAndAlerts();
@@ -36,6 +37,14 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
         return logDate === todayDate;
       });
       setShowDiaryAlert(!hasLoggedToday);
+
+      const docPending = results.find(
+        (app) =>
+          (app.status === 'Pendente' || app.status === 'Cancelado') &&
+          app.fileAttachment &&
+          (app.fileAttachment.status === 'Ilegível' || app.fileAttachment.status === 'Pendente de Correção')
+      );
+      setPendingDocApp(docPending || null);
 
       const specialties = await getSpecialties();
       const confirmedApps = results.filter(app => app.status === 'Confirmado');
@@ -108,8 +117,26 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
         </Button>
       </div>
 
-      {(showDiaryAlert || prepAlerts.length > 0) && (
+      {(showDiaryAlert || prepAlerts.length > 0 || pendingDocApp) && (
         <div className="space-y-4">
+          {pendingDocApp && (
+            <div className="p-4 rounded-3xl bg-red-50/60 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-in slide-in-from-top-2 duration-300">
+              <div className="flex gap-3 items-start text-left">
+                <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" aria-hidden="true" />
+                <div className="space-y-0.5">
+                  <h4 className="font-bold text-sm text-zinc-900 dark:text-zinc-50">Documentação Pendente de Correção</h4>
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">Sua solicitação de {pendingDocApp.examName} possui documentos com problemas identificados na triagem. Substitua o documento para prosseguir.</p>
+                </div>
+              </div>
+              <Button
+                onClick={() => onNavigate('status-' + pendingDocApp.protocol)}
+                className="bg-red-500 hover:bg-red-600 text-white font-bold h-9 px-4 rounded-xl text-xs shrink-0 self-end sm:self-center transition-transform active:scale-95 shadow-sm"
+              >
+                Corrigir Documento
+              </Button>
+            </div>
+          )}
+
           {showDiaryAlert && (
             <div className="p-4 rounded-3xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-900/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-in slide-in-from-top-2 duration-300">
               <div className="flex gap-3 items-start text-left">

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Shield, Users, ClipboardList, LogOut, Menu, X, Sliders } from 'lucide-react';
+import { Shield, Users, ClipboardList, LogOut, Menu, X, Sliders, BarChart3 } from 'lucide-react';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminRegister from './pages/admin/AdminRegister';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AuditLogs from './pages/admin/AuditLogs';
 import AdminConfig from './pages/admin/AdminConfig';
+import AdminAnalytics from './pages/admin/AdminAnalytics';
 import { getEmployeePermissions } from './services/db';
 import type { PatientUser } from './types';
 
@@ -123,6 +124,12 @@ export default function AdminApp() {
           return null;
         }
         return <AuditLogs />;
+      case '/relatorios':
+        if (loggedEmployee.role !== 'gestor' && loggedEmployee.role !== 'auditor' && !permissions.includes('view_reports')) {
+          window.location.hash = '#/dashboard';
+          return null;
+        }
+        return <AdminAnalytics loggedEmployee={loggedEmployee} />;
       case '/registro':
         return <AdminRegister onNavigate={(hash) => { window.location.hash = hash; }} />;
       default:
@@ -216,6 +223,17 @@ export default function AdminApp() {
             >
               <Shield className="w-4 h-4" />
               Logs de Auditoria
+            </a>
+          )}
+
+          {(loggedEmployee.role === 'gestor' || loggedEmployee.role === 'auditor' || permissions.includes('view_reports')) && (
+            <a
+              href="#/relatorios"
+              onClick={() => setIsSidebarMobileOpen(false)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all ${currentPath === '/relatorios' ? 'bg-pink-50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400' : 'text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900'}`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              Relatórios & Indicadores
             </a>
           )}
         </nav>

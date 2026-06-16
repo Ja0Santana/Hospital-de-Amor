@@ -12,7 +12,7 @@ interface StepExamSelectionProps {
     specialtyId: string;
     examId: string;
   };
-  onChange: (data: { specialtyId: string; specialtyName: string; examId: string; examName: string }) => void;
+  onChange: (data: { specialtyId: string; specialtyName: string; examId: string; examName: string; requiresEncaminhamento?: boolean }) => void;
   errors: Record<string, string>;
   setErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
@@ -49,7 +49,8 @@ export default function StepExamSelection({ formData, onChange, errors, setError
         specialtyId: spec.id,
         specialtyName: spec.name,
         examId: '',
-        examName: ''
+        examName: '',
+        requiresEncaminhamento: true
       });
       if (errors.specialtyId) {
         setErrors((prev) => {
@@ -70,7 +71,8 @@ export default function StepExamSelection({ formData, onChange, errors, setError
           specialtyId: selectedSpecialty.id,
           specialtyName: selectedSpecialty.name,
           examId: ex.id,
-          examName: ex.name
+          examName: ex.name,
+          requiresEncaminhamento: ex.requiresEncaminhamento !== false
         });
         if (errors.examId) {
           setErrors((prev) => {
@@ -127,7 +129,7 @@ export default function StepExamSelection({ formData, onChange, errors, setError
               <SelectValue placeholder={formData.specialtyId ? "Selecione o Exame" : "Selecione a especialidade primeiro"} />
             </SelectTrigger>
             <SelectContent>
-              {selectedSpecialty?.exams.map((ex) => (
+              {selectedSpecialty?.exams.filter(ex => ex.isActive !== false).map((ex) => (
                 <SelectItem key={ex.id} value={ex.id}>{ex.name}</SelectItem>
               ))}
             </SelectContent>
