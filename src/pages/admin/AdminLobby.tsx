@@ -14,7 +14,6 @@ export default function AdminLobby() {
   const [activeCall, setActiveCall] = useState<HistoricalCall | null>(null);
   const [history, setHistory] = useState<HistoricalCall[]>([]);
   const [time, setTime] = useState(new Date());
-  const [isPlayingAlert, setIsPlayingAlert] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000);
@@ -41,9 +40,6 @@ export default function AdminLobby() {
           return newCall;
         });
 
-        setIsPlayingAlert(true);
-        const alertTimer = setTimeout(() => setIsPlayingAlert(false), 2500);
-        
         try {
           const context = new (window.AudioContext || (window as any).webkitAudioContext)();
           const osc = context.createOscillator();
@@ -64,8 +60,6 @@ export default function AdminLobby() {
         } catch (e) {
           console.warn('AudioContext not allowed or not supported yet.', e);
         }
-
-        return () => clearTimeout(alertTimer);
       } else if (msg.type === 'clear') {
         setActiveCall(null);
         setHistory([]);
@@ -110,9 +104,9 @@ export default function AdminLobby() {
           <div className="absolute inset-0 bg-gradient-to-tr from-pink-50/20 via-transparent to-transparent pointer-events-none" />
           
           {activeCall ? (
-            <div className={`w-full max-w-4xl text-center space-y-8 select-none ${isPlayingAlert ? 'animate-bounce' : ''}`}>
+            <div className="w-full max-w-4xl text-center space-y-8 select-none">
               <div className="inline-flex items-center gap-3 px-6 py-2.5 rounded-full bg-pink-50 border border-pink-200/60 text-pink-600 text-xs font-black uppercase tracking-widest animate-pulse">
-                <Volume2 className="w-4 h-4 animate-bounce" />
+                <Volume2 className="w-4 h-4" />
                 Chamando Agora
               </div>
 
