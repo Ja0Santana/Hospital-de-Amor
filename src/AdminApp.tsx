@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Shield, Users, ClipboardList, LogOut, Menu, X, Sliders, BarChart3 } from 'lucide-react';
+import { Shield, Users, ClipboardList, LogOut, Menu, X, Sliders, BarChart3, Tv } from 'lucide-react';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminRegister from './pages/admin/AdminRegister';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -7,6 +7,7 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AuditLogs from './pages/admin/AuditLogs';
 import AdminConfig from './pages/admin/AdminConfig';
 import AdminAnalytics from './pages/admin/AdminAnalytics';
+import AdminLobby from './pages/admin/AdminLobby';
 import { getEmployeePermissions } from './services/db';
 import type { PatientUser } from './types';
 
@@ -85,6 +86,10 @@ export default function AdminApp() {
   };
 
   const currentPath = currentHash.replace(/^#/, '');
+
+  if (currentPath === '/lobby') {
+    return <AdminLobby />;
+  }
 
   if (!loggedEmployee) {
     if (currentPath === '/registro') {
@@ -190,6 +195,19 @@ export default function AdminApp() {
             >
               <ClipboardList className="w-4 h-4" />
               Painel de Triagem
+            </a>
+          )}
+
+          {(loggedEmployee.role === 'gestor' || loggedEmployee.role === 'recepcionista') && (
+            <a
+              href="#/lobby"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setIsSidebarMobileOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all text-zinc-600 hover:bg-zinc-50 dark:text-zinc-400 dark:hover:bg-zinc-900"
+            >
+              <Tv className="w-4 h-4" />
+              Painel de TV
             </a>
           )}
 

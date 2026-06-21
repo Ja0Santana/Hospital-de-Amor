@@ -30,8 +30,10 @@ import {
   Calendar, 
   Search, 
   Filter,
-  FileText
+  FileText,
+  Tv
 } from 'lucide-react';
+import { dispatchLobbyCall } from '../../services/lobbyChannel';
 
 const GRAVE_KEYWORDS = ['febre', 'falta de ar', 'dispneia', 'dor forte', 'dor intensa', 'sangramento', 'convulsão'];
 
@@ -641,6 +643,32 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
       await loadData();
     } catch (e: any) {
       setActionError(e.message || 'Erro ao salvar alterações da triagem.');
+    }
+  };
+
+  const handleCallOnTv = async () => {
+    if (!activeApp) return;
+
+    const firstName = activeApp.patientName.split(' ')[0];
+    const lastNameParts = activeApp.patientName.split(' ');
+    const lastInitial = lastNameParts.length > 1 ? ' ' + lastNameParts[lastNameParts.length - 1][0] + '.' : '';
+    const maskedName = firstName + lastInitial;
+
+    const callTicket = 'S-' + Math.floor(100 + Math.random() * 900);
+
+    dispatchLobbyCall(maskedName, activeApp.examName, callTicket);
+
+    try {
+      await addAuditLogAdmin(
+        'CHAMAR_PACIENTE_TV',
+        'Fila e Recepção',
+        `Paciente ${maskedName} chamado para o exame ${activeApp.examName} na TV com a senha ${callTicket}`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess(`Chamado enviado para a TV: Senha ${callTicket}.`);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -1747,6 +1775,17 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                   </div>
 
                   <div className="flex flex-col gap-2 pt-2 border-t border-zinc-150 dark:border-zinc-800">
+                    {activeApp.status === 'Confirmado' && (
+                      <button
+                        onClick={handleCallOnTv}
+                        disabled={isActiveAppOfferActive}
+                        className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/15 disabled:opacity-50 flex items-center justify-center gap-2 mb-1"
+                      >
+                        <Tv className="w-4 h-4" />
+                        Chamar na TV da Recepção
+                      </button>
+                    )}
+
                     <button
                       onClick={handleSaveTriagemChanges}
                       disabled={isActiveAppOfferActive}
