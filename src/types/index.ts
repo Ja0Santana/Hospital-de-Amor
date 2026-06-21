@@ -83,6 +83,18 @@ export interface Appointment {
   isColdStorage?: boolean;
   waitingListOfferDate?: string;
   waitingListOfferExpiresAt?: string;
+  checkInAt?: string;
+  attendanceStartedAt?: string;
+  pepSyncStatus?: 'synchronized' | 'pending' | 'failed';
+  pepRegistryId?: string;
+  pepSyncAttempts?: number;
+  digitalSignature?: {
+    signedBy: string;
+    cpf: string;
+    signedAt: string;
+    signatureHash: string;
+    certificateSerial: string;
+  };
 }
 
 export interface FeedbackResponse {

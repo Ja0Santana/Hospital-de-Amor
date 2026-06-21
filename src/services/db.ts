@@ -390,6 +390,87 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
             consentLgpd: true,
             feedbackNps: null,
             feedbackComment: null
+          },
+          {
+            id: 'mock-app-5',
+            protocol: 'HA-2026-0005',
+            patientName: 'Roberto Carlos da Silva',
+            patientCpf: '987.654.321-09',
+            patientBirthDate: '1970-11-25',
+            patientPhone: '(79) 98888-8888',
+            patientEmail: 'roberto.carlos@email.com',
+            state: 'SE',
+            city: 'Aracaju',
+            specialtyId: 'spec-3',
+            specialtyName: 'Radiologia',
+            examId: 'exam-3-1',
+            examName: 'Exame de Sangue Completo',
+            createdAt: '2026-01-12T09:00:00.000Z',
+            status: 'Confirmado',
+            rescheduledDate: new Date().toISOString().split('T')[0],
+            rescheduledTime: '14:30',
+            scheduledRoom: 'Sala de Coleta 2',
+            scheduledDoctor: 'Dr. Roberto Santos',
+            fileAttachment: null,
+            observations: '',
+            consentLgpd: true,
+            feedbackNps: null,
+            feedbackComment: null,
+            checkInAt: new Date(Date.now() - 35 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'mock-app-6',
+            protocol: 'HA-2026-0006',
+            patientName: 'Maria Antônia Mendonça',
+            patientCpf: '456.789.012-34',
+            patientBirthDate: '1965-05-14',
+            patientPhone: '(79) 97777-7777',
+            patientEmail: 'maria.antonia@email.com',
+            state: 'SE',
+            city: 'Itabaiana',
+            specialtyId: 'spec-2',
+            specialtyName: 'Mastologia',
+            examId: 'exam-2-1',
+            examName: 'Mamografia Bilateral',
+            createdAt: '2026-01-13T10:00:00.000Z',
+            status: 'Confirmado',
+            rescheduledDate: new Date().toISOString().split('T')[0],
+            rescheduledTime: '15:00',
+            scheduledRoom: 'Sala de Mamografia 1',
+            scheduledDoctor: 'Dra. Patricia Arantes',
+            fileAttachment: null,
+            observations: '',
+            consentLgpd: true,
+            feedbackNps: null,
+            feedbackComment: null,
+            checkInAt: new Date(Date.now() - 15 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'mock-app-7',
+            protocol: 'HA-2026-0007',
+            patientName: 'Julio Cesar de Almeida',
+            patientCpf: '111.222.333-44',
+            patientBirthDate: '1990-02-10',
+            patientPhone: '(79) 96666-6666',
+            patientEmail: 'julio.cesar@email.com',
+            state: 'SE',
+            city: 'Lagarto',
+            specialtyId: 'spec-3',
+            specialtyName: 'Radiologia',
+            examId: 'exam-3-1',
+            examName: 'Exame de Sangue Completo',
+            createdAt: '2026-01-13T10:30:00.000Z',
+            status: 'Confirmado',
+            rescheduledDate: new Date().toISOString().split('T')[0],
+            rescheduledTime: '15:30',
+            scheduledRoom: 'Sala de Coleta 2',
+            scheduledDoctor: 'Dr. Roberto Santos',
+            fileAttachment: null,
+            observations: '',
+            consentLgpd: true,
+            feedbackNps: null,
+            feedbackComment: null,
+            checkInAt: new Date(Date.now() - 25 * 60 * 1000).toISOString()
           }
         ];
         mockApps.forEach((app) => appStore.put(app));
@@ -1767,6 +1848,11 @@ export async function updateAppointmentStatus(
       app.observations = observations;
       app.assignedTo = employeeName;
 
+      if (status === 'Confirmado' || status === 'Concluído') {
+        app.pepSyncStatus = 'pending';
+        app.pepSyncAttempts = 0;
+      }
+
       appStore.put(app);
       triggerStatusUpdateEmail(app, observations, tx);
 
@@ -1906,6 +1992,8 @@ export async function confirmAppointmentSchedule(
             currentApp.scheduledRoom = room;
             currentApp.scheduledDoctor = doctor;
             currentApp.assignedTo = employeeName;
+            currentApp.pepSyncStatus = 'pending';
+            currentApp.pepSyncAttempts = 0;
 
             appStore.put(currentApp);
             triggerStatusUpdateEmail(currentApp, undefined, tx);
@@ -3131,6 +3219,226 @@ export async function checkAndProcessExpiredOffers(): Promise<void> {
       });
     };
 
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function syncAppointmentWithPep(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+
+  const app = await new Promise<Appointment | undefined>((resolve, reject) => {
+    const req = appStore.get(appointmentId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!app) throw new Error('Agendamento não encontrado.');
+
+  const attempts = (app.pepSyncAttempts || 0) + 1;
+  app.pepSyncAttempts = attempts;
+
+  const isFailure = app.patientCpf.endsWith('9') || (attempts === 1 && Math.random() < 0.2);
+
+  if (isFailure) {
+    app.pepSyncStatus = 'failed';
+    appStore.put(app);
+
+    const log: AuditLog = {
+      id: 'log-' + crypto.randomUUID().slice(0, 8),
+      timestamp: new Date().toISOString(),
+      userCpf: 'SYSTEM_PEP_INTEGRATION',
+      userName: 'Fila de Mensagens PEP',
+      action: `Falha na integração com o PEP para o protocolo ${app.protocol}`,
+      module: 'Integração PEP',
+      ipAddress: '127.0.0.1',
+      details: `Tentativa #${attempts}. Erro de comunicação: Servidor PEP indisponível ou timeout de API.`
+    };
+    auditStore.add(log);
+  } else {
+    app.pepSyncStatus = 'synchronized';
+    app.pepRegistryId = 'PEP-' + Math.floor(100000 + Math.random() * 900000);
+    appStore.put(app);
+
+    const log: AuditLog = {
+      id: 'log-' + crypto.randomUUID().slice(0, 8),
+      timestamp: new Date().toISOString(),
+      userCpf: 'SYSTEM_PEP_INTEGRATION',
+      userName: 'Fila de Mensagens PEP',
+      action: `Sucesso na integração com o PEP para o protocolo ${app.protocol}`,
+      module: 'Integração PEP',
+      ipAddress: '127.0.0.1',
+      details: `Tentativa #${attempts}. Prontuário vinculado com ID: ${app.pepRegistryId}.`
+    };
+    auditStore.add(log);
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function syncAllPendingPepEntries(): Promise<{ successCount: number; failCount: number }> {
+  const db = await initDb();
+  const tx = db.transaction('appointments', 'readonly');
+  const store = tx.objectStore('appointments');
+
+  const allApps = await new Promise<Appointment[]>((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+
+  const pendingOrFailed = allApps.filter(app => app.pepSyncStatus === 'pending' || app.pepSyncStatus === 'failed');
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const app of pendingOrFailed) {
+    try {
+      await syncAppointmentWithPep(app.id);
+      const updatedDb = await initDb();
+      const checkTx = updatedDb.transaction('appointments', 'readonly');
+      const checkStore = checkTx.objectStore('appointments');
+      const updatedApp = await new Promise<Appointment>((resolve) => {
+        const req = checkStore.get(app.id);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (updatedApp.pepSyncStatus === 'synchronized') {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    } catch {
+      failCount++;
+    }
+  }
+
+  return { successCount, failCount };
+}
+
+export async function registerPatientCheckIn(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+
+  const app = await new Promise<Appointment | undefined>((resolve, reject) => {
+    const req = appStore.get(appointmentId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!app) throw new Error('Agendamento não encontrado.');
+
+  app.checkInAt = new Date().toISOString();
+  appStore.put(app);
+
+  const log: AuditLog = {
+    id: 'log-' + crypto.randomUUID().slice(0, 8),
+    timestamp: new Date().toISOString(),
+    userCpf: 'RECEPTION',
+    userName: app.assignedTo || 'Recepção',
+    action: `Check-in do paciente ${app.patientName} (Protocolo ${app.protocol}) registrado na recepção`,
+    module: 'Fila e Recepção',
+    ipAddress: '192.168.1.100',
+    details: `Check-in realizado em: ${new Date(app.checkInAt).toLocaleString('pt-BR')}`
+  };
+  auditStore.add(log);
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function registerAttendanceStart(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+
+  const app = await new Promise<Appointment | undefined>((resolve, reject) => {
+    const req = appStore.get(appointmentId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!app) throw new Error('Agendamento não encontrado.');
+
+  app.attendanceStartedAt = new Date().toISOString();
+  app.status = 'Concluído';
+  appStore.put(app);
+
+  const log: AuditLog = {
+    id: 'log-' + crypto.randomUUID().slice(0, 8),
+    timestamp: new Date().toISOString(),
+    userCpf: 'RECEPTION',
+    userName: app.assignedTo || 'Médico/Atendente',
+    action: `Início de atendimento clínico para o paciente ${app.patientName} (Protocolo ${app.protocol})`,
+    module: 'Fila e Recepção',
+    ipAddress: '192.168.1.100',
+    details: `Atendimento iniciado. Status alterado para Concluído.`
+  };
+  auditStore.add(log);
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function signAppointmentLaudo(
+  appointmentId: string,
+  doctorName: string,
+  doctorCpf: string
+): Promise<void> {
+  const db = await initDb();
+  const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+
+  const app = await new Promise<Appointment | undefined>((resolve, reject) => {
+    const req = appStore.get(appointmentId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!app) throw new Error('Agendamento não encontrado.');
+
+  const signTime = new Date().toISOString();
+  const documentPayload = `${app.id}|${app.protocol}|${app.patientCpf}|${app.examName}|${app.observations}|${signTime}`;
+  
+  const hash = await computeSHA256(documentPayload);
+  const certSerial = 'ICP-BR-ID-' + Math.floor(10000000 + Math.random() * 90000000);
+
+  app.digitalSignature = {
+    signedBy: doctorName,
+    cpf: doctorCpf,
+    signedAt: signTime,
+    signatureHash: hash,
+    certificateSerial: certSerial
+  };
+
+  appStore.put(app);
+
+  const log: AuditLog = {
+    id: 'log-' + crypto.randomUUID().slice(0, 8),
+    timestamp: signTime,
+    userCpf: doctorCpf,
+    userName: doctorName,
+    action: `Laudo/Triagem de ${app.patientName} (Protocolo ${app.protocol}) assinado digitalmente`,
+    module: 'Assinatura Digital',
+    ipAddress: '192.168.1.100',
+    details: `Assinatura ICP-Brasil vinculada. Série do Certificado: ${certSerial}. Hash SHA-256 do documento: ${hash}`
+  };
+  auditStore.add(log);
+
+  await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
