@@ -655,14 +655,15 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     const maskedName = firstName + lastInitial;
 
     const callTicket = 'S-' + Math.floor(100 + Math.random() * 900);
+    const callDestination = activeApp.scheduledRoom || 'Consultório 1';
 
-    dispatchLobbyCall(maskedName, activeApp.examName, callTicket);
+    dispatchLobbyCall(maskedName, callDestination, callTicket);
 
     try {
       await addAuditLogAdmin(
         'CHAMAR_PACIENTE_TV',
         'Fila e Recepção',
-        `Paciente ${maskedName} chamado para o exame ${activeApp.examName} na TV com a senha ${callTicket}`,
+        `Paciente ${maskedName} chamado para ${callDestination} na TV com a senha ${callTicket}`,
         loggedEmployee.cpf,
         loggedEmployee.name
       );

@@ -125,7 +125,7 @@ export default function AdminLobby() {
               </div>
 
               <div className="pt-6 border-t border-zinc-150 max-w-md mx-auto">
-                <div className="text-zinc-400 font-bold text-[10px] uppercase tracking-widest mb-1.5">Especialidade / Exame</div>
+                <div className="text-zinc-400 font-bold text-[10px] uppercase tracking-widest mb-1.5">Local / Consultório</div>
                 <div className="text-lg font-bold text-zinc-600 uppercase tracking-wide truncate">
                   {activeCall.examType}
                 </div>
