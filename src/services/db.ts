@@ -2746,9 +2746,14 @@ export async function saveFeedbackReply(feedbackId: string, replyText: string, a
     getReq.onsuccess = () => {
       const fb = getReq.result as FeedbackResponse;
       if (fb) {
+        const isEditing = fb.adminResponse && fb.adminResponse !== replyText;
+        const oldResponse = fb.adminResponse || '';
         fb.adminResponse = replyText;
         fb.adminResponseAt = new Date().toISOString();
         fb.adminResponseAuthor = authorName;
+        if (fb.isResolved === undefined) {
+          fb.isResolved = false;
+        }
         feedbackStore.put(fb);
 
         const log: AuditLog = {
@@ -2756,10 +2761,57 @@ export async function saveFeedbackReply(feedbackId: string, replyText: string, a
           timestamp: new Date().toISOString(),
           userCpf: authorCpf,
           userName: authorName,
-          action: `Resposta ao feedback NPS - Protocolo ${fb.appointmentProtocol}`,
+          action: isEditing
+            ? `Edicao de resposta ao feedback NPS - Protocolo ${fb.appointmentProtocol}`
+            : `Resposta ao feedback NPS - Protocolo ${fb.appointmentProtocol}`,
           module: 'Ouvidoria',
           ipAddress: '127.0.0.1',
-          details: `Resposta registrada: "${replyText}"`
+          details: isEditing
+            ? `Resposta anterior: "${oldResponse}" | Nova resposta: "${replyText}"`
+            : `Resposta registrada: "${replyText}"`,
+          changes: isEditing ? {
+            adminResponse: { old: oldResponse, new: replyText }
+          } : undefined
+        };
+        auditStore.add(log);
+      } else {
+        reject(new Error('Feedback não encontrado.'));
+      }
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function toggleFeedbackResolution(feedbackId: string, operatorCpf: string, operatorName: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['feedbacks', 'audit_logs'], 'readwrite');
+    const feedbackStore = tx.objectStore('feedbacks');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = feedbackStore.get(feedbackId);
+    getReq.onsuccess = () => {
+      const fb = getReq.result as FeedbackResponse;
+      if (fb) {
+        const oldVal = fb.isResolved || false;
+        const newVal = !oldVal;
+        fb.isResolved = newVal;
+        feedbackStore.put(fb);
+
+        const log: AuditLog = {
+          id: 'log-' + crypto.randomUUID().slice(0, 8),
+          timestamp: new Date().toISOString(),
+          userCpf: operatorCpf,
+          userName: operatorName,
+          action: `Alteracao de resolucao de NPS - Protocolo ${fb.appointmentProtocol}`,
+          module: 'Ouvidoria',
+          ipAddress: '127.0.0.1',
+          details: `Status de resolucao alterado de ${oldVal ? 'Tratado' : 'Pendente'} para ${newVal ? 'Tratado' : 'Pendente'}.`,
+          changes: {
+            isResolved: { old: oldVal, new: newVal }
+          }
         };
         auditStore.add(log);
       } else {
@@ -2894,13 +2946,18 @@ function offerSlotToNextInWaitlist(
 
     const candidate = candidates[0];
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+    let expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
 
     candidate.rescheduledDate = slot.rescheduledDate;
     candidate.rescheduledTime = slot.rescheduledTime;
     candidate.scheduledRoom = slot.scheduledRoom;
     candidate.scheduledDoctor = slot.scheduledDoctor;
     candidate.waitingListOfferDate = now.toISOString();
+    
+    const examDateTime = new Date(`${slot.rescheduledDate}T${slot.rescheduledTime}`);
+    if (!isNaN(examDateTime.getTime()) && examDateTime > now && examDateTime < expiresAt) {
+      expiresAt = examDateTime;
+    }
     candidate.waitingListOfferExpiresAt = expiresAt.toISOString();
 
     appStore.put(candidate);

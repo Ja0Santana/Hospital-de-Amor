@@ -97,6 +97,7 @@ export interface FeedbackResponse {
   adminResponse?: string;
   adminResponseAt?: string;
   adminResponseAuthor?: string;
+  isResolved?: boolean;
 }
 
 export interface PatientUser {

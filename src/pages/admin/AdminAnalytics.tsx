@@ -5,7 +5,8 @@ import {
   runDataLifecycleArchiving,
   addAuditLogAdmin,
   getFeedbacks,
-  saveFeedbackReply
+  saveFeedbackReply,
+  toggleFeedbackResolution
 } from '../../services/db';
 import type { Appointment, Specialty, Exam, PatientUser, FeedbackResponse } from '../../types';
 import jsPDF from 'jspdf';
@@ -59,6 +60,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
   const [npsReportDay] = useState<number>(1);
   const [npsReportSuccessMsg, setNpsReportSuccessMsg] = useState<string>('');
   const [replySuccessMsgMap, setReplySuccessMsgMap] = useState<Record<string, string>>({});
+  const [npsStatusFilter, setNpsStatusFilter] = useState<'Todos' | 'Pendentes' | 'Resolvidos'>('Todos');
 
   const chartCityRef = useRef<SVGSVGElement | null>(null);
   const chartExamsRef = useRef<SVGSVGElement | null>(null);
@@ -661,6 +663,8 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
     const app = appointments.find(a => a.protocol.toUpperCase() === fb.appointmentProtocol.toUpperCase());
     if (selectedNpsSpecialty && app?.specialtyId !== selectedNpsSpecialty) return false;
     if (selectedNpsRegion && app?.city !== selectedNpsRegion) return false;
+    if (npsStatusFilter === 'Pendentes' && fb.isResolved === true) return false;
+    if (npsStatusFilter === 'Resolvidos' && fb.isResolved !== true) return false;
     if (npsSearch) {
       const query = npsSearch.toLowerCase();
       const matchComment = fb.comment.toLowerCase().includes(query);
@@ -1452,6 +1456,16 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                     <option key={city} value={city}>{city}</option>
                   ))}
                 </select>
+
+                <select
+                  value={npsStatusFilter}
+                  onChange={(e) => setNpsStatusFilter(e.target.value as any)}
+                  className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 font-semibold"
+                >
+                  <option value="Todos">Status: Todos</option>
+                  <option value="Pendentes">Pendentes</option>
+                  <option value="Resolvidos">Tratados</option>
+                </select>
               </div>
             </div>
 
@@ -1463,17 +1477,20 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
               ) : (
                 filteredFeedbacks.map((fb) => {
                   const app = appointments.find(a => a.protocol.toUpperCase() === fb.appointmentProtocol.toUpperCase());
+                  const isResolved = fb.isResolved === true;
                   const isCritical = fb.npsScore <= 6 || /erro|negligência|ruim|péssimo|atraso/i.test(fb.comment);
                   const formattedDate = fb.createdAt ? new Date(fb.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
                   const successMsg = replySuccessMsgMap[fb.id];
+                  const cardBgClass = isResolved
+                    ? 'bg-zinc-50/20 border-zinc-200/30 dark:bg-zinc-955/5 dark:border-zinc-850/50 opacity-75'
+                    : isCritical
+                    ? 'bg-red-50/20 border-red-200/40 dark:bg-red-955/5 dark:border-red-900/20'
+                    : 'bg-zinc-50/50 border-zinc-200/50 dark:bg-zinc-955/10 dark:border-zinc-850';
 
                   return (
-                    <div
-                      key={fb.id}
-                      className={`p-4 rounded-2xl border text-xs space-y-3 transition-all ${isCritical
-                        ? 'bg-red-50/20 border-red-200/40 dark:bg-red-955/5 dark:border-red-900/20'
-                        : 'bg-zinc-50/50 border-zinc-200/50 dark:bg-zinc-955/10 dark:border-zinc-850'
-                        }`}
+                    <div 
+                      key={fb.id} 
+                      className={`p-4 rounded-2xl border text-xs space-y-3 transition-all ${cardBgClass}`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -1487,53 +1504,88 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {isCritical && (
+                          {isCritical && !isResolved && (
                             <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-red-650 dark:text-red-400 bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-lg border border-red-200/30 dark:border-red-900/30 animate-pulse">
                               <AlertTriangle className="w-3 h-3 text-red-500" />
                               Alerta Crítico
                             </span>
                           )}
-                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${fb.npsScore >= 9
-                            ? 'bg-green-50 border border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-900/30'
-                            : fb.npsScore >= 7
-                              ? 'bg-yellow-50 border border-yellow-200 text-yellow-700 dark:bg-yellow-950/20 dark:border-yellow-900/30'
-                              : 'bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/20 dark:border-red-900/30'
-                            }`}>
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
+                            isResolved
+                              ? 'bg-emerald-50 border border-emerald-250 text-emerald-700 dark:bg-emerald-955/20 dark:border-emerald-900/30'
+                              : 'bg-rose-50 border border-rose-250 text-rose-700 dark:bg-rose-955/20 dark:text-rose-900/30 animate-pulse'
+                          }`}>
+                            {isResolved ? '✓ Tratado' : '⚡ Pendente'}
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
+                            fb.npsScore >= 9 
+                              ? 'bg-green-50 border border-green-200 text-green-700 dark:bg-green-955/20 dark:text-green-900/30' 
+                              : fb.npsScore >= 7
+                              ? 'bg-yellow-50 border border-yellow-200 text-yellow-700 dark:bg-yellow-955/20 dark:text-yellow-900/30'
+                              : 'bg-red-50 border border-red-200 text-red-700 dark:bg-red-955/20 dark:text-red-400'
+                          }`}>
                             Nota: {fb.npsScore}/10
                           </span>
                         </div>
                       </div>
 
-                      <p className="text-zinc-700 dark:text-zinc-350 italic pl-3 border-l-2 border-zinc-200 dark:border-zinc-800">
+                      <p className="text-zinc-700 dark:text-zinc-355 italic pl-3 border-l-2 border-zinc-200 dark:border-zinc-800">
                         "{fb.comment}"
                       </p>
 
-                      {fb.adminResponse ? (
-                        <div className="p-3 bg-zinc-100 dark:bg-zinc-950/50 border border-zinc-200/60 dark:border-zinc-850 rounded-xl space-y-1">
-                          <div className="flex items-center justify-between text-[10px] font-bold text-zinc-450">
-                            <span>Retorno da Ouvidoria Administrativa (Respondido por: {fb.adminResponseAuthor})</span>
-                            <span>{fb.adminResponseAt ? new Date(fb.adminResponseAt).toLocaleDateString('pt-BR') : ''}</span>
-                          </div>
-                          <p className="text-zinc-650 dark:text-zinc-400 font-semibold">{fb.adminResponse}</p>
+                      <div className="flex items-center justify-between gap-4 pt-1">
+                        <div className="flex-1 min-w-0">
+                          {fb.adminResponse && (
+                            <div className="p-3 bg-zinc-100 dark:bg-zinc-950/50 border border-zinc-200/60 dark:border-zinc-850 rounded-xl space-y-1">
+                              <div className="flex items-center justify-between text-[10px] font-bold text-zinc-450">
+                                <span>Retorno da Ouvidoria Administrativa (Respondido por: {fb.adminResponseAuthor})</span>
+                                <span>{fb.adminResponseAt ? new Date(fb.adminResponseAt).toLocaleDateString('pt-BR') : ''}</span>
+                              </div>
+                              <p className="text-zinc-655 dark:text-zinc-400 font-semibold">{fb.adminResponse}</p>
+                            </div>
+                          )}
+                          {!fb.adminResponse && (
+                            <div className="flex gap-2 items-center">
+                              <input
+                                type="text"
+                                placeholder="Escreva uma resposta oficial ao paciente..."
+                                value={replyTextMap[fb.id] || ''}
+                                onChange={(e) => setReplyTextMap(prev => ({ ...prev, [fb.id]: e.target.value }))}
+                                className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                              />
+                              <button
+                                onClick={() => handleSaveFeedbackReply(fb.id)}
+                                className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-150 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl font-bold transition-all flex items-center gap-1.5 active:scale-95 shadow-xs"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                Enviar
+                              </button>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="flex gap-2 items-center">
-                          <input
-                            type="text"
-                            placeholder="Escreva uma resposta oficial ao paciente..."
-                            value={replyTextMap[fb.id] || ''}
-                            onChange={(e) => setReplyTextMap(prev => ({ ...prev, [fb.id]: e.target.value }))}
-                            className="flex-1 px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
-                          />
+
+                        {(fb.adminResponse || fb.npsScore <= 6) && (
                           <button
-                            onClick={() => handleSaveFeedbackReply(fb.id)}
-                            className="px-3.5 py-2 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-150 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-xl font-bold transition-all flex items-center gap-1.5 active:scale-95 shadow-xs"
+                            onClick={async () => {
+                              try {
+                                await toggleFeedbackResolution(fb.id, loggedEmployee.cpf, loggedEmployee.name);
+                                const allFeedbacks = await getFeedbacks();
+                                setFeedbacks(allFeedbacks);
+                              } catch (err) {
+                                console.error(err);
+                              }
+                            }}
+                            className={`px-3 py-1.5 rounded-xl font-bold transition-all text-[11px] shrink-0 border ${
+                              isResolved
+                                ? 'bg-zinc-100 border-zinc-200 hover:bg-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 text-zinc-700'
+                                : 'bg-emerald-600 border-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
+                            }`}
                           >
-                            <Send className="w-3.5 h-3.5" />
-                            Enviar
+                            {isResolved ? 'Reabrir Caso' : 'Resolvido'}
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
+
                       {successMsg && (
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 animate-pulse">
                           {successMsg}
@@ -1545,7 +1597,6 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
               )}
             </div>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs flex flex-col gap-6 h-full">
               <div className="flex items-center gap-2 border-b border-zinc-100 dark:border-zinc-800 pb-3">

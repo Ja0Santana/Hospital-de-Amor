@@ -78,6 +78,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   
   const [activeApp, setActiveApp] = useState<Appointment | null>(null);
+  const isActiveAppOfferActive = !!(activeApp && activeApp.waitingListOfferExpiresAt && new Date(activeApp.waitingListOfferExpiresAt) > new Date() && (activeApp.status === 'Pendente' || activeApp.status === 'Em análise'));
   const [isScheduling, setIsScheduling] = useState(false);
   
   const [scheduleDate, setScheduleDate] = useState('');
@@ -1199,6 +1200,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                     app.followUpDate && 
                     !app.followUpSuspended && 
                     app.followUpDate < todayStr;
+
+                  const isOfferActive = !!(app.waitingListOfferExpiresAt && new Date(app.waitingListOfferExpiresAt) > new Date() && (app.status === 'Pendente' || app.status === 'Em análise'));
                   return (
                     <tr 
                       key={app.id} 
@@ -1215,6 +1218,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                           type="checkbox"
                           checked={selectedApps.includes(app.id)}
                           onChange={(e) => handleSelectOne(app.id, e.target.checked)}
+                          disabled={isOfferActive}
                           className="rounded text-pink-600 focus:ring-pink-500"
                         />
                       </td>
@@ -1254,18 +1258,24 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                       </td>
                       <td className="py-4 px-4">
                         <div className="space-y-1">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            isOverdue 
-                              ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-955/20 dark:text-red-400 border animate-pulse'
-                              : app.status === 'Confirmado' ? 'bg-green-50 text-green-700 dark:bg-green-955/20 dark:text-green-400 border border-green-200/20' :
-                              app.status === 'Cancelado' ? 'bg-red-50 text-red-700 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20' :
-                              app.status === 'Em análise' ? 'bg-blue-50 text-blue-700 dark:bg-blue-955/20 dark:text-blue-400 border border-blue-200/20' :
-                              app.status === 'Reagendamento Pendente' ? 'bg-amber-50 text-amber-700 dark:bg-amber-955/20 dark:text-amber-400 border border-amber-200/20' :
-                              app.status === 'Aguardando Follow-up' ? 'bg-purple-50 text-purple-700 dark:bg-purple-955/20 dark:text-purple-400 border border-purple-200/20' :
-                              'bg-yellow-50 text-yellow-700 dark:bg-yellow-955/20 dark:text-yellow-400 border border-yellow-200/20'
-                          }`}>
-                            {isOverdue ? 'Aguardando Acompanhamento (Vencido)' : app.status === 'Aguardando Follow-up' ? 'Aguardando Acompanhamento' : app.status}
-                          </span>
+                          {isOfferActive ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-pink-100 text-pink-700 dark:bg-pink-955/20 dark:text-pink-400 border border-pink-200/20 animate-pulse block w-max">
+                              ⚡ Oferta Ativa: {getRemainingTime(app.waitingListOfferExpiresAt!)}
+                            </span>
+                          ) : (
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              isOverdue 
+                                ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-955/20 dark:text-red-400 border animate-pulse'
+                                : app.status === 'Confirmado' ? 'bg-green-50 text-green-700 dark:bg-green-955/20 dark:text-green-400 border border-green-200/20' :
+                                app.status === 'Cancelado' ? 'bg-red-50 text-red-700 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20' :
+                                app.status === 'Em análise' ? 'bg-blue-50 text-blue-700 dark:bg-blue-955/20 dark:text-blue-400 border border-blue-200/20' :
+                                app.status === 'Reagendamento Pendente' ? 'bg-amber-50 text-amber-700 dark:bg-amber-955/20 dark:text-amber-400 border border-amber-200/20' :
+                                app.status === 'Aguardando Follow-up' ? 'bg-purple-50 text-purple-700 dark:bg-purple-955/20 dark:text-purple-400 border border-purple-200/20' :
+                                'bg-yellow-50 text-yellow-700 dark:bg-yellow-955/20 dark:text-yellow-400 border border-yellow-200/20'
+                            }`}>
+                              {isOverdue ? 'Aguardando Acompanhamento (Vencido)' : app.status === 'Aguardando Follow-up' ? 'Aguardando Acompanhamento' : app.status}
+                            </span>
+                          )}
                           {hasMailBounce(app) && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20 animate-pulse block w-max">
                               ⚠️ Falha de Envio (E-mail)
@@ -1349,6 +1359,17 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {isActiveAppOfferActive && (
+                <div className="p-4 bg-pink-50 dark:bg-pink-955/15 border border-pink-200/40 dark:border-pink-900/20 text-pink-850 dark:text-pink-400 rounded-2xl flex flex-col gap-1.5 animate-in slide-in-from-top-3">
+                  <div className="flex items-center gap-2 font-black text-xs text-pink-700 dark:text-pink-400">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-pink-650" />
+                    <span>Fila Inteligente: Oferta de Vaga Ativa</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Esta solicitação possui uma oferta de vaga automática ativa. As ações manuais de triagem, alteração de status e agendamento estão bloqueadas até o desfecho da oferta (aceite, recusa ou expiração do prazo).
+                  </p>
+                </div>
+              )}
               {hasMailBounce(activeApp) && (
                 <div className="p-4 bg-red-50 dark:bg-red-955/20 border border-red-205/50 dark:border-red-900/30 text-red-800 dark:text-red-400 rounded-2xl flex flex-col gap-2 animate-in slide-in-from-top-3">
                   <div className="flex items-center gap-2 font-bold text-xs">
@@ -1614,6 +1635,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                         <button
                           key={s}
                           type="button"
+                          disabled={isActiveAppOfferActive}
                           onClick={() => setStatusInput(s)}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
                             statusInput === s
@@ -1638,6 +1660,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                         <button
                           key={p}
                           type="button"
+                          disabled={isActiveAppOfferActive}
                           onClick={() => setPriorityInput(p)}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
                             priorityInput === p
@@ -1726,7 +1749,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                   <div className="flex flex-col gap-2 pt-2 border-t border-zinc-150 dark:border-zinc-800">
                     <button
                       onClick={handleSaveTriagemChanges}
-                      className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-pink-600/15"
+                      disabled={isActiveAppOfferActive}
+                      className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-pink-600/15 disabled:opacity-50"
                     >
                       Salvar Alterações
                     </button>
@@ -1739,7 +1763,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                           setFollowUpIsSuspended(activeApp.followUpSuspended || false);
                           setFollowUpReason('');
                         }}
-                        className="h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                        disabled={isActiveAppOfferActive}
+                        className="h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50"
                       >
                         Acompanhamento
                       </button>
@@ -1755,7 +1780,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                               setScheduleTime('08:30');
                             }
                           }}
-                          className="h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15"
+                          disabled={isActiveAppOfferActive}
+                          className="h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15 disabled:opacity-50"
                         >
                           Agendar
                         </button>
