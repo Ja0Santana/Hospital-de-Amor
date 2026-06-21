@@ -56,7 +56,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
   const [npsExportFormat, setNpsExportFormat] = useState<'pdf' | 'csv' | 'excel'>('pdf');
   const [npsRecipients, setNpsRecipients] = useState<string>('diretoria@hospitaldeamor.org.br');
   const [isNpsReportScheduled, setIsNpsReportScheduled] = useState<boolean>(false);
-  const [npsReportDay, setNpsReportDay] = useState<number>(1);
+  const [npsReportDay] = useState<number>(1);
   const [npsReportSuccessMsg, setNpsReportSuccessMsg] = useState<string>('');
   const [replySuccessMsgMap, setReplySuccessMsgMap] = useState<Record<string, string>>({});
 
