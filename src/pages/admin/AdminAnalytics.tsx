@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  getAppointmentsForAdmin, 
-  getSpecialties, 
+import {
+  getAppointmentsForAdmin,
+  getSpecialties,
   runDataLifecycleArchiving,
   addAuditLogAdmin,
   getFeedbacks,
@@ -9,13 +9,13 @@ import {
 } from '../../services/db';
 import type { Appointment, Specialty, Exam, PatientUser, FeedbackResponse } from '../../types';
 import jsPDF from 'jspdf';
-import { 
-  Download, 
-  FileText, 
-  Settings, 
-  CheckCircle, 
-  Database, 
-  Mail, 
+import {
+  Download,
+  FileText,
+  Settings,
+  CheckCircle,
+  Database,
+  Mail,
   Info,
   MessageSquare,
   AlertTriangle,
@@ -32,7 +32,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
   const [selectedCityFilter, setSelectedCityFilter] = useState<string>('');
   const [cityViewMode, setCityViewMode] = useState<'quantitativo' | 'percentual'>('quantitativo');
   const [examRankingMode, setExamRankingMode] = useState<'top' | 'bottom'>('top');
-  
+
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [reportFormat, setReportFormat] = useState<'pdf' | 'csv' | 'excel'>('pdf');
@@ -56,7 +56,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
   const [npsExportFormat, setNpsExportFormat] = useState<'pdf' | 'csv' | 'excel'>('pdf');
   const [npsRecipients, setNpsRecipients] = useState<string>('diretoria@hospitaldeamor.org.br');
   const [isNpsReportScheduled, setIsNpsReportScheduled] = useState<boolean>(false);
-  const [npsReportDay] = useState<number>(1);
+  const [npsReportDay, setNpsReportDay] = useState<number>(1);
   const [npsReportSuccessMsg, setNpsReportSuccessMsg] = useState<string>('');
   const [replySuccessMsgMap, setReplySuccessMsgMap] = useState<Record<string, string>>({});
 
@@ -110,8 +110,8 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
     const isHospitalDomain = (email: string) => {
       const domain = email.split('@')[1]?.toLowerCase();
       return domain && (
-        domain.endsWith('hospitaldeamor.org.br') || 
-        domain.endsWith('fundacaopioxii.org.br') || 
+        domain.endsWith('hospitaldeamor.org.br') ||
+        domain.endsWith('fundacaopioxii.org.br') ||
         domain.endsWith('hcancerbarretos.com.br')
       );
     };
@@ -289,16 +289,16 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
         const promoters = filtered.filter(f => f.npsScore >= 9).length;
         const passives = filtered.filter(f => f.npsScore >= 7 && f.npsScore <= 8).length;
         const detractors = filtered.filter(f => f.npsScore <= 6).length;
-        
+
         const npsScore = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : 0;
 
         doc.setFont('Helvetica', 'bold');
         doc.text('Metricas Consolidadas:', 12, 42);
         doc.setFont('Helvetica', 'normal');
         doc.text(`Total de Feedbacks: ${total}`, 12, 48);
-        doc.text(`Promotores (9-10): ${promoters} (${total > 0 ? ((promoters/total)*100).toFixed(1) : 0}%)`, 12, 53);
-        doc.text(`Passivos (7-8): ${passives} (${total > 0 ? ((passives/total)*100).toFixed(1) : 0}%)`, 12, 58);
-        doc.text(`Detratores (0-6): ${detractors} (${total > 0 ? ((detractors/total)*100).toFixed(1) : 0}%)`, 12, 63);
+        doc.text(`Promotores (9-10): ${promoters} (${total > 0 ? ((promoters / total) * 100).toFixed(1) : 0}%)`, 12, 53);
+        doc.text(`Passivos (7-8): ${passives} (${total > 0 ? ((passives / total) * 100).toFixed(1) : 0}%)`, 12, 58);
+        doc.text(`Detratores (0-6): ${detractors} (${total > 0 ? ((detractors / total) * 100).toFixed(1) : 0}%)`, 12, 63);
 
         doc.setFont('Helvetica', 'bold');
         doc.setFillColor(244, 244, 245);
@@ -425,8 +425,8 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
     const isHospitalDomain = (email: string) => {
       const domain = email.split('@')[1]?.toLowerCase();
       return domain && (
-        domain.endsWith('hospitaldeamor.org.br') || 
-        domain.endsWith('fundacaopioxii.org.br') || 
+        domain.endsWith('hospitaldeamor.org.br') ||
+        domain.endsWith('fundacaopioxii.org.br') ||
         domain.endsWith('hcancerbarretos.com.br')
       );
     };
@@ -732,7 +732,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                   Exportar Imagem
                 </button>
               </div>
-              
+
               <div className="flex flex-col items-center">
                 <svg
                   ref={chartCityRef}
@@ -947,7 +947,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
               >
                 {(() => {
                   const maxVal = Math.max(...evolutionData.counts.map(c => c.count), ...evolutionData.movingAverages, ...evolutionData.projections, 1);
-                  
+
                   const pointsActual = evolutionData.counts.map((item, index) => {
                     const x = index * 34 + 35;
                     const y = 170 - (item.count / maxVal) * 140;
@@ -978,7 +978,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                     const [yearStr, monthStr] = lastMonthStr.split('-');
                     let y = parseInt(yearStr);
                     let m = parseInt(monthStr);
-                    
+
                     m += projIndex + 1;
                     while (m > 12) {
                       m -= 12;
@@ -1367,13 +1367,12 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                 </h2>
               </div>
               <div className="mt-4">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
-                  npsMetrics.npsScore >= 70 
-                    ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-900/30' 
-                    : npsMetrics.npsScore >= 50
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${npsMetrics.npsScore >= 70
+                  ? 'bg-green-50 border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-900/30'
+                  : npsMetrics.npsScore >= 50
                     ? 'bg-yellow-50 border-yellow-200 text-yellow-700 dark:bg-yellow-950/20 dark:border-yellow-900/30'
                     : 'bg-red-50 border-red-200 text-red-700 dark:bg-red-950/20 dark:border-red-900/30'
-                }`}>
+                  }`}>
                   {npsMetrics.npsScore >= 70 ? 'Zona de Excelência' : npsMetrics.npsScore >= 50 ? 'Zona de Qualidade' : 'Zona de Atenção'}
                 </span>
               </div>
@@ -1422,7 +1421,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                 <MessageSquare className="w-5 h-5 text-pink-600" />
                 Mural de Feedbacks Operacionais ({filteredFeedbacks.length})
               </h3>
-              
+
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 <input
                   type="text"
@@ -1469,13 +1468,12 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                   const successMsg = replySuccessMsgMap[fb.id];
 
                   return (
-                    <div 
-                      key={fb.id} 
-                      className={`p-4 rounded-2xl border text-xs space-y-3 transition-all ${
-                        isCritical 
-                          ? 'bg-red-50/20 border-red-200/40 dark:bg-red-955/5 dark:border-red-900/20' 
-                          : 'bg-zinc-50/50 border-zinc-200/50 dark:bg-zinc-955/10 dark:border-zinc-850'
-                      }`}
+                    <div
+                      key={fb.id}
+                      className={`p-4 rounded-2xl border text-xs space-y-3 transition-all ${isCritical
+                        ? 'bg-red-50/20 border-red-200/40 dark:bg-red-955/5 dark:border-red-900/20'
+                        : 'bg-zinc-50/50 border-zinc-200/50 dark:bg-zinc-955/10 dark:border-zinc-850'
+                        }`}
                     >
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -1495,13 +1493,12 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                               Alerta Crítico
                             </span>
                           )}
-                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
-                            fb.npsScore >= 9 
-                              ? 'bg-green-50 border border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-900/30' 
-                              : fb.npsScore >= 7
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${fb.npsScore >= 9
+                            ? 'bg-green-50 border border-green-200 text-green-700 dark:bg-green-950/20 dark:border-green-900/30'
+                            : fb.npsScore >= 7
                               ? 'bg-yellow-50 border border-yellow-200 text-yellow-700 dark:bg-yellow-950/20 dark:border-yellow-900/30'
                               : 'bg-red-50 border border-red-200 text-red-700 dark:bg-red-950/20 dark:border-red-900/30'
-                          }`}>
+                            }`}>
                             Nota: {fb.npsScore}/10
                           </span>
                         </div>
