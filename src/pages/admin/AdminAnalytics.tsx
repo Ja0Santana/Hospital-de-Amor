@@ -623,8 +623,8 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
 
     const svgString = new XMLSerializer().serializeToString(svgElement);
     const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-    const URL = window.URL || window.webkitURL || window;
-    const blobURL = URL.createObjectURL(svgBlob);
+    const urlApi = window.URL || (window as any).webkitURL;
+    const blobURL = urlApi.createObjectURL(svgBlob);
     const image = new Image();
     image.onload = () => {
       const canvas = document.createElement('canvas');
@@ -643,7 +643,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
         downloadLink.click();
         document.body.removeChild(downloadLink);
       }
-      URL.revokeObjectURL(blobURL);
+      urlApi.revokeObjectURL(blobURL);
     };
     image.src = blobURL;
   };
