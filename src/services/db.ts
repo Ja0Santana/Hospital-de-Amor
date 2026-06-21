@@ -883,7 +883,7 @@ export async function getAppointmentByCpf(cpf: string): Promise<Appointment[]> {
 export async function updateAppointment(appointment: Appointment): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(['appointments', 'calendar_blocks', 'capacity_limits'], 'readwrite');
+    const tx = db.transaction(['appointments', 'calendar_blocks', 'capacity_limits', 'audit_logs', 'email_queue'], 'readwrite');
     const appStore = tx.objectStore('appointments');
 
     const getReq = appStore.get(appointment.id);
@@ -900,6 +900,17 @@ export async function updateAppointment(appointment: Appointment): Promise<void>
               note: appointment.observations
             }
           ];
+          if (current.status === 'Confirmado' && appointment.status === 'Cancelado') {
+            const slot = {
+              rescheduledDate: current.rescheduledDate || '',
+              rescheduledTime: current.rescheduledTime || '',
+              scheduledRoom: current.scheduledRoom || '',
+              scheduledDoctor: current.scheduledDoctor || ''
+            };
+            if (slot.rescheduledDate) {
+              offerSlotToNextInWaitlist(appointment.specialtyId, appointment.examId, slot, tx);
+            }
+          }
         } else if (!appointment.statusHistory && current.statusHistory) {
           appointment.statusHistory = current.statusHistory;
         }
@@ -1758,6 +1769,18 @@ export async function updateAppointmentStatus(
 
       appStore.put(app);
       triggerStatusUpdateEmail(app, observations, tx);
+
+      if (oldStatus === 'Confirmado' && status === 'Cancelado') {
+        const slot = {
+          rescheduledDate: app.rescheduledDate || '',
+          rescheduledTime: app.rescheduledTime || '',
+          scheduledRoom: app.scheduledRoom || '',
+          scheduledDoctor: app.scheduledDoctor || ''
+        };
+        if (slot.rescheduledDate) {
+          offerSlotToNextInWaitlist(app.specialtyId, app.examId, slot, tx);
+        }
+      }
 
       const log: AuditLog = {
         id: 'log-' + crypto.randomUUID().slice(0, 8),
@@ -2701,6 +2724,54 @@ export async function saveFeedback(feedback: Omit<FeedbackResponse, 'id' | 'crea
   });
 }
 
+export async function getFeedbacks(): Promise<FeedbackResponse[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('feedbacks', 'readonly');
+    const store = tx.objectStore('feedbacks');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveFeedbackReply(feedbackId: string, replyText: string, authorCpf: string, authorName: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['feedbacks', 'audit_logs'], 'readwrite');
+    const feedbackStore = tx.objectStore('feedbacks');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = feedbackStore.get(feedbackId);
+    getReq.onsuccess = () => {
+      const fb = getReq.result as FeedbackResponse;
+      if (fb) {
+        fb.adminResponse = replyText;
+        fb.adminResponseAt = new Date().toISOString();
+        fb.adminResponseAuthor = authorName;
+        feedbackStore.put(fb);
+
+        const log: AuditLog = {
+          id: 'log-' + crypto.randomUUID().slice(0, 8),
+          timestamp: new Date().toISOString(),
+          userCpf: authorCpf,
+          userName: authorName,
+          action: `Resposta ao feedback NPS - Protocolo ${fb.appointmentProtocol}`,
+          module: 'Ouvidoria',
+          ipAddress: '127.0.0.1',
+          details: `Resposta registrada: "${replyText}"`
+        };
+        auditStore.add(log);
+      } else {
+        reject(new Error('Feedback não encontrado.'));
+      }
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function getTransparencyData(): Promise<TransparencyData> {
   const db = await initDb();
   return new Promise((resolve, reject) => {
@@ -2788,5 +2859,222 @@ export async function runDataLifecycleArchiving(): Promise<number> {
       resolve(count);
     };
     request.onerror = () => reject(request.error);
+  });
+}
+
+function offerSlotToNextInWaitlist(
+  specialtyId: string,
+  examId: string,
+  slot: { rescheduledDate: string; rescheduledTime: string; scheduledRoom: string; scheduledDoctor: string },
+  tx: IDBTransaction
+): void {
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+  const emailStore = tx.objectStore('email_queue');
+
+  const req = appStore.getAll();
+  req.onsuccess = () => {
+    const appointments = req.result as Appointment[];
+    const candidates = appointments.filter(
+      (a) =>
+        a.specialtyId === specialtyId &&
+        a.examId === examId &&
+        (a.status === 'Pendente' || a.status === 'Em análise') &&
+        (!a.waitingListOfferExpiresAt || new Date(a.waitingListOfferExpiresAt) < new Date())
+    );
+
+    if (candidates.length === 0) return;
+
+    candidates.sort((a, b) => {
+      const pA = a.isLegalPriority ? 1 : 0;
+      const pB = b.isLegalPriority ? 1 : 0;
+      if (pA !== pB) return pB - pA;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const candidate = candidates[0];
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+    candidate.rescheduledDate = slot.rescheduledDate;
+    candidate.rescheduledTime = slot.rescheduledTime;
+    candidate.scheduledRoom = slot.scheduledRoom;
+    candidate.scheduledDoctor = slot.scheduledDoctor;
+    candidate.waitingListOfferDate = now.toISOString();
+    candidate.waitingListOfferExpiresAt = expiresAt.toISOString();
+
+    appStore.put(candidate);
+
+    const log: AuditLog = {
+      id: 'log-' + crypto.randomUUID().slice(0, 8),
+      timestamp: now.toISOString(),
+      userCpf: 'SYSTEM',
+      userName: 'Fila de Espera Inteligente',
+      action: `Oferta de vaga automatica para o paciente ${candidate.patientName} (Protocolo ${candidate.protocol})`,
+      module: 'Triagem',
+      ipAddress: '127.0.0.1',
+      details: `Vaga cancelada do agendamento foi realocada com expiracao de 4 horas.`
+    };
+    auditStore.add(log);
+
+    const emailItem = {
+      recipientEmail: candidate.patientEmail,
+      subject: `Oferta de Vaga Liberada - Protocolo ${candidate.protocol}`,
+      body: `Olá, ${candidate.patientName}.\n\nUma vaga para o seu exame/consulta "${candidate.examName}" foi liberada por cancelamento!\n\nVocê tem 4 horas para aceitar esta vaga. Caso contrário, ela será oferecida ao próximo paciente da fila.\n\nDetalhes da Vaga:\nLocal: Unidade Hospital de Amor - ${candidate.city || 'Principal'}\nData: ${slot.rescheduledDate}\nHora: ${slot.rescheduledTime}\nSala: ${slot.scheduledRoom}\nProfissional: Dr(a). ${slot.scheduledDoctor}\n\nVocê pode aceitar ou recusar esta oferta acessando nosso portal.\n\nAtenciosamente,\nHospital de Amor`,
+      status: 'pending',
+      appointmentProtocol: candidate.protocol,
+      bounced: false
+    };
+    emailStore.add(emailItem);
+  };
+}
+
+export async function acceptWaitlistOffer(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs', 'email_queue'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = appStore.get(appointmentId);
+    getReq.onsuccess = () => {
+      const app = getReq.result as Appointment | undefined;
+      if (!app) {
+        reject(new Error('Agendamento não encontrado.'));
+        return;
+      }
+
+      app.status = 'Confirmado';
+      app.waitingListOfferDate = undefined;
+      app.waitingListOfferExpiresAt = undefined;
+
+      appStore.put(app);
+      triggerStatusUpdateEmail(app, undefined, tx);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: app.patientCpf,
+        userName: app.patientName,
+        action: `Paciente aceitou oferta de vaga via portal - Protocolo ${app.protocol}`,
+        module: 'Paciente',
+        ipAddress: '127.0.0.1',
+        details: `Agendamento confirmado para ${app.rescheduledDate} às ${app.rescheduledTime}.`
+      };
+      auditStore.add(log);
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function rejectWaitlistOffer(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs', 'email_queue'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = appStore.get(appointmentId);
+    getReq.onsuccess = () => {
+      const app = getReq.result as Appointment | undefined;
+      if (!app) {
+        reject(new Error('Agendamento não encontrado.'));
+        return;
+      }
+
+      const slot = {
+        rescheduledDate: app.rescheduledDate || '',
+        rescheduledTime: app.rescheduledTime || '',
+        scheduledRoom: app.scheduledRoom || '',
+        scheduledDoctor: app.scheduledDoctor || ''
+      };
+
+      app.rescheduledDate = undefined;
+      app.rescheduledTime = undefined;
+      app.scheduledRoom = undefined;
+      app.scheduledDoctor = undefined;
+      app.waitingListOfferDate = undefined;
+      app.waitingListOfferExpiresAt = undefined;
+
+      appStore.put(app);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: app.patientCpf,
+        userName: app.patientName,
+        action: `Paciente recusou oferta de vaga via portal - Protocolo ${app.protocol}`,
+        module: 'Paciente',
+        ipAddress: '127.0.0.1',
+        details: 'Vaga liberada para o próximo paciente da fila.'
+      };
+      auditStore.add(log);
+
+      if (slot.rescheduledDate) {
+        offerSlotToNextInWaitlist(app.specialtyId, app.examId, slot, tx);
+      }
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function checkAndProcessExpiredOffers(): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs', 'email_queue'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const req = appStore.getAll();
+    req.onsuccess = () => {
+      const appointments = req.result as Appointment[];
+      const now = new Date();
+      const expired = appointments.filter(
+        (a) => a.waitingListOfferExpiresAt && new Date(a.waitingListOfferExpiresAt) < now
+      );
+
+      if (expired.length === 0) return;
+
+      expired.forEach((app) => {
+        const slot = {
+          rescheduledDate: app.rescheduledDate || '',
+          rescheduledTime: app.rescheduledTime || '',
+          scheduledRoom: app.scheduledRoom || '',
+          scheduledDoctor: app.scheduledDoctor || ''
+        };
+
+        app.rescheduledDate = undefined;
+        app.rescheduledTime = undefined;
+        app.scheduledRoom = undefined;
+        app.scheduledDoctor = undefined;
+        app.waitingListOfferDate = undefined;
+        app.waitingListOfferExpiresAt = undefined;
+
+        appStore.put(app);
+
+        const log: AuditLog = {
+          id: 'log-' + crypto.randomUUID().slice(0, 8),
+          timestamp: now.toISOString(),
+          userCpf: 'SYSTEM',
+          userName: 'Sistema de Regulação',
+          action: `Oferta de vaga expirada sem resposta - Protocolo ${app.protocol}`,
+          module: 'Triagem',
+          ipAddress: '127.0.0.1',
+          details: `Prazo de 4 horas expirou. Vaga do exame ${app.examName} será repassada.`
+        };
+        auditStore.add(log);
+
+        if (slot.rescheduledDate) {
+          offerSlotToNextInWaitlist(app.specialtyId, app.examId, slot, tx);
+        }
+      });
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }

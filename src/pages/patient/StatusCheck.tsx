@@ -5,8 +5,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { Label } from '../../components/ui/label';
 import { Button } from '../../components/ui/button';
 import { Badge } from '../../components/ui/badge';
-import { getAppointmentByCpf, getSpecialties, updateAppointment, getAverageTriageTime, createAuditLog, saveFeedback, triggerConfirmationEmail } from '../../services/db';
-import type { Appointment, Specialty } from '../../types';
+import { getAppointmentByCpf, getSpecialties, updateAppointment, getAverageTriageTime, createAuditLog, saveFeedback, triggerConfirmationEmail, getFeedbacks, acceptWaitlistOffer, rejectWaitlistOffer, checkAndProcessExpiredOffers } from '../../services/db';
+import type { Appointment, Specialty, FeedbackResponse } from '../../types';
 import { formatCpf } from '../../lib/sanitizer';
 import { Calendar, MapPin, User, Clock, AlertCircle, CheckCircle2, XCircle, Info, Star, MessageSquare, X, Upload, FileText, Eye, Trash2, ChevronDown, ChevronUp, Search } from 'lucide-react';
 
@@ -20,6 +20,20 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedProtocol, setSelectedProtocol] = useState(initialProtocol);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [feedbacks, setFeedbacks] = useState<FeedbackResponse[]>([]);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+      checkAndProcessExpiredOffers().then(() => {
+        getAppointmentByCpf(patientCpf).then((results) => {
+          const sorted = results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          setAppointments(sorted);
+        }).catch(console.error);
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [patientCpf]);
   const [loading, setLoading] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [statusFilter, setStatusFilter] = useState<'Todos' | Appointment['status']>('Todos');
@@ -94,9 +108,14 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
   const loadAppointments = async () => {
     setLoading(true);
     try {
+      await checkAndProcessExpiredOffers();
       const results = await getAppointmentByCpf(patientCpf);
       const sorted = results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setAppointments(sorted);
+      
+      const allFeedbacks = await getFeedbacks();
+      setFeedbacks(allFeedbacks);
+
       if (initialProtocol) {
         setSelectedProtocol(initialProtocol);
       } else if (!selectedProtocol && sorted.length > 0) {
@@ -591,6 +610,86 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
 
                 {isExpanded && appointment && (
                   <div className="border-t border-zinc-100 dark:border-zinc-800 p-6 space-y-6 bg-zinc-50/20 dark:bg-zinc-900/10 animate-in slide-in-from-top-2 duration-200">
+                    {appointment.waitingListOfferExpiresAt && new Date(appointment.waitingListOfferExpiresAt) > new Date() && (
+                      <div className="p-5 bg-pink-50 dark:bg-pink-955/20 border border-pink-200/40 dark:border-pink-900/30 rounded-2xl space-y-4 animate-in slide-in-from-top-3">
+                        <div className="flex gap-3 items-start">
+                          <Clock className="w-5 h-5 text-pink-650 shrink-0 mt-0.5 animate-pulse" />
+                          <div className="space-y-1 flex-1">
+                            <h4 className="font-extrabold text-sm text-pink-700 dark:text-pink-400">⚠️ Oferta de Vaga Liberada! (Fila de Espera)</h4>
+                            <p className="text-xs text-zinc-650 dark:text-zinc-355 leading-relaxed">
+                              Uma vaga foi liberada para o seu exame/consulta por cancelamento de outro paciente!
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Data e Horário</span>
+                                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                  {appointment.rescheduledDate ? new Date(appointment.rescheduledDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''} às {appointment.rescheduledTime}h
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Profissional</span>
+                                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                  {appointment.scheduledDoctor}
+                                </span>
+                              </div>
+                              <div className="sm:col-span-2">
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 block">Consultório / Sala</span>
+                                <span className="font-semibold text-zinc-800 dark:text-zinc-200">
+                                  {appointment.scheduledRoom}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <span className="text-[10px] uppercase font-bold text-zinc-400 block mb-1">Tempo Restante</span>
+                            <span className="font-mono text-base font-black text-pink-600 bg-white dark:bg-zinc-950 px-3 py-1 rounded-xl border border-pink-200/20">
+                              {(() => {
+                                const diff = new Date(appointment.waitingListOfferExpiresAt!).getTime() - Date.now();
+                                if (diff <= 0) return '00:00:00';
+                                const hours = Math.floor(diff / (1000 * 60 * 60));
+                                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                              })()}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex gap-2.5 pt-2 border-t border-pink-100 dark:border-pink-900/20 justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={async () => {
+                              if (window.confirm('Tem certeza de que deseja recusar esta vaga? Ela será ofertada para o próximo da fila.')) {
+                                try {
+                                  await rejectWaitlistOffer(appointment.id);
+                                  await loadAppointments();
+                                } catch (e) {
+                                  console.error(e);
+                                }
+                              }
+                            }}
+                            className="h-9 px-4 rounded-xl text-xs font-bold border-red-200 text-red-650 hover:bg-red-50 dark:border-red-900/40 dark:text-red-400"
+                          >
+                            Recusar Vaga
+                          </Button>
+                          <Button
+                            type="button"
+                            onClick={async () => {
+                              try {
+                                await acceptWaitlistOffer(appointment.id);
+                                await loadAppointments();
+                              } catch (e) {
+                                console.error(e);
+                              }
+                            }}
+                            className="h-9 px-4 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-black shadow-sm"
+                          >
+                            Aceitar Vaga
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="p-4 bg-white dark:bg-zinc-950 border border-zinc-200/50 dark:border-zinc-800 rounded-2xl flex gap-3 items-start shadow-xs">
                       <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                       <div className="space-y-1">
@@ -1043,9 +1142,30 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                           </CardHeader>
                           <CardContent>
                             {feedbackSuccess || (appointment.feedbackNps !== undefined && appointment.feedbackNps !== null) ? (
-                              <div className="p-4 bg-green-50 dark:bg-green-950/10 border border-green-200/30 dark:border-green-800/20 rounded-2xl flex gap-2.5 items-center">
-                                <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
-                                <span className="text-sm font-semibold text-green-800 dark:text-green-400">Obrigado! Seu feedback (NPS) foi registrado com sucesso.</span>
+                              <div className="space-y-4">
+                                <div className="p-4 bg-green-50 dark:bg-green-955/10 border border-green-200/30 dark:border-green-800/20 rounded-2xl flex gap-2.5 items-center">
+                                  <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 shrink-0" />
+                                  <span className="text-sm font-semibold text-green-800 dark:text-green-400">Obrigado! Seu feedback (NPS) foi registrado com sucesso.</span>
+                                </div>
+                                {(() => {
+                                  const matchingFeedback = feedbacks.find(
+                                    (f) => f.appointmentProtocol.toUpperCase() === appointment.protocol.toUpperCase()
+                                  );
+                                  if (matchingFeedback && matchingFeedback.adminResponse) {
+                                    return (
+                                      <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl space-y-2 text-xs text-left animate-in fade-in">
+                                        <div className="flex justify-between items-center text-[10px] text-zinc-400 font-bold uppercase tracking-wider">
+                                          <span>Resposta da Ouvidoria Administrativa ({matchingFeedback.adminResponseAuthor})</span>
+                                          <span>{matchingFeedback.adminResponseAt ? new Date(matchingFeedback.adminResponseAt).toLocaleDateString('pt-BR') : ''}</span>
+                                        </div>
+                                        <p className="text-zinc-700 dark:text-zinc-350 italic font-semibold leading-relaxed">
+                                          "{matchingFeedback.adminResponse}"
+                                        </p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
                             ) : getFeedbackStatus().visible ? (
                               <form onSubmit={handleFeedbackSubmit} className="space-y-5">

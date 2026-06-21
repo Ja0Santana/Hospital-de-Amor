@@ -81,6 +81,8 @@ export interface Appointment {
   rescheduleReason?: string;
   documentReminders?: Array<{ sentAt: string; count: number }>;
   isColdStorage?: boolean;
+  waitingListOfferDate?: string;
+  waitingListOfferExpiresAt?: string;
 }
 
 export interface FeedbackResponse {
@@ -92,6 +94,9 @@ export interface FeedbackResponse {
   userCpf: string;
   originSessionId: string;
   originIp: string;
+  adminResponse?: string;
+  adminResponseAt?: string;
+  adminResponseAuthor?: string;
 }
 
 export interface PatientUser {
