@@ -390,6 +390,87 @@ function seedData(db: IDBDatabase): Promise<IDBDatabase> {
             consentLgpd: true,
             feedbackNps: null,
             feedbackComment: null
+          },
+          {
+            id: 'mock-app-5',
+            protocol: 'HA-2026-0005',
+            patientName: 'Roberto Carlos da Silva',
+            patientCpf: '987.654.321-09',
+            patientBirthDate: '1970-11-25',
+            patientPhone: '(79) 98888-8888',
+            patientEmail: 'roberto.carlos@email.com',
+            state: 'SE',
+            city: 'Aracaju',
+            specialtyId: 'spec-3',
+            specialtyName: 'Radiologia',
+            examId: 'exam-3-1',
+            examName: 'Exame de Sangue Completo',
+            createdAt: '2026-01-12T09:00:00.000Z',
+            status: 'Confirmado',
+            rescheduledDate: new Date().toISOString().split('T')[0],
+            rescheduledTime: '14:30',
+            scheduledRoom: 'Sala de Coleta 2',
+            scheduledDoctor: 'Dr. Roberto Santos',
+            fileAttachment: null,
+            observations: '',
+            consentLgpd: true,
+            feedbackNps: null,
+            feedbackComment: null,
+            checkInAt: new Date(Date.now() - 35 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'mock-app-6',
+            protocol: 'HA-2026-0006',
+            patientName: 'Maria Antônia Mendonça',
+            patientCpf: '456.789.012-34',
+            patientBirthDate: '1965-05-14',
+            patientPhone: '(79) 97777-7777',
+            patientEmail: 'maria.antonia@email.com',
+            state: 'SE',
+            city: 'Itabaiana',
+            specialtyId: 'spec-2',
+            specialtyName: 'Mastologia',
+            examId: 'exam-2-1',
+            examName: 'Mamografia Bilateral',
+            createdAt: '2026-01-13T10:00:00.000Z',
+            status: 'Confirmado',
+            rescheduledDate: new Date().toISOString().split('T')[0],
+            rescheduledTime: '15:00',
+            scheduledRoom: 'Sala de Mamografia 1',
+            scheduledDoctor: 'Dra. Patricia Arantes',
+            fileAttachment: null,
+            observations: '',
+            consentLgpd: true,
+            feedbackNps: null,
+            feedbackComment: null,
+            checkInAt: new Date(Date.now() - 15 * 60 * 1000).toISOString()
+          },
+          {
+            id: 'mock-app-7',
+            protocol: 'HA-2026-0007',
+            patientName: 'Julio Cesar de Almeida',
+            patientCpf: '111.222.333-44',
+            patientBirthDate: '1990-02-10',
+            patientPhone: '(79) 96666-6666',
+            patientEmail: 'julio.cesar@email.com',
+            state: 'SE',
+            city: 'Lagarto',
+            specialtyId: 'spec-3',
+            specialtyName: 'Radiologia',
+            examId: 'exam-3-1',
+            examName: 'Exame de Sangue Completo',
+            createdAt: '2026-01-13T10:30:00.000Z',
+            status: 'Confirmado',
+            rescheduledDate: new Date().toISOString().split('T')[0],
+            rescheduledTime: '15:30',
+            scheduledRoom: 'Sala de Coleta 2',
+            scheduledDoctor: 'Dr. Roberto Santos',
+            fileAttachment: null,
+            observations: '',
+            consentLgpd: true,
+            feedbackNps: null,
+            feedbackComment: null,
+            checkInAt: new Date(Date.now() - 25 * 60 * 1000).toISOString()
           }
         ];
         mockApps.forEach((app) => appStore.put(app));
@@ -883,7 +964,7 @@ export async function getAppointmentByCpf(cpf: string): Promise<Appointment[]> {
 export async function updateAppointment(appointment: Appointment): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(['appointments', 'calendar_blocks', 'capacity_limits'], 'readwrite');
+    const tx = db.transaction(['appointments', 'calendar_blocks', 'capacity_limits', 'audit_logs', 'email_queue'], 'readwrite');
     const appStore = tx.objectStore('appointments');
 
     const getReq = appStore.get(appointment.id);
@@ -900,6 +981,17 @@ export async function updateAppointment(appointment: Appointment): Promise<void>
               note: appointment.observations
             }
           ];
+          if (current.status === 'Confirmado' && appointment.status === 'Cancelado') {
+            const slot = {
+              rescheduledDate: current.rescheduledDate || '',
+              rescheduledTime: current.rescheduledTime || '',
+              scheduledRoom: current.scheduledRoom || '',
+              scheduledDoctor: current.scheduledDoctor || ''
+            };
+            if (slot.rescheduledDate) {
+              offerSlotToNextInWaitlist(appointment.specialtyId, appointment.examId, slot, tx);
+            }
+          }
         } else if (!appointment.statusHistory && current.statusHistory) {
           appointment.statusHistory = current.statusHistory;
         }
@@ -1756,8 +1848,25 @@ export async function updateAppointmentStatus(
       app.observations = observations;
       app.assignedTo = employeeName;
 
+      if (status === 'Confirmado' || status === 'Concluído') {
+        app.pepSyncStatus = 'pending';
+        app.pepSyncAttempts = 0;
+      }
+
       appStore.put(app);
       triggerStatusUpdateEmail(app, observations, tx);
+
+      if (oldStatus === 'Confirmado' && status === 'Cancelado') {
+        const slot = {
+          rescheduledDate: app.rescheduledDate || '',
+          rescheduledTime: app.rescheduledTime || '',
+          scheduledRoom: app.scheduledRoom || '',
+          scheduledDoctor: app.scheduledDoctor || ''
+        };
+        if (slot.rescheduledDate) {
+          offerSlotToNextInWaitlist(app.specialtyId, app.examId, slot, tx);
+        }
+      }
 
       const log: AuditLog = {
         id: 'log-' + crypto.randomUUID().slice(0, 8),
@@ -1883,6 +1992,8 @@ export async function confirmAppointmentSchedule(
             currentApp.scheduledRoom = room;
             currentApp.scheduledDoctor = doctor;
             currentApp.assignedTo = employeeName;
+            currentApp.pepSyncStatus = 'pending';
+            currentApp.pepSyncAttempts = 0;
 
             appStore.put(currentApp);
             triggerStatusUpdateEmail(currentApp, undefined, tx);
@@ -2701,6 +2812,106 @@ export async function saveFeedback(feedback: Omit<FeedbackResponse, 'id' | 'crea
   });
 }
 
+export async function getFeedbacks(): Promise<FeedbackResponse[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('feedbacks', 'readonly');
+    const store = tx.objectStore('feedbacks');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result || []);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveFeedbackReply(feedbackId: string, replyText: string, authorCpf: string, authorName: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['feedbacks', 'audit_logs'], 'readwrite');
+    const feedbackStore = tx.objectStore('feedbacks');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = feedbackStore.get(feedbackId);
+    getReq.onsuccess = () => {
+      const fb = getReq.result as FeedbackResponse;
+      if (fb) {
+        const isEditing = fb.adminResponse && fb.adminResponse !== replyText;
+        const oldResponse = fb.adminResponse || '';
+        fb.adminResponse = replyText;
+        fb.adminResponseAt = new Date().toISOString();
+        fb.adminResponseAuthor = authorName;
+        if (fb.isResolved === undefined) {
+          fb.isResolved = false;
+        }
+        feedbackStore.put(fb);
+
+        const log: AuditLog = {
+          id: 'log-' + crypto.randomUUID().slice(0, 8),
+          timestamp: new Date().toISOString(),
+          userCpf: authorCpf,
+          userName: authorName,
+          action: isEditing
+            ? `Edicao de resposta ao feedback NPS - Protocolo ${fb.appointmentProtocol}`
+            : `Resposta ao feedback NPS - Protocolo ${fb.appointmentProtocol}`,
+          module: 'Ouvidoria',
+          ipAddress: '127.0.0.1',
+          details: isEditing
+            ? `Resposta anterior: "${oldResponse}" | Nova resposta: "${replyText}"`
+            : `Resposta registrada: "${replyText}"`,
+          changes: isEditing ? {
+            adminResponse: { old: oldResponse, new: replyText }
+          } : undefined
+        };
+        auditStore.add(log);
+      } else {
+        reject(new Error('Feedback não encontrado.'));
+      }
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function toggleFeedbackResolution(feedbackId: string, operatorCpf: string, operatorName: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['feedbacks', 'audit_logs'], 'readwrite');
+    const feedbackStore = tx.objectStore('feedbacks');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = feedbackStore.get(feedbackId);
+    getReq.onsuccess = () => {
+      const fb = getReq.result as FeedbackResponse;
+      if (fb) {
+        const oldVal = fb.isResolved || false;
+        const newVal = !oldVal;
+        fb.isResolved = newVal;
+        feedbackStore.put(fb);
+
+        const log: AuditLog = {
+          id: 'log-' + crypto.randomUUID().slice(0, 8),
+          timestamp: new Date().toISOString(),
+          userCpf: operatorCpf,
+          userName: operatorName,
+          action: `Alteracao de resolucao de NPS - Protocolo ${fb.appointmentProtocol}`,
+          module: 'Ouvidoria',
+          ipAddress: '127.0.0.1',
+          details: `Status de resolucao alterado de ${oldVal ? 'Tratado' : 'Pendente'} para ${newVal ? 'Tratado' : 'Pendente'}.`,
+          changes: {
+            isResolved: { old: oldVal, new: newVal }
+          }
+        };
+        auditStore.add(log);
+      } else {
+        reject(new Error('Feedback não encontrado.'));
+      }
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 export async function getTransparencyData(): Promise<TransparencyData> {
   const db = await initDb();
   return new Promise((resolve, reject) => {
@@ -2788,5 +2999,447 @@ export async function runDataLifecycleArchiving(): Promise<number> {
       resolve(count);
     };
     request.onerror = () => reject(request.error);
+  });
+}
+
+function offerSlotToNextInWaitlist(
+  specialtyId: string,
+  examId: string,
+  slot: { rescheduledDate: string; rescheduledTime: string; scheduledRoom: string; scheduledDoctor: string },
+  tx: IDBTransaction
+): void {
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+  const emailStore = tx.objectStore('email_queue');
+
+  const req = appStore.getAll();
+  req.onsuccess = () => {
+    const appointments = req.result as Appointment[];
+    const candidates = appointments.filter(
+      (a) =>
+        a.specialtyId === specialtyId &&
+        a.examId === examId &&
+        (a.status === 'Pendente' || a.status === 'Em análise') &&
+        (!a.waitingListOfferExpiresAt || new Date(a.waitingListOfferExpiresAt) < new Date())
+    );
+
+    if (candidates.length === 0) return;
+
+    candidates.sort((a, b) => {
+      const pA = a.isLegalPriority ? 1 : 0;
+      const pB = b.isLegalPriority ? 1 : 0;
+      if (pA !== pB) return pB - pA;
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
+    const candidate = candidates[0];
+    const now = new Date();
+    let expiresAt = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+
+    candidate.rescheduledDate = slot.rescheduledDate;
+    candidate.rescheduledTime = slot.rescheduledTime;
+    candidate.scheduledRoom = slot.scheduledRoom;
+    candidate.scheduledDoctor = slot.scheduledDoctor;
+    candidate.waitingListOfferDate = now.toISOString();
+    
+    const examDateTime = new Date(`${slot.rescheduledDate}T${slot.rescheduledTime}`);
+    if (!isNaN(examDateTime.getTime()) && examDateTime > now && examDateTime < expiresAt) {
+      expiresAt = examDateTime;
+    }
+    candidate.waitingListOfferExpiresAt = expiresAt.toISOString();
+
+    appStore.put(candidate);
+
+    const log: AuditLog = {
+      id: 'log-' + crypto.randomUUID().slice(0, 8),
+      timestamp: now.toISOString(),
+      userCpf: 'SYSTEM',
+      userName: 'Fila de Espera Inteligente',
+      action: `Oferta de vaga automatica para o paciente ${candidate.patientName} (Protocolo ${candidate.protocol})`,
+      module: 'Triagem',
+      ipAddress: '127.0.0.1',
+      details: `Vaga cancelada do agendamento foi realocada com expiracao de 4 horas.`
+    };
+    auditStore.add(log);
+
+    const emailItem = {
+      recipientEmail: candidate.patientEmail,
+      subject: `Oferta de Vaga Liberada - Protocolo ${candidate.protocol}`,
+      body: `Olá, ${candidate.patientName}.\n\nUma vaga para o seu exame/consulta "${candidate.examName}" foi liberada por cancelamento!\n\nVocê tem 4 horas para aceitar esta vaga. Caso contrário, ela será oferecida ao próximo paciente da fila.\n\nDetalhes da Vaga:\nLocal: Unidade Hospital de Amor - ${candidate.city || 'Principal'}\nData: ${slot.rescheduledDate}\nHora: ${slot.rescheduledTime}\nSala: ${slot.scheduledRoom}\nProfissional: Dr(a). ${slot.scheduledDoctor}\n\nVocê pode aceitar ou recusar esta oferta acessando nosso portal.\n\nAtenciosamente,\nHospital de Amor`,
+      status: 'pending',
+      appointmentProtocol: candidate.protocol,
+      bounced: false
+    };
+    emailStore.add(emailItem);
+  };
+}
+
+export async function acceptWaitlistOffer(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs', 'email_queue'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = appStore.get(appointmentId);
+    getReq.onsuccess = () => {
+      const app = getReq.result as Appointment | undefined;
+      if (!app) {
+        reject(new Error('Agendamento não encontrado.'));
+        return;
+      }
+
+      app.status = 'Confirmado';
+      app.waitingListOfferDate = undefined;
+      app.waitingListOfferExpiresAt = undefined;
+
+      appStore.put(app);
+      triggerStatusUpdateEmail(app, undefined, tx);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: app.patientCpf,
+        userName: app.patientName,
+        action: `Paciente aceitou oferta de vaga via portal - Protocolo ${app.protocol}`,
+        module: 'Paciente',
+        ipAddress: '127.0.0.1',
+        details: `Agendamento confirmado para ${app.rescheduledDate} às ${app.rescheduledTime}.`
+      };
+      auditStore.add(log);
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function rejectWaitlistOffer(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs', 'email_queue'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = appStore.get(appointmentId);
+    getReq.onsuccess = () => {
+      const app = getReq.result as Appointment | undefined;
+      if (!app) {
+        reject(new Error('Agendamento não encontrado.'));
+        return;
+      }
+
+      const slot = {
+        rescheduledDate: app.rescheduledDate || '',
+        rescheduledTime: app.rescheduledTime || '',
+        scheduledRoom: app.scheduledRoom || '',
+        scheduledDoctor: app.scheduledDoctor || ''
+      };
+
+      app.rescheduledDate = undefined;
+      app.rescheduledTime = undefined;
+      app.scheduledRoom = undefined;
+      app.scheduledDoctor = undefined;
+      app.waitingListOfferDate = undefined;
+      app.waitingListOfferExpiresAt = undefined;
+
+      appStore.put(app);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: app.patientCpf,
+        userName: app.patientName,
+        action: `Paciente recusou oferta de vaga via portal - Protocolo ${app.protocol}`,
+        module: 'Paciente',
+        ipAddress: '127.0.0.1',
+        details: 'Vaga liberada para o próximo paciente da fila.'
+      };
+      auditStore.add(log);
+
+      if (slot.rescheduledDate) {
+        offerSlotToNextInWaitlist(app.specialtyId, app.examId, slot, tx);
+      }
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function checkAndProcessExpiredOffers(): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['appointments', 'audit_logs', 'email_queue'], 'readwrite');
+    const appStore = tx.objectStore('appointments');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const req = appStore.getAll();
+    req.onsuccess = () => {
+      const appointments = req.result as Appointment[];
+      const now = new Date();
+      const expired = appointments.filter(
+        (a) => a.waitingListOfferExpiresAt && new Date(a.waitingListOfferExpiresAt) < now
+      );
+
+      if (expired.length === 0) return;
+
+      expired.forEach((app) => {
+        const slot = {
+          rescheduledDate: app.rescheduledDate || '',
+          rescheduledTime: app.rescheduledTime || '',
+          scheduledRoom: app.scheduledRoom || '',
+          scheduledDoctor: app.scheduledDoctor || ''
+        };
+
+        app.rescheduledDate = undefined;
+        app.rescheduledTime = undefined;
+        app.scheduledRoom = undefined;
+        app.scheduledDoctor = undefined;
+        app.waitingListOfferDate = undefined;
+        app.waitingListOfferExpiresAt = undefined;
+
+        appStore.put(app);
+
+        const log: AuditLog = {
+          id: 'log-' + crypto.randomUUID().slice(0, 8),
+          timestamp: now.toISOString(),
+          userCpf: 'SYSTEM',
+          userName: 'Sistema de Regulação',
+          action: `Oferta de vaga expirada sem resposta - Protocolo ${app.protocol}`,
+          module: 'Triagem',
+          ipAddress: '127.0.0.1',
+          details: `Prazo de 4 horas expirou. Vaga do exame ${app.examName} será repassada.`
+        };
+        auditStore.add(log);
+
+        if (slot.rescheduledDate) {
+          offerSlotToNextInWaitlist(app.specialtyId, app.examId, slot, tx);
+        }
+      });
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function syncAppointmentWithPep(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+
+  const app = await new Promise<Appointment | undefined>((resolve, reject) => {
+    const req = appStore.get(appointmentId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!app) throw new Error('Agendamento não encontrado.');
+
+  const attempts = (app.pepSyncAttempts || 0) + 1;
+  app.pepSyncAttempts = attempts;
+
+  const isFailure = app.patientCpf.endsWith('9') || (attempts === 1 && Math.random() < 0.2);
+
+  if (isFailure) {
+    app.pepSyncStatus = 'failed';
+    appStore.put(app);
+
+    const log: AuditLog = {
+      id: 'log-' + crypto.randomUUID().slice(0, 8),
+      timestamp: new Date().toISOString(),
+      userCpf: 'SYSTEM_PEP_INTEGRATION',
+      userName: 'Fila de Mensagens PEP',
+      action: `Falha na integração com o PEP para o protocolo ${app.protocol}`,
+      module: 'Integração PEP',
+      ipAddress: '127.0.0.1',
+      details: `Tentativa #${attempts}. Erro de comunicação: Servidor PEP indisponível ou timeout de API.`
+    };
+    auditStore.add(log);
+  } else {
+    app.pepSyncStatus = 'synchronized';
+    app.pepRegistryId = 'PEP-' + Math.floor(100000 + Math.random() * 900000);
+    appStore.put(app);
+
+    const log: AuditLog = {
+      id: 'log-' + crypto.randomUUID().slice(0, 8),
+      timestamp: new Date().toISOString(),
+      userCpf: 'SYSTEM_PEP_INTEGRATION',
+      userName: 'Fila de Mensagens PEP',
+      action: `Sucesso na integração com o PEP para o protocolo ${app.protocol}`,
+      module: 'Integração PEP',
+      ipAddress: '127.0.0.1',
+      details: `Tentativa #${attempts}. Prontuário vinculado com ID: ${app.pepRegistryId}.`
+    };
+    auditStore.add(log);
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function syncAllPendingPepEntries(): Promise<{ successCount: number; failCount: number }> {
+  const db = await initDb();
+  const tx = db.transaction('appointments', 'readonly');
+  const store = tx.objectStore('appointments');
+
+  const allApps = await new Promise<Appointment[]>((resolve, reject) => {
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+
+  const pendingOrFailed = allApps.filter(app => app.pepSyncStatus === 'pending' || app.pepSyncStatus === 'failed');
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const app of pendingOrFailed) {
+    try {
+      await syncAppointmentWithPep(app.id);
+      const updatedDb = await initDb();
+      const checkTx = updatedDb.transaction('appointments', 'readonly');
+      const checkStore = checkTx.objectStore('appointments');
+      const updatedApp = await new Promise<Appointment>((resolve) => {
+        const req = checkStore.get(app.id);
+        req.onsuccess = () => resolve(req.result);
+      });
+      if (updatedApp.pepSyncStatus === 'synchronized') {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    } catch {
+      failCount++;
+    }
+  }
+
+  return { successCount, failCount };
+}
+
+export async function registerPatientCheckIn(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+
+  const app = await new Promise<Appointment | undefined>((resolve, reject) => {
+    const req = appStore.get(appointmentId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!app) throw new Error('Agendamento não encontrado.');
+
+  app.checkInAt = new Date().toISOString();
+  appStore.put(app);
+
+  const log: AuditLog = {
+    id: 'log-' + crypto.randomUUID().slice(0, 8),
+    timestamp: new Date().toISOString(),
+    userCpf: 'RECEPTION',
+    userName: app.assignedTo || 'Recepção',
+    action: `Check-in do paciente ${app.patientName} (Protocolo ${app.protocol}) registrado na recepção`,
+    module: 'Fila e Recepção',
+    ipAddress: '192.168.1.100',
+    details: `Check-in realizado em: ${new Date(app.checkInAt).toLocaleString('pt-BR')}`
+  };
+  auditStore.add(log);
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function registerAttendanceStart(appointmentId: string): Promise<void> {
+  const db = await initDb();
+  const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+
+  const app = await new Promise<Appointment | undefined>((resolve, reject) => {
+    const req = appStore.get(appointmentId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!app) throw new Error('Agendamento não encontrado.');
+
+  app.attendanceStartedAt = new Date().toISOString();
+  app.status = 'Concluído';
+  appStore.put(app);
+
+  const log: AuditLog = {
+    id: 'log-' + crypto.randomUUID().slice(0, 8),
+    timestamp: new Date().toISOString(),
+    userCpf: 'RECEPTION',
+    userName: app.assignedTo || 'Médico/Atendente',
+    action: `Início de atendimento clínico para o paciente ${app.patientName} (Protocolo ${app.protocol})`,
+    module: 'Fila e Recepção',
+    ipAddress: '192.168.1.100',
+    details: `Atendimento iniciado. Status alterado para Concluído.`
+  };
+  auditStore.add(log);
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function signAppointmentLaudo(
+  appointmentId: string,
+  doctorName: string,
+  doctorCpf: string
+): Promise<void> {
+  const db = await initDb();
+  const tx = db.transaction(['appointments', 'audit_logs'], 'readwrite');
+  const appStore = tx.objectStore('appointments');
+  const auditStore = tx.objectStore('audit_logs');
+
+  const app = await new Promise<Appointment | undefined>((resolve, reject) => {
+    const req = appStore.get(appointmentId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+
+  if (!app) throw new Error('Agendamento não encontrado.');
+
+  const signTime = new Date().toISOString();
+  const documentPayload = `${app.id}|${app.protocol}|${app.patientCpf}|${app.examName}|${app.observations}|${signTime}`;
+  
+  const hash = await computeSHA256(documentPayload);
+  const certSerial = 'ICP-BR-ID-' + Math.floor(10000000 + Math.random() * 90000000);
+
+  app.digitalSignature = {
+    signedBy: doctorName,
+    cpf: doctorCpf,
+    signedAt: signTime,
+    signatureHash: hash,
+    certificateSerial: certSerial
+  };
+
+  appStore.put(app);
+
+  const log: AuditLog = {
+    id: 'log-' + crypto.randomUUID().slice(0, 8),
+    timestamp: signTime,
+    userCpf: doctorCpf,
+    userName: doctorName,
+    action: `Laudo/Triagem de ${app.patientName} (Protocolo ${app.protocol}) assinado digitalmente`,
+    module: 'Assinatura Digital',
+    ipAddress: '192.168.1.100',
+    details: `Assinatura ICP-Brasil vinculada. Série do Certificado: ${certSerial}. Hash SHA-256 do documento: ${hash}`
+  };
+  auditStore.add(log);
+
+  await new Promise<void>((resolve, reject) => {
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }

@@ -17,7 +17,12 @@ import {
   getEmailQueue,
   saveFilterCombination,
   getSavedFilters,
-  deleteSavedFilter
+  deleteSavedFilter,
+  checkAndProcessExpiredOffers,
+  syncAppointmentWithPep,
+  registerPatientCheckIn,
+  registerAttendanceStart,
+  signAppointmentLaudo
 } from '../../services/db';
 import type { Appointment, City, Specialty, PatientUser, CapacityLimit, AppointmentStatus, SymptomLog } from '../../types';
 import { 
@@ -29,8 +34,10 @@ import {
   Calendar, 
   Search, 
   Filter,
-  FileText
+  FileText,
+  Tv
 } from 'lucide-react';
+import { dispatchLobbyCall } from '../../services/lobbyChannel';
 
 const GRAVE_KEYWORDS = ['febre', 'falta de ar', 'dispneia', 'dor forte', 'dor intensa', 'sangramento', 'convulsão'];
 
@@ -45,6 +52,16 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ loggedEmployee, permissions }: AdminDashboardProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+      checkAndProcessExpiredOffers().then(() => {
+        getAppointmentsForAdmin().then(setAppointments).catch(console.error);
+      });
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
   const [cities, setCities] = useState<City[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [capacityLimits, setCapacityLimits] = useState<CapacityLimit[]>([]);
@@ -67,6 +84,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   const [selectedApps, setSelectedApps] = useState<string[]>([]);
   
   const [activeApp, setActiveApp] = useState<Appointment | null>(null);
+  const isActiveAppOfferActive = !!(activeApp && activeApp.waitingListOfferExpiresAt && new Date(activeApp.waitingListOfferExpiresAt) > new Date() && (activeApp.status === 'Pendente' || activeApp.status === 'Em análise'));
   const [isScheduling, setIsScheduling] = useState(false);
   
   const [scheduleDate, setScheduleDate] = useState('');
@@ -99,6 +117,68 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   const [scannedApp, setScannedApp] = useState<Appointment | null>(null);
   const [scannerError, setScannerError] = useState('');
   const [scannerSuccess, setScannerSuccess] = useState('');
+
+  const [doctorNameInput, setDoctorNameInput] = useState(loggedEmployee?.name || '');
+  const [doctorCpfInput, setDoctorCpfInput] = useState(loggedEmployee?.cpf || '123.456.789-00');
+  const [verifyingSignatureApp, setVerifyingSignatureApp] = useState<Appointment | null>(null);
+  const [isSigning, setIsSigning] = useState(false);
+  const [isSyncingPep, setIsSyncingPep] = useState(false);
+
+  const refreshActiveApp = async (appId: string) => {
+    await loadData();
+    const updatedApps = await getAppointmentsForAdmin();
+    const found = updatedApps.find(a => a.id === appId);
+    if (found) {
+      setActiveApp(found);
+    }
+  };
+
+  const handleSyncPep = async (appId: string) => {
+    setIsSyncingPep(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await syncAppointmentWithPep(appId);
+      setActionSuccess('Tentativa de sincronização com o PEP concluída.');
+      await refreshActiveApp(appId);
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao sincronizar com o PEP.');
+    } finally {
+      setIsSyncingPep(false);
+    }
+  };
+
+  const handleStartAttendance = async (appId: string) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await registerAttendanceStart(appId);
+      setActionSuccess('Atendimento clínico iniciado com sucesso!');
+      await refreshActiveApp(appId);
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao iniciar atendimento clínico.');
+    }
+  };
+
+  const handleSignLaudo = async (appId: string) => {
+    if (!doctorNameInput.trim() || !doctorCpfInput.trim()) {
+      setActionError('Por favor, preencha o nome e o CPF do médico para assinar.');
+      return;
+    }
+    setIsSigning(true);
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      await signAppointmentLaudo(appId, doctorNameInput, doctorCpfInput);
+      setActionSuccess('Laudo assinado digitalmente com sucesso (ICP-Brasil)!');
+      await refreshActiveApp(appId);
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao assinar o laudo digitalmente.');
+    } finally {
+      setIsSigning(false);
+    }
+  };
 
   const handleCloseTriagem = () => {
     setIsClosing(true);
@@ -508,6 +588,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
 
   const loadData = async () => {
     try {
+      await checkAndProcessExpiredOffers();
       const allAppointments = await getAppointmentsForAdmin();
       setAppointments(allAppointments);
       
@@ -536,6 +617,15 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
         (item.appointmentProtocol && item.appointmentProtocol.trim().toLowerCase() === appProtocol)
       )
     );
+  };
+
+  const getRemainingTime = (expiresAtStr: string) => {
+    const diff = new Date(expiresAtStr).getTime() - Date.now();
+    if (diff <= 0) return 'Expirado';
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
   const examRequiresEncaminhamento = (examId: string) => {
@@ -619,6 +709,33 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
       await loadData();
     } catch (e: any) {
       setActionError(e.message || 'Erro ao salvar alterações da triagem.');
+    }
+  };
+
+  const handleCallOnTv = async () => {
+    if (!activeApp) return;
+
+    const firstName = activeApp.patientName.split(' ')[0];
+    const lastNameParts = activeApp.patientName.split(' ');
+    const lastInitial = lastNameParts.length > 1 ? ' ' + lastNameParts[lastNameParts.length - 1][0] + '.' : '';
+    const maskedName = firstName + lastInitial;
+
+    const callTicket = 'S-' + Math.floor(100 + Math.random() * 900);
+    const callDestination = activeApp.scheduledRoom || 'Consultório 1';
+
+    dispatchLobbyCall(maskedName, callDestination, callTicket);
+
+    try {
+      await addAuditLogAdmin(
+        'CHAMAR_PACIENTE_TV',
+        'Fila e Recepção',
+        `Paciente ${maskedName} chamado para ${callDestination} na TV com a senha ${callTicket}`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess(`Chamado enviado para a TV: Senha ${callTicket}.`);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -861,6 +978,46 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
           </div>
         </div>
       </div>
+
+      {(() => {
+        const realocationOffers = appointments.filter(
+          (app) => app.waitingListOfferExpiresAt && new Date(app.waitingListOfferExpiresAt) > new Date()
+        );
+        if (realocationOffers.length === 0) return null;
+        return (
+          <div className="bg-zinc-50 dark:bg-zinc-955 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center gap-2 border-b border-zinc-200 dark:border-zinc-800 pb-3">
+              <Clock className="w-5 h-5 text-pink-650 animate-pulse" />
+              <h3 className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50">Vagas em Realocação Inteligente (RF44)</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {realocationOffers.map((offer) => {
+                const timerStr = getRemainingTime(offer.waitingListOfferExpiresAt!);
+                return (
+                  <div key={offer.id} className="p-4 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl flex items-center justify-between text-xs gap-4 shadow-sm animate-in fade-in">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-zinc-900 dark:text-zinc-150">{offer.patientName}</span>
+                        <span className="font-mono bg-zinc-100 dark:bg-zinc-850 px-2 py-0.5 rounded text-[10px] font-bold text-zinc-500">{offer.protocol}</span>
+                      </div>
+                      <p className="text-zinc-500 font-semibold">{offer.examName} • {offer.city}</p>
+                      <p className="text-[10px] text-zinc-400 font-medium">
+                        Ofertado em: {offer.waitingListOfferDate ? new Date(offer.waitingListOfferDate).toLocaleTimeString('pt-BR') : ''} • Data da Vaga: {offer.rescheduledDate ? new Date(offer.rescheduledDate + 'T12:00:00').toLocaleDateString('pt-BR') : ''} às {offer.rescheduledTime}h
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] uppercase font-bold text-zinc-400 block mb-1">Tempo Restante</span>
+                      <span className="font-mono text-base font-black text-pink-600 bg-pink-50 dark:bg-pink-955/20 px-3 py-1 rounded-xl border border-pink-200/30">
+                        {timerStr}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {actionSuccess && (
         <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-400 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-top-3">
@@ -1138,6 +1295,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                     app.followUpDate && 
                     !app.followUpSuspended && 
                     app.followUpDate < todayStr;
+
+                  const isOfferActive = !!(app.waitingListOfferExpiresAt && new Date(app.waitingListOfferExpiresAt) > new Date() && (app.status === 'Pendente' || app.status === 'Em análise'));
                   return (
                     <tr 
                       key={app.id} 
@@ -1154,6 +1313,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                           type="checkbox"
                           checked={selectedApps.includes(app.id)}
                           onChange={(e) => handleSelectOne(app.id, e.target.checked)}
+                          disabled={isOfferActive}
                           className="rounded text-pink-600 focus:ring-pink-500"
                         />
                       </td>
@@ -1193,18 +1353,24 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                       </td>
                       <td className="py-4 px-4">
                         <div className="space-y-1">
-                          <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                            isOverdue 
-                              ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-955/20 dark:text-red-400 border animate-pulse'
-                              : app.status === 'Confirmado' ? 'bg-green-50 text-green-700 dark:bg-green-955/20 dark:text-green-400 border border-green-200/20' :
-                              app.status === 'Cancelado' ? 'bg-red-50 text-red-700 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20' :
-                              app.status === 'Em análise' ? 'bg-blue-50 text-blue-700 dark:bg-blue-955/20 dark:text-blue-400 border border-blue-200/20' :
-                              app.status === 'Reagendamento Pendente' ? 'bg-amber-50 text-amber-700 dark:bg-amber-955/20 dark:text-amber-400 border border-amber-200/20' :
-                              app.status === 'Aguardando Follow-up' ? 'bg-purple-50 text-purple-700 dark:bg-purple-955/20 dark:text-purple-400 border border-purple-200/20' :
-                              'bg-yellow-50 text-yellow-700 dark:bg-yellow-955/20 dark:text-yellow-400 border border-yellow-200/20'
-                          }`}>
-                            {isOverdue ? 'Aguardando Acompanhamento (Vencido)' : app.status === 'Aguardando Follow-up' ? 'Aguardando Acompanhamento' : app.status}
-                          </span>
+                          {isOfferActive ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-pink-100 text-pink-700 dark:bg-pink-955/20 dark:text-pink-400 border border-pink-200/20 animate-pulse block w-max">
+                              ⚡ Oferta Ativa: {getRemainingTime(app.waitingListOfferExpiresAt!)}
+                            </span>
+                          ) : (
+                            <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                              isOverdue 
+                                ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-955/20 dark:text-red-400 border animate-pulse'
+                                : app.status === 'Confirmado' ? 'bg-green-50 text-green-700 dark:bg-green-955/20 dark:text-green-400 border border-green-200/20' :
+                                app.status === 'Cancelado' ? 'bg-red-50 text-red-700 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20' :
+                                app.status === 'Em análise' ? 'bg-blue-50 text-blue-700 dark:bg-blue-955/20 dark:text-blue-400 border border-blue-200/20' :
+                                app.status === 'Reagendamento Pendente' ? 'bg-amber-50 text-amber-700 dark:bg-amber-955/20 dark:text-amber-400 border border-amber-200/20' :
+                                app.status === 'Aguardando Follow-up' ? 'bg-purple-50 text-purple-700 dark:bg-purple-955/20 dark:text-purple-400 border border-purple-200/20' :
+                                'bg-yellow-50 text-yellow-700 dark:bg-yellow-955/20 dark:text-yellow-400 border border-yellow-200/20'
+                            }`}>
+                              {isOverdue ? 'Aguardando Acompanhamento (Vencido)' : app.status === 'Aguardando Follow-up' ? 'Aguardando Acompanhamento' : app.status}
+                            </span>
+                          )}
                           {hasMailBounce(app) && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20 animate-pulse block w-max">
                               ⚠️ Falha de Envio (E-mail)
@@ -1240,13 +1406,33 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                         )}
                       </td>
                       <td className="py-4 px-4 text-right">
-                        <button
-                          onClick={() => openTriagemPanel(app)}
-                          className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-pink-50 hover:border-pink-200 hover:text-pink-650 dark:hover:bg-pink-955/10 font-bold transition-all bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-300"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                          Triar
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {app.status === 'Confirmado' && !app.checkInAt && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await registerPatientCheckIn(app.id);
+                                  const updated = await getAppointmentsForAdmin();
+                                  setAppointments(updated);
+                                } catch (err) {
+                                  console.error(err);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 h-8 px-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50 hover:bg-emerald-50 dark:hover:bg-emerald-955/10 font-bold transition-all bg-white dark:bg-zinc-950 text-emerald-700 dark:text-emerald-400 text-[10px]"
+                              title="Registrar check-in do paciente"
+                            >
+                              ✓ Check-in
+                            </button>
+                          )}
+                          <button
+                            onClick={() => openTriagemPanel(app)}
+                            className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-pink-50 hover:border-pink-200 hover:text-pink-650 dark:hover:bg-pink-955/10 font-bold transition-all bg-white dark:bg-zinc-950 text-zinc-600 dark:text-zinc-300"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            Triar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -1288,6 +1474,17 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {isActiveAppOfferActive && (
+                <div className="p-4 bg-pink-50 dark:bg-pink-955/15 border border-pink-200/40 dark:border-pink-900/20 text-pink-850 dark:text-pink-400 rounded-2xl flex flex-col gap-1.5 animate-in slide-in-from-top-3">
+                  <div className="flex items-center gap-2 font-black text-xs text-pink-700 dark:text-pink-400">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-pink-650" />
+                    <span>Fila Inteligente: Oferta de Vaga Ativa</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed">
+                    Esta solicitação possui uma oferta de vaga automática ativa. As ações manuais de triagem, alteração de status e agendamento estão bloqueadas até o desfecho da oferta (aceite, recusa ou expiração do prazo).
+                  </p>
+                </div>
+              )}
               {hasMailBounce(activeApp) && (
                 <div className="p-4 bg-red-50 dark:bg-red-955/20 border border-red-205/50 dark:border-red-900/30 text-red-800 dark:text-red-400 rounded-2xl flex flex-col gap-2 animate-in slide-in-from-top-3">
                   <div className="flex items-center gap-2 font-bold text-xs">
@@ -1375,7 +1572,224 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                 </div>
               )}
 
-              <div className="bg-zinc-50 dark:bg-zinc-955 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-850 space-y-3">
+              {activeApp.checkInAt ? (
+                <div className="bg-zinc-50 dark:bg-zinc-955 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-850 space-y-3">
+                  <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-400">Fluxo da Recepção & Espera</h4>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-zinc-550 dark:text-zinc-400 font-semibold">Horário de Check-in:</span>
+                      <span className="font-bold text-zinc-855 dark:text-zinc-200">
+                        {new Date(activeApp.checkInAt).toLocaleTimeString('pt-BR')}
+                      </span>
+                    </div>
+                    {activeApp.attendanceStartedAt ? (
+                      <>
+                        <div className="flex justify-between">
+                          <span className="text-zinc-550 dark:text-zinc-400 font-semibold">Início do Atendimento:</span>
+                          <span className="font-bold text-zinc-855 dark:text-zinc-200">
+                            {new Date(activeApp.attendanceStartedAt).toLocaleTimeString('pt-BR')}
+                          </span>
+                        </div>
+                        <div className="flex justify-between border-t border-zinc-200 dark:border-zinc-850 pt-2 mt-2">
+                          <span className="text-zinc-550 dark:text-zinc-400 font-semibold">Tempo Total de Espera:</span>
+                          <span className="font-extrabold text-emerald-600 dark:text-emerald-400">
+                            {Math.max(0, Math.floor((new Date(activeApp.attendanceStartedAt).getTime() - new Date(activeApp.checkInAt).getTime()) / 60000))} min
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-zinc-550 dark:text-zinc-400 font-semibold">Tempo de Espera Atual:</span>
+                          {(() => {
+                            const elapsedMs = new Date().getTime() - new Date(activeApp.checkInAt).getTime();
+                            const elapsedMin = Math.floor(elapsedMs / 60000);
+                            const isCritical = elapsedMin > 30;
+                            return (
+                              <span className={`px-2 py-0.5 rounded-md font-extrabold text-xs ${
+                                isCritical 
+                                  ? 'bg-red-100 text-red-800 dark:bg-red-955/40 dark:text-red-400 border border-red-200 dark:border-red-900/50 animate-pulse' 
+                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400 border border-amber-200/20'
+                              }`}>
+                                {elapsedMin} min {isCritical && '⚠️ (Atraso Crítico)'}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleStartAttendance(activeApp.id)}
+                          className="w-full mt-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/15"
+                        >
+                          Iniciar Atendimento Médico
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                activeApp.status === 'Confirmado' && (
+                  <div className="bg-zinc-50 dark:bg-zinc-955 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-850 space-y-3">
+                    <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-400">Fluxo da Recepção</h4>
+                    <p className="text-zinc-400 text-xs italic">Paciente confirmado, aguardando dar entrada na recepção.</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await registerPatientCheckIn(activeApp.id);
+                          await refreshActiveApp(activeApp.id);
+                        } catch (err) {
+                          console.error(err);
+                        }
+                      }}
+                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/15"
+                    >
+                      Registrar Entrada (Check-in)
+                    </button>
+                  </div>
+                )
+              )}
+
+              {(activeApp.status === 'Confirmado' || activeApp.status === 'Concluído') && (
+                <div className="bg-zinc-50 dark:bg-zinc-955 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-850 space-y-3">
+                  <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-400">Integração com Prontuário Eletrônico (PEP)</h4>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-zinc-500 font-semibold">Status de Envio:</span>
+                      {activeApp.pepSyncStatus === 'synchronized' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-green-50 text-green-700 dark:bg-green-955/20 dark:text-green-400 border border-green-200/20">
+                          Sincronizado
+                        </span>
+                      ) : activeApp.pepSyncStatus === 'failed' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-100 text-red-800 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20 animate-pulse">
+                          Falhou ({activeApp.pepSyncAttempts || 0} tentativas)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 dark:bg-amber-955/20 dark:text-amber-400 border border-amber-200/20 animate-pulse">
+                          Pendente
+                        </span>
+                      )}
+                    </div>
+                    {activeApp.pepRegistryId && (
+                      <div className="flex justify-between text-xs border-t border-zinc-200 dark:border-zinc-850 pt-2">
+                        <span className="text-zinc-500 font-semibold">ID do Registro PEP:</span>
+                        <span className="font-mono font-bold text-zinc-800 dark:text-zinc-250">{activeApp.pepRegistryId}</span>
+                      </div>
+                    )}
+                    {activeApp.pepSyncStatus !== 'synchronized' && (
+                      <button
+                        type="button"
+                        onClick={() => handleSyncPep(activeApp.id)}
+                        disabled={isSyncingPep}
+                        className="w-full py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-55 flex items-center justify-center gap-2"
+                      >
+                        {isSyncingPep ? (
+                          <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        ) : activeApp.pepSyncStatus === 'failed' ? (
+                          'Reenviar para PEP'
+                        ) : (
+                          'Sincronizar PEP Manualmente'
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeApp.status === 'Concluído' && (
+                <div className="bg-zinc-50 dark:bg-zinc-955 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-850 space-y-4">
+                  <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-400">Assinatura Digital de Laudo</h4>
+                  {activeApp.digitalSignature ? (
+                    <div className="relative p-4 rounded-2xl border border-amber-300 dark:border-amber-800/40 bg-amber-50/15 dark:bg-amber-955/5 overflow-hidden flex flex-col md:flex-row gap-4 items-center">
+                      <div className="flex-1 space-y-1.5 text-xs">
+                        <div className="text-amber-800 dark:text-amber-400 font-black flex items-center gap-1 uppercase tracking-wider text-[10px]">
+                          🛡️ Laudo Assinado Digitalmente
+                        </div>
+                        <p className="text-zinc-600 dark:text-zinc-300 text-[11px] leading-relaxed">
+                          Este laudo de triagem foi criptografado e validado juridicamente via ICP-Brasil.
+                        </p>
+                        <div className="space-y-1 border-t border-zinc-200 dark:border-zinc-850 pt-2 text-[10px]">
+                          <div><strong>Assinado por:</strong> {activeApp.digitalSignature.signedBy}</div>
+                          <div><strong>CPF:</strong> {activeApp.digitalSignature.cpf}</div>
+                          <div><strong>Data/Hora:</strong> {new Date(activeApp.digitalSignature.signedAt).toLocaleString('pt-BR')}</div>
+                          <div><strong>Certificado Série:</strong> {activeApp.digitalSignature.certificateSerial}</div>
+                          <div className="truncate font-mono block text-[9px] text-zinc-400 max-w-full">
+                            <strong>SHA-256:</strong> {activeApp.digitalSignature.signatureHash}
+                          </div>
+                        </div>
+                      </div>
+                      <div 
+                        onClick={() => setVerifyingSignatureApp(activeApp)}
+                        className="cursor-pointer bg-white p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-850 flex flex-col items-center justify-center gap-1 hover:border-amber-500 transition-all select-none group shrink-0"
+                        title="Clique para validar a assinatura digital"
+                      >
+                        <svg className="w-16 h-16 text-zinc-800 dark:text-zinc-200 group-hover:scale-105 transition-transform" viewBox="0 0 100 100">
+                          <rect x="10" y="10" width="16" height="16" fill="currentColor" />
+                          <rect x="34" y="10" width="8" height="8" fill="currentColor" />
+                          <rect x="50" y="10" width="16" height="16" fill="currentColor" />
+                          <rect x="74" y="10" width="16" height="16" fill="currentColor" />
+                          <rect x="10" y="34" width="8" height="8" fill="currentColor" />
+                          <rect x="26" y="34" width="16" height="16" fill="currentColor" />
+                          <rect x="50" y="34" width="8" height="8" fill="currentColor" />
+                          <rect x="66" y="34" width="16" height="16" fill="currentColor" />
+                          <rect x="10" y="50" width="16" height="16" fill="currentColor" />
+                          <rect x="34" y="50" width="8" height="8" fill="currentColor" />
+                          <rect x="50" y="50" width="16" height="16" fill="currentColor" />
+                          <rect x="74" y="50" width="16" height="16" fill="currentColor" />
+                          <rect x="10" y="74" width="16" height="16" fill="currentColor" />
+                          <rect x="34" y="74" width="16" height="16" fill="currentColor" />
+                          <rect x="58" y="74" width="8" height="8" fill="currentColor" />
+                          <rect x="74" y="74" width="16" height="16" fill="currentColor" />
+                          <rect x="42" y="42" width="16" height="16" fill="currentColor" />
+                        </svg>
+                        <span className="text-[8px] font-bold text-zinc-400 group-hover:text-amber-600 transition-colors uppercase">Validar Selo</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 border border-dashed border-zinc-300 dark:border-zinc-800 rounded-2xl space-y-3">
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="text-[10px] text-zinc-455 block uppercase font-bold mb-1">Médico Responsável</label>
+                          <input
+                            type="text"
+                            value={doctorNameInput}
+                            onChange={(e) => setDoctorNameInput(e.target.value)}
+                            placeholder="Dr(a). Nome do Médico"
+                            className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-zinc-455 block uppercase font-bold mb-1">e-CPF (ICP-Brasil)</label>
+                          <input
+                            type="text"
+                            value={doctorCpfInput}
+                            onChange={(e) => setDoctorCpfInput(e.target.value)}
+                            placeholder="000.000.000-00"
+                            className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                          />
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleSignLaudo(activeApp.id)}
+                        disabled={isSigning}
+                        className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-amber-600/15 disabled:opacity-55 flex items-center justify-center gap-2"
+                      >
+                        {isSigning ? (
+                          <>
+                            <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            <span>Assinando com e-CPF...</span>
+                          </>
+                        ) : (
+                          'Assinar Laudo com e-CPF'
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="bg-zinc-50 dark:bg-zinc-955 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-855 space-y-3">
                 <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-400">Log de Comunicação de Lembretes</h4>
                 {!activeApp.documentReminders || activeApp.documentReminders.length === 0 ? (
                   <p className="text-zinc-400 text-xs italic">Nenhum lembrete enviado para este agendamento.</p>
@@ -1407,63 +1821,6 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                   </div>
                 </div>
               )}
-
-              <div className="bg-zinc-50 dark:bg-zinc-955 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-850 space-y-4">
-                <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-400">Contato Rápido & Validação Híbrida</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor="edit-phone" className="text-[10px] text-zinc-455 block uppercase font-bold mb-1">Novo Telefone</label>
-                    <input
-                      id="edit-phone"
-                      type="text"
-                      value={editPhone}
-                      onChange={(e) => setEditPhone(e.target.value)}
-                      placeholder="(00) 00000-0000"
-                      className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="edit-email" className="text-[10px] text-zinc-455 block uppercase font-bold mb-1">Novo E-mail</label>
-                    <input
-                      id="edit-email"
-                      type="email"
-                      value={editEmail}
-                      onChange={(e) => setEditEmail(e.target.value)}
-                      placeholder="paciente@email.com"
-                      className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <button
-                    type="button"
-                    onClick={handleSaveContacts}
-                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all"
-                  >
-                    Atualizar Contatos
-                  </button>
-                </div>
-
-                <div className="border-t border-zinc-200/50 dark:border-zinc-800/50 pt-3 space-y-2">
-                  <span className="text-[10px] text-zinc-455 block uppercase font-bold">Enviar Canal de Validação</span>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleSendMockValidation('WhatsApp')}
-                      className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <span>💬 Testar via WhatsApp</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSendMockValidation('SMS')}
-                      className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                    >
-                      <span>📱 Testar via SMS</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
 
               {activeApp.status === 'Reagendamento Pendente' && (
                 <div className="bg-amber-50 border border-amber-200/50 p-4 rounded-2xl text-xs space-y-2 dark:bg-amber-955/10 dark:border-amber-900/30">
@@ -1544,6 +1901,68 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                 )}
               </div>
 
+              <div className="bg-zinc-50 dark:bg-zinc-955 p-5 rounded-2xl border border-zinc-200/50 dark:border-zinc-850 space-y-4">
+                <h4 className="font-extrabold text-xs uppercase tracking-wider text-zinc-400">Contato Rápido & Validação Híbrida</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label htmlFor="edit-phone" className="text-[10px] text-zinc-455 block uppercase font-bold mb-1">Novo Telefone</label>
+                    <input
+                      id="edit-phone"
+                      type="text"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                      placeholder="(00) 00000-0000"
+                      className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 disabled:opacity-55"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="edit-email" className="text-[10px] text-zinc-455 block uppercase font-bold mb-1">Novo E-mail</label>
+                    <input
+                      id="edit-email"
+                      type="email"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                      placeholder="paciente@email.com"
+                      className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 disabled:opacity-55"
+                    />
+                  </div>
+                </div>
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={handleSaveContacts}
+                    disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                    className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-55"
+                  >
+                    Atualizar Contatos
+                  </button>
+                </div>
+
+                <div className="border-t border-zinc-200/50 dark:border-zinc-800/50 pt-3 space-y-2">
+                  <span className="text-[10px] text-zinc-455 block uppercase font-bold">Enviar Canal de Validação</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleSendMockValidation('WhatsApp')}
+                      disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                      className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-55"
+                    >
+                      <span>💬 Testar via WhatsApp</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSendMockValidation('SMS')}
+                      disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                      className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-55"
+                    >
+                      <span>📱 Testar via SMS</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {!isSettingFollowUp && !isScheduling ? (
                 <div className="space-y-6">
                   <div className="space-y-1.5">
@@ -1553,6 +1972,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                         <button
                           key={s}
                           type="button"
+                          disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
                           onClick={() => setStatusInput(s)}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
                             statusInput === s
@@ -1561,7 +1981,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                                 : s === 'Em análise'
                                 ? 'bg-blue-600 border-blue-600 text-white shadow-xs'
                                 : 'bg-yellow-600 border-yellow-600 text-white shadow-xs'
-                              : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-650 hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                              : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-650 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-55'
                           }`}
                         >
                           {s === 'Em análise' ? 'Em Análise' : s}
@@ -1577,6 +1997,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                         <button
                           key={p}
                           type="button"
+                          disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
                           onClick={() => setPriorityInput(p)}
                           className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
                             priorityInput === p
@@ -1585,7 +2006,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                                 : p === 'Média'
                                 ? 'bg-amber-600 border-amber-600 text-white shadow-xs'
                                 : 'bg-zinc-800 border-zinc-800 text-white shadow-xs'
-                              : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-650 hover:bg-zinc-50 dark:hover:bg-zinc-900'
+                              : 'bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 text-zinc-650 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-55'
                           }`}
                         >
                           {p}
@@ -1637,9 +2058,10 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                       <textarea
                         value={newNoteText}
                         onChange={(e) => setNewNoteText(e.target.value)}
+                        disabled={!!activeApp.digitalSignature}
                         placeholder="Nova anotação clínica..."
                         rows={2}
-                        className="w-full border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                        className="w-full border border-zinc-200 dark:border-zinc-800 rounded-2xl p-3 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 disabled:opacity-55"
                         required
                       />
                       <div className="flex items-center justify-between">
@@ -1648,13 +2070,15 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                             type="checkbox"
                             checked={newNoteIsUrgent}
                             onChange={(e) => setNewNoteIsUrgent(e.target.checked)}
-                            className="rounded text-pink-600 focus:ring-pink-500"
+                            disabled={!!activeApp.digitalSignature}
+                            className="rounded text-pink-600 focus:ring-pink-500 disabled:opacity-55"
                           />
                           Marcar como Urgente
                         </label>
                         <button
                           type="submit"
-                          className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all"
+                          disabled={!!activeApp.digitalSignature}
+                          className="px-4 py-2 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all disabled:opacity-55"
                         >
                           Registrar Nota
                         </button>
@@ -1663,9 +2087,21 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                   </div>
 
                   <div className="flex flex-col gap-2 pt-2 border-t border-zinc-150 dark:border-zinc-800">
+                    {activeApp.status === 'Confirmado' && (
+                      <button
+                        onClick={handleCallOnTv}
+                        disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                        className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/15 disabled:opacity-50 flex items-center justify-center gap-2 mb-1"
+                      >
+                        <Tv className="w-4 h-4" />
+                        Chamar na TV da Recepção
+                      </button>
+                    )}
+
                     <button
                       onClick={handleSaveTriagemChanges}
-                      className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-pink-600/15"
+                      disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                      className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-pink-600/15 disabled:opacity-50"
                     >
                       Salvar Alterações
                     </button>
@@ -1678,7 +2114,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                           setFollowUpIsSuspended(activeApp.followUpSuspended || false);
                           setFollowUpReason('');
                         }}
-                        className="h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs"
+                        disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                        className="h-10 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50"
                       >
                         Acompanhamento
                       </button>
@@ -1694,7 +2131,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                               setScheduleTime('08:30');
                             }
                           }}
-                          className="h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15"
+                          disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                          className="h-10 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-pink-600/15 disabled:opacity-50"
                         >
                           Agendar
                         </button>
@@ -2100,6 +2538,92 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                   ))
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {verifyingSignatureApp && verifyingSignatureApp.digitalSignature && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in animate-duration-200">
+          <div className="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="p-6 border-b border-zinc-150 dark:border-zinc-800 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-955/20 flex items-center justify-center text-emerald-650 shrink-0">
+                🛡️
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-50 leading-tight">Portal de Validação de Assinaturas</h3>
+                <span className="text-[10px] text-zinc-400 block font-semibold mt-0.5">ITI / ICP-Brasil Validador Simulado</span>
+              </div>
+              <button
+                onClick={() => setVerifyingSignatureApp(null)}
+                className="p-1.5 rounded-xl border border-zinc-250 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-955 text-zinc-500 text-xs font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-4 flex-1">
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-955/10 border border-emerald-200/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-400 rounded-2xl flex flex-col gap-1">
+                <span className="font-extrabold text-xs uppercase tracking-wider">Assinatura VÁLIDA</span>
+                <p className="text-[11px] leading-relaxed font-semibold">
+                  O documento correspondente a este laudo de triagem está devidamente assinado, contendo hash criptográfico intacto e validado pela cadeia ICP-Brasil.
+                </p>
+              </div>
+              <div className="bg-zinc-50 dark:bg-zinc-955 p-4 rounded-2xl border border-zinc-200/50 dark:border-zinc-800 text-xs space-y-3">
+                <div className="grid grid-cols-2 gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-850">
+                  <div>
+                    <span className="text-[10px] text-zinc-400 block uppercase font-bold">Paciente</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">{verifyingSignatureApp.patientName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-zinc-400 block uppercase font-bold">CPF do Paciente</span>
+                    <span className="font-mono font-bold text-zinc-800 dark:text-zinc-200">{verifyingSignatureApp.patientCpf}</span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-[10px] text-zinc-400 block uppercase font-bold">Procedimento</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">{verifyingSignatureApp.examName}</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3 pb-3 border-b border-zinc-200 dark:border-zinc-850">
+                  <div>
+                    <span className="text-[10px] text-zinc-400 block uppercase font-bold">Médico Assinante</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">{verifyingSignatureApp.digitalSignature.signedBy}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-zinc-400 block uppercase font-bold">CPF do Médico</span>
+                    <span className="font-mono font-bold text-zinc-800 dark:text-zinc-200">{verifyingSignatureApp.digitalSignature.cpf}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-zinc-400 block uppercase font-bold">Data da Assinatura</span>
+                    <span className="font-bold text-zinc-800 dark:text-zinc-200">{new Date(verifyingSignatureApp.digitalSignature.signedAt).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-zinc-400 block uppercase font-bold">Série do Certificado</span>
+                    <span className="font-mono font-bold text-zinc-800 dark:text-zinc-200">{verifyingSignatureApp.digitalSignature.certificateSerial}</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Hash SHA-256 de Integridade</span>
+                  <span className="font-mono text-[9px] bg-zinc-100 dark:bg-zinc-950 p-2.5 rounded-xl block break-all text-zinc-650 dark:text-zinc-400 border border-zinc-200/50 dark:border-zinc-800/80">
+                    {verifyingSignatureApp.digitalSignature.signatureHash}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px] text-zinc-450 pt-1">
+                  <span>Algoritmo:</span>
+                  <span className="font-bold text-zinc-600 dark:text-zinc-350">SHA-256 com RSA (2048 bits)</span>
+                  <span className="mx-1">•</span>
+                  <span>Cadeia:</span>
+                  <span className="font-bold text-zinc-600 dark:text-zinc-350">AC VALID v5 / ICP-Brasil</span>
+                </div>
+              </div>
+            </div>
+            <div className="p-6 border-t border-zinc-150 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-955 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setVerifyingSignatureApp(null)}
+                className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-bold transition-all"
+              >
+                Concluir Verificação
+              </button>
             </div>
           </div>
         </div>

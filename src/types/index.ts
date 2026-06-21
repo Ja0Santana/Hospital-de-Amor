@@ -81,6 +81,20 @@ export interface Appointment {
   rescheduleReason?: string;
   documentReminders?: Array<{ sentAt: string; count: number }>;
   isColdStorage?: boolean;
+  waitingListOfferDate?: string;
+  waitingListOfferExpiresAt?: string;
+  checkInAt?: string;
+  attendanceStartedAt?: string;
+  pepSyncStatus?: 'synchronized' | 'pending' | 'failed';
+  pepRegistryId?: string;
+  pepSyncAttempts?: number;
+  digitalSignature?: {
+    signedBy: string;
+    cpf: string;
+    signedAt: string;
+    signatureHash: string;
+    certificateSerial: string;
+  };
 }
 
 export interface FeedbackResponse {
@@ -92,6 +106,10 @@ export interface FeedbackResponse {
   userCpf: string;
   originSessionId: string;
   originIp: string;
+  adminResponse?: string;
+  adminResponseAt?: string;
+  adminResponseAuthor?: string;
+  isResolved?: boolean;
 }
 
 export interface PatientUser {
