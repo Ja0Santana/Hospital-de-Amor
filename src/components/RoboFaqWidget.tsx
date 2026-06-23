@@ -403,7 +403,7 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
   return (
     <div className="fixed right-6 bottom-6 z-40 font-sans">
       {isOpen ? (
-        <Card className="w-[310px] sm:w-[330px] h-[440px] bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-5 duration-300">
+        <Card className={`w-[310px] sm:w-[330px] ${schedulingStep !== 'none' ? 'h-[540px]' : 'h-[440px]'} bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden flex flex-col transition-all duration-300 animate-in slide-in-from-bottom-5`}>
           <CardHeader className="bg-primary p-3.5 text-white flex flex-row items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-white/15 rounded-xl flex items-center justify-center border border-white/10 shrink-0">
