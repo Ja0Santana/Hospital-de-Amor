@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
-import { X, Send, Sparkles, MessageSquare } from 'lucide-react';
+import { X, Send, Sparkles, MessageSquare, Calendar } from 'lucide-react';
 import { saveChatbotQuery } from '../services/db';
 
 interface ChatMessage {
@@ -166,9 +166,10 @@ export default function RoboFaqWidget({ onNavigate }: RoboFaqWidgetProps) {
                     onNavigate('new-request');
                     setIsOpen(false);
                   }}
-                  className="px-2 py-0.5 bg-pink-100 hover:bg-pink-200 border border-pink-250 text-pink-700 rounded-lg text-[8px] font-bold transition-colors"
+                  className="px-2 py-0.5 bg-pink-100 hover:bg-pink-200 border border-pink-250 text-pink-700 rounded-lg text-[8px] font-bold transition-all flex items-center gap-1"
                 >
-                  Novo Agendamento 📅
+                  <span>Novo Agendamento</span>
+                  <Calendar className="w-2.5 h-2.5" />
                 </button>
               )}
               <button

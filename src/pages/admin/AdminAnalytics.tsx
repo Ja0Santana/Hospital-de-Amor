@@ -20,7 +20,10 @@ import {
   Info,
   MessageSquare,
   AlertTriangle,
-  Send
+  Send,
+  Check,
+  RefreshCw,
+  Zap
 } from 'lucide-react';
 
 interface AdminAnalyticsProps {
@@ -1115,8 +1118,9 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-zinc-500">Capacidade de Utilização: {item.count} / {limit}</span>
                         {isOverLimit && (
-                          <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-red-650 dark:text-red-400 bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-lg border border-red-200/40 dark:border-red-900/30 animate-pulse">
-                            ⚠️ Alerta de Manutenção!
+                          <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-red-650 dark:text-red-400 bg-red-50 dark:bg-red-955/20 px-2 py-0.5 rounded-lg border border-red-200/40 dark:border-red-900/30 animate-pulse">
+                            <AlertTriangle className="w-2.5 h-2.5" />
+                            <span>Alerta de Manutenção!</span>
                           </span>
                         )}
                       </div>
@@ -1710,14 +1714,29 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                               Alerta Crítico
                             </span>
                           )}
-                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
+                          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold inline-flex items-center gap-1 ${
                             isResolved
                               ? 'bg-emerald-50 border border-emerald-250 text-emerald-700 dark:bg-emerald-955/20 dark:border-emerald-900/30'
                               : isInProgress
                               ? 'bg-amber-50 border border-amber-250 text-amber-700 dark:bg-amber-955/20 dark:border-amber-900/30'
                               : 'bg-rose-50 border border-rose-250 text-rose-700 dark:bg-rose-955/20 dark:border-rose-900/30 animate-pulse'
                           }`}>
-                            {isResolved ? '✓ Resolvido' : isInProgress ? '🔄 Em andamento' : '⚡ Pendente'}
+                            {isResolved ? (
+                              <>
+                                <Check className="w-2.5 h-2.5" />
+                                <span>Resolvido</span>
+                              </>
+                            ) : isInProgress ? (
+                              <>
+                                <RefreshCw className="w-2.5 h-2.5 animate-spin" style={{ animationDuration: '3s' }} />
+                                <span>Em andamento</span>
+                              </>
+                            ) : (
+                              <>
+                                <Zap className="w-2.5 h-2.5 animate-pulse" />
+                                <span>Pendente</span>
+                              </>
+                            )}
                           </span>
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
                             fb.npsScore >= 9 
@@ -1968,7 +1987,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
         <div className="space-y-8 animate-in fade-in">
           {criticalCount >= 5 && (
             <div className="p-4 bg-red-100 border border-red-300 dark:bg-red-955/30 dark:border-red-900/50 text-red-800 dark:text-red-400 rounded-2xl flex items-center gap-3 animate-pulse">
-              <span className="text-xl">⚠️</span>
+              <AlertTriangle className="w-5 h-5 text-red-700 shrink-0" />
               <div>
                 <strong className="text-xs block">ALERTA CRÍTICO: ALTO TEMPO DE ESPERA</strong>
                 <span className="text-[11px]">Existem {criticalCount} pacientes aguardando atendimento clínico há mais de 30 minutos na recepção!</span>
@@ -2075,8 +2094,9 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                           <td className="py-3 text-zinc-500">{app.specialtyName}</td>
                           <td className="py-3 text-zinc-500">{new Date(app.checkInAt!).toLocaleTimeString('pt-BR')}</td>
                           <td className="py-3 text-right font-extrabold text-xs">
-                            <span className={app.isCritical ? 'text-red-650' : 'text-zinc-700 dark:text-zinc-300'}>
-                              {app.elapsedMin} min {app.isCritical && '🚨'}
+                            <span className={app.isCritical ? 'text-red-650 inline-flex items-center gap-1' : 'text-zinc-700 dark:text-zinc-300'}>
+                              <span>{app.elapsedMin} min</span>
+                              {app.isCritical && <AlertTriangle className="w-3.5 h-3.5 text-red-650 animate-pulse" />}
                             </span>
                           </td>
                         </tr>

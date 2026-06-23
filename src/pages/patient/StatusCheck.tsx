@@ -615,7 +615,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                         <div className="flex gap-3 items-start">
                           <Clock className="w-5 h-5 text-pink-650 shrink-0 mt-0.5 animate-pulse" />
                           <div className="space-y-1 flex-1">
-                            <h4 className="font-extrabold text-sm text-pink-700 dark:text-pink-400">⚠️ Oferta de Vaga Liberada! (Fila de Espera)</h4>
+                            <h4 className="font-extrabold text-sm text-pink-700 dark:text-pink-400">Oferta de Vaga Liberada! (Fila de Espera)</h4>
                             <p className="text-xs text-zinc-650 dark:text-zinc-355 leading-relaxed">
                               Uma vaga foi liberada para o seu exame/consulta por cancelamento de outro paciente!
                             </p>

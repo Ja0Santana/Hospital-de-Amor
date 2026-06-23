@@ -35,7 +35,18 @@ import {
   Search, 
   Filter,
   FileText,
-  Tv
+  Tv,
+  QrCode,
+  Save,
+  Zap,
+  AlertTriangle,
+  Pause,
+  Check,
+  Repeat,
+  ShieldCheck,
+  MessageSquare,
+  Smartphone,
+  X
 } from 'lucide-react';
 import { dispatchLobbyCall } from '../../services/lobbyChannel';
 
@@ -960,7 +971,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
           }}
           className="px-4 py-2.5 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 font-extrabold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-95 shrink-0"
         >
-          <span>🎫 Recepção - Check-in Rápido</span>
+          <QrCode className="w-4 h-4" />
+          <span>Recepção - Check-in Rápido</span>
         </button>
       </div>
 
@@ -1174,9 +1186,10 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
             {!isSavingFilter ? (
               <button
                 onClick={() => setIsSavingFilter(true)}
-                className="w-full md:w-auto px-4 py-2 border border-pink-500 text-pink-600 dark:border-pink-400 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-955/15 text-xs font-bold rounded-xl transition-all"
+                className="w-full md:w-auto px-4 py-2 border border-pink-500 text-pink-600 dark:border-pink-400 dark:text-pink-400 hover:bg-pink-50 dark:hover:bg-pink-955/15 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 justify-center"
               >
-                💾 Salvar Filtro Atual
+                <Save className="w-3.5 h-3.5" />
+                <span>Salvar Filtro Atual</span>
               </button>
             ) : (
               <div className="flex items-center gap-2 w-full">
@@ -1199,9 +1212,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                     setIsSavingFilter(false);
                     setFilterNameInput('');
                   }}
-                  className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-400 text-xs font-bold rounded-xl transition-all hover:bg-zinc-50 dark:hover:bg-zinc-950"
+                  className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 text-zinc-550 dark:text-zinc-400 text-xs font-bold rounded-xl transition-all hover:bg-zinc-50 dark:hover:bg-zinc-950 flex items-center justify-center h-8 transition-transform hover:rotate-90 duration-200"
                 >
-                  ✕
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}
@@ -1220,9 +1233,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                 <span>{f.name}</span>
                 <button
                   onClick={(e) => handleDeleteSavedFilter(f.id, e)}
-                  className="text-zinc-400 hover:text-red-500 font-extrabold ml-1"
+                  className="text-zinc-400 hover:text-red-500 font-extrabold ml-1 flex items-center justify-center transition-transform hover:rotate-90 duration-200"
                 >
-                  ✕
+                  <X className="w-3 h-3" />
                 </button>
               </div>
             ))}
@@ -1235,7 +1248,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
             {activeFilters.map(filter => (
               <span key={filter.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-200/50 dark:border-zinc-800">
                 {filter.label}
-                <button onClick={filter.clear} className="text-zinc-400 hover:text-zinc-650 font-bold ml-1">✕</button>
+                <button onClick={filter.clear} className="text-zinc-400 hover:text-zinc-655 font-bold ml-1 inline-flex items-center justify-center transition-transform hover:rotate-90 duration-200">
+                  <X className="w-3 h-3" />
+                </button>
               </span>
             ))}
             <button 
@@ -1401,7 +1416,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                         <div className="space-y-1">
                           {isOfferActive ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-pink-100 text-pink-700 dark:bg-pink-955/20 dark:text-pink-400 border border-pink-200/20 animate-pulse block w-max">
-                              ⚡ Oferta Ativa: {getRemainingTime(app.waitingListOfferExpiresAt!)}
+                              <Zap className="w-3 h-3 text-pink-500" />
+                              <span>Oferta Ativa: {getRemainingTime(app.waitingListOfferExpiresAt!)}</span>
                             </span>
                           ) : (
                             <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -1419,16 +1435,21 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                           )}
                           {hasMailBounce(app) && (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20 animate-pulse block w-max">
-                              ⚠️ Falha de Envio (E-mail)
+                              <AlertTriangle className="w-3 h-3 text-red-650" />
+                              <span>Falha de Envio (E-mail)</span>
                             </span>
                           )}
                           {app.status === 'Aguardando Follow-up' && (
                             <div className="text-[9px] font-bold tracking-tight block">
                               {app.followUpSuspended ? (
-                                <span className="text-zinc-400">⏸️ Acompanhamento Suspenso</span>
+                                <span className="inline-flex items-center gap-1 text-zinc-400">
+                                  <Pause className="w-3 h-3 text-zinc-405" />
+                                  <span>Acompanhamento Suspenso</span>
+                                </span>
                               ) : (
-                                <span className={isOverdue ? "text-red-500 font-extrabold animate-pulse" : "text-purple-500"}>
-                                  📅 Limite: {app.followUpDate ? new Date(app.followUpDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}
+                                <span className={isOverdue ? "text-red-500 font-extrabold animate-pulse inline-flex items-center gap-1" : "text-purple-505 inline-flex items-center gap-1"}>
+                                  <Calendar className="w-3 h-3" />
+                                  <span>Limite: {app.followUpDate ? new Date(app.followUpDate + 'T12:00:00').toLocaleDateString('pt-BR') : '-'}</span>
                                 </span>
                               )}
                             </div>
@@ -1444,7 +1465,14 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                               ? 'bg-amber-50 border-amber-200/40 text-amber-700 dark:bg-amber-955/20 dark:border-amber-900/30 dark:text-amber-400'
                               : 'bg-zinc-50 border-zinc-200/40 text-zinc-500 dark:bg-zinc-900/20 dark:border-zinc-800'
                           }`}>
-                            {slaStatus === 'critical' ? '⚠' : slaStatus === 'warning' ? '●' : '✓'} {slaDays}d
+                            {slaStatus === 'critical' ? (
+                              <AlertCircle className="w-3.5 h-3.5 text-red-650 animate-pulse shrink-0" />
+                            ) : slaStatus === 'warning' ? (
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                            ) : (
+                              <Check className="w-3.5 h-3.5 text-zinc-550 shrink-0" />
+                            )}
+                            <span className="ml-1">{slaDays}d</span>
                           </span>
                         )}
                       </td>
@@ -1481,7 +1509,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                               className="inline-flex items-center gap-1 h-8 px-2.5 rounded-xl border border-emerald-200 dark:border-emerald-900/50 hover:bg-emerald-50 dark:hover:bg-emerald-955/10 font-bold transition-all bg-white dark:bg-zinc-950 text-emerald-700 dark:text-emerald-400 text-[10px]"
                               title="Registrar check-in do paciente"
                             >
-                              ✓ Check-in
+                              <Check className="w-3 h-3" />
+                              <span>Check-in</span>
                             </button>
                           )}
                           <button
@@ -1566,9 +1595,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
               </div>
               <button
                 onClick={handleCloseTriagem}
-                className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-955 text-zinc-500"
+                className="p-1.5 rounded-xl border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-955 text-zinc-500 flex items-center justify-center transition-transform hover:rotate-90 duration-200"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
@@ -1639,8 +1668,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-zinc-800 dark:text-zinc-200">{history.text}</span>
                         {history.isPossibleReturn && (
-                          <span className="inline-block px-2 py-0.5 bg-red-100 dark:bg-red-955/30 text-red-800 dark:text-red-400 rounded-md text-[9px] font-bold animate-pulse">
-                            🔁 Possível Retorno
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-red-100 dark:bg-red-955/30 text-red-800 dark:text-red-400 rounded-md text-[9px] font-bold animate-pulse">
+                            <Repeat className="w-3 h-3" />
+                            <span>Possível Retorno</span>
                           </span>
                         )}
                       </div>
@@ -1652,7 +1682,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
               {hasClinicalRecords && (
                 <div className="bg-red-50 border border-red-200/50 p-4 rounded-2xl text-xs space-y-2 dark:bg-red-955/10 dark:border-red-900/30 animate-pulse">
                   <h4 className="font-extrabold text-red-800 dark:text-red-400 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
-                    ⚠️ Documentos Clínicos Externos
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Documentos Clínicos Externos</span>
                   </h4>
                   <p className="text-red-700 dark:text-red-300">
                     Atenção: Este paciente possui documentos clínicos externos anexados ao seu prontuário. Por favor, revise-os.
@@ -1663,7 +1694,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
               {patientSymptomLogs.some(log => log.symptoms.some(isSymptomGrave)) && (
                 <div className="bg-red-50 border border-red-250 p-4 rounded-2xl text-xs space-y-2 dark:bg-red-955/10 dark:border-red-900/30 animate-pulse">
                   <h4 className="font-extrabold text-red-800 dark:text-red-400 flex items-center gap-1.5 uppercase tracking-wider text-[10px]">
-                    ⚠️ Alerta: Sintomas Graves Reportados
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>Alerta: Sintomas Graves Reportados</span>
                   </h4>
                   <p className="text-red-750 dark:text-red-300 font-semibold leading-relaxed">
                     Este paciente registrou sintomas graves (como Febre) em seu diário de saúde recentemente. Por favor, avalie a triagem com prioridade clínica adequada.
@@ -1710,7 +1742,12 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                                   ? 'bg-red-100 text-red-800 dark:bg-red-955/40 dark:text-red-400 border border-red-200 dark:border-red-900/50 animate-pulse' 
                                   : 'bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:text-amber-400 border border-amber-200/20'
                               }`}>
-                                {elapsedMin} min {isCritical && '⚠️ (Atraso Crítico)'}
+                                {elapsedMin} min {isCritical && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] text-red-700 animate-pulse ml-1.5">
+                                    <AlertCircle className="w-3 h-3" />
+                                    <span>(Atraso Crítico)</span>
+                                  </span>
+                                )}
                               </span>
                             );
                           })()}
@@ -1802,7 +1839,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                     <div className="relative p-4 rounded-2xl border border-amber-300 dark:border-amber-800/40 bg-amber-50/15 dark:bg-amber-955/5 overflow-hidden flex flex-col md:flex-row gap-4 items-center">
                       <div className="flex-1 space-y-1.5 text-xs">
                         <div className="text-amber-800 dark:text-amber-400 font-black flex items-center gap-1 uppercase tracking-wider text-[10px]">
-                          🛡️ Laudo Assinado Digitalmente
+                          <ShieldCheck className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                          <span>Laudo Assinado Digitalmente</span>
                         </div>
                         <p className="text-zinc-600 dark:text-zinc-300 text-[11px] leading-relaxed">
                           Este laudo de triagem foi criptografado e validado juridicamente via ICP-Brasil.
@@ -2048,7 +2086,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                       disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
                       className="py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-55"
                     >
-                      <span>💬 Testar via WhatsApp</span>
+                      <MessageSquare className="w-3.5 h-3.5" />
+                      <span>Testar via WhatsApp</span>
                     </button>
                     <button
                       type="button"
@@ -2056,7 +2095,8 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                       disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
                       className="py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-55"
                     >
-                      <span>📱 Testar via SMS</span>
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span>Testar via SMS</span>
                     </button>
                   </div>
                 </div>
@@ -2141,8 +2181,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                                   <span>{new Date(note.timestamp).toLocaleString('pt-BR')}</span>
                                 </div>
                                 {note.isUrgent && (
-                                  <span className="inline-block px-1.5 py-0.5 bg-red-100 text-red-800 dark:bg-red-955/30 dark:text-red-400 rounded-md text-[9px] font-bold">
-                                    ⚠️ URGENTE
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-red-100 text-red-800 dark:bg-red-955/30 dark:text-red-400 rounded-md text-[9px] font-bold">
+                                    <AlertTriangle className="w-2.5 h-2.5" />
+                                    <span>URGENTE</span>
                                   </span>
                                 )}
                                 <p className="text-zinc-700 dark:text-zinc-300 whitespace-pre-line text-xs">{note.text}</p>
@@ -2436,12 +2477,22 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
         <div className="fixed bottom-6 right-6 z-50 max-w-sm bg-zinc-900 text-zinc-100 rounded-3xl p-4 shadow-2xl border border-zinc-800 animate-in slide-in-from-bottom-5">
           <div className="flex items-center justify-between pb-2 border-b border-zinc-800 mb-2">
             <span className="text-[10px] font-bold uppercase tracking-wider text-pink-500">Simulador de Celular do Paciente</span>
-            <button onClick={() => setMockNotification(null)} className="text-zinc-500 hover:text-zinc-350 text-xs">✕</button>
+            <button onClick={() => setMockNotification(null)} className="text-zinc-500 hover:text-zinc-350 text-xs flex items-center justify-center transition-transform hover:rotate-90 duration-200"><X className="w-3.5 h-3.5" /></button>
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <span className="text-xs bg-zinc-800 px-2 py-0.5 rounded-full font-bold">
-                {mockNotification.method === 'WhatsApp' ? '💬 WhatsApp' : '📱 SMS'}
+              <span className="text-xs bg-zinc-800 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                {mockNotification.method === 'WhatsApp' ? (
+                  <>
+                    <MessageSquare className="w-3 h-3 text-emerald-500" />
+                    <span>WhatsApp</span>
+                  </>
+                ) : (
+                  <>
+                    <Smartphone className="w-3 h-3 text-blue-550" />
+                    <span>SMS</span>
+                  </>
+                )}
               </span>
               <span className="text-[10px] text-zinc-450 font-mono">{mockNotification.phone}</span>
             </div>
@@ -2458,12 +2509,13 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
           <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 max-w-lg w-full border border-zinc-200 dark:border-zinc-800 shadow-2xl space-y-4 relative">
             <button
               onClick={() => setIsScannerOpen(false)}
-              className="absolute right-4 top-4 p-2 text-zinc-400 hover:text-zinc-650 dark:hover:text-zinc-200 rounded-full"
+              className="absolute right-4 top-4 p-2 text-zinc-400 hover:text-zinc-655 dark:hover:text-zinc-200 rounded-full transition-transform hover:rotate-90 duration-200 flex items-center justify-center"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
             <h3 className="text-lg font-black text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-              🎫 Recepção - Validação de QR Code
+              <QrCode className="w-5 h-5 text-pink-500" />
+              <span>Recepção - Validação de QR Code</span>
             </h3>
             
             <form
@@ -2647,7 +2699,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
           <div className="bg-white dark:bg-zinc-900 w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800 animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
             <div className="p-6 border-b border-zinc-150 dark:border-zinc-800 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-955/20 flex items-center justify-center text-emerald-650 shrink-0">
-                🛡️
+                <ShieldCheck className="w-5 h-5" />
               </div>
               <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-50 leading-tight">Portal de Validação de Assinaturas</h3>
@@ -2655,9 +2707,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
               </div>
               <button
                 onClick={() => setVerifyingSignatureApp(null)}
-                className="p-1.5 rounded-xl border border-zinc-250 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-955 text-zinc-500 text-xs font-bold"
+                className="p-1.5 rounded-xl border border-zinc-250 dark:border-zinc-850 hover:bg-zinc-50 dark:hover:bg-zinc-955 text-zinc-500 text-xs font-bold flex items-center justify-center transition-transform hover:rotate-90 duration-200"
               >
-                ✕
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
             <div className="p-6 overflow-y-auto space-y-4 flex-1">
