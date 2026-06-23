@@ -82,6 +82,13 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
     getSpecialties().then(setSpecialties).catch(console.error);
     getAverageTriageTime().then(setAverageTriageTime).catch(console.error);
     loadAppointments();
+    const handleReactiveAppointment = () => {
+      loadAppointments();
+    };
+    window.addEventListener('appointment-created-reactively', handleReactiveAppointment);
+    return () => {
+      window.removeEventListener('appointment-created-reactively', handleReactiveAppointment);
+    };
   }, [patientCpf]);
 
   useEffect(() => {

@@ -608,7 +608,7 @@ function App() {
           </div>
         </main>
         {userRole === 'patient' && <SymptomFloatingWidget patientCpf={patientCpf} currentPage={currentPage} />}
-        {userRole === 'patient' && <RoboFaqWidget onNavigate={navigateTo} />}
+        {userRole === 'patient' && <RoboFaqWidget onNavigate={navigateTo} patientCpf={patientCpf} patientName={patientName} />}
         {userRole === 'patient' && <DigitalCard patientCpf={patientCpf} isOpen={isCardOpen} onClose={() => setIsCardOpen(false)} />}
         <DonationModal
           isOpen={isDonationModalOpen}
