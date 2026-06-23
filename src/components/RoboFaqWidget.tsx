@@ -30,7 +30,7 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const [schedulingStep, setSchedulingStep] = useState<
-    'none' | 'confirm_method' | 'select_state' | 'select_city' | 'select_specialty' | 'select_exam' | 'upload_file' | 'consent_lgpd' | 'completed'
+    'none' | 'confirm_method' | 'select_state' | 'select_city' | 'input_custom_city' | 'select_specialty' | 'select_exam' | 'upload_file' | 'consent_lgpd' | 'completed'
   >('none');
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
@@ -158,6 +158,12 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
   };
 
   const handleSelectCity = (cityId: string) => {
+    if (cityId === 'other') {
+      addUserMessage('Outra');
+      setSchedulingStep('input_custom_city');
+      addBotMessage('Por favor, digite o nome da sua cidade no campo de texto:');
+      return;
+    }
     const cityObj = cities.find((c) => c.id === cityId);
     const cityName = cityObj ? cityObj.name : cityId;
     addUserMessage(cityName);
@@ -357,6 +363,14 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
     }
 
     if (schedulingStep !== 'none') {
+      if (schedulingStep === 'input_custom_city') {
+        const customCity = userMsg.trim();
+        if (!customCity) return;
+        setSelectedCity(customCity);
+        setSchedulingStep('select_specialty');
+        addBotMessage('Selecione a especialidade desejada:', specialties.map((s) => ({ label: s.name, value: s.id })));
+        return;
+      }
       addBotMessage('Por favor, utilize os botões interativos acima para prosseguir ou digite "cancelar" para abortar o agendamento.');
       return;
     }
@@ -382,6 +396,17 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
     addUserMessage(text);
     if (text.toLowerCase() === 'cancelar') {
       cancelScheduling();
+      return;
+    }
+    if (schedulingStep !== 'none') {
+      if (schedulingStep === 'input_custom_city') {
+        const customCity = text.trim();
+        setSelectedCity(customCity);
+        setSchedulingStep('select_specialty');
+        addBotMessage('Selecione a especialidade desejada:', specialties.map((s) => ({ label: s.name, value: s.id })));
+        return;
+      }
+      addBotMessage('Por favor, utilize os botões interativos acima para prosseguir ou digite "cancelar" para abortar o agendamento.');
       return;
     }
     if (text.toLowerCase().includes('novo agendamento') || text.toLowerCase() === 'agendar' || text.toLowerCase() === 'marcar consulta' || text.toLowerCase() === 'marcar exame') {
@@ -442,17 +467,38 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
                     {msg.text}
                     {isLastMessage && msg.options && msg.options.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 mt-2 pt-1 border-t border-zinc-100 dark:border-zinc-800">
-                        {msg.options.map((opt, optIdx) => (
-                          <Button
-                            key={optIdx}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOptionClick(opt.value)}
-                            className="text-[9px] h-6 px-2.5 rounded-xl border-primary/20 text-primary hover:bg-primary/5 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 font-bold"
+                        {schedulingStep === 'select_city' ? (
+                          <select
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (val) {
+                                handleOptionClick(val);
+                              }
+                            }}
+                            className="text-[11px] h-8 w-full bg-white dark:bg-zinc-950 border border-zinc-205 dark:border-zinc-800 rounded-xl px-2 text-zinc-800 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-primary font-bold"
+                            defaultValue=""
                           >
-                            {opt.label}
-                          </Button>
-                        ))}
+                            <option value="" disabled>Selecione sua cidade...</option>
+                            {msg.options.map((opt, optIdx) => (
+                              <option key={optIdx} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                            <option value="other">Outra</option>
+                          </select>
+                        ) : (
+                          msg.options.map((opt, optIdx) => (
+                            <Button
+                              key={optIdx}
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOptionClick(opt.value)}
+                              className="text-[9px] h-6 px-2.5 rounded-xl border-primary/20 text-primary hover:bg-primary/5 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 font-bold"
+                            >
+                              {opt.label}
+                            </Button>
+                          ))
+                        )}
                       </div>
                     )}
                     {isLastMessage && msg.fileInput && (
