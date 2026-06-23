@@ -2886,6 +2886,9 @@ export async function toggleFeedbackResolution(feedbackId: string, operatorCpf: 
         const oldVal = fb.isResolved || false;
         const newVal = !oldVal;
         fb.isResolved = newVal;
+        fb.resolutionStatus = newVal ? 'Resolvido' : 'Pendente';
+        fb.resolutionStatusChangedAt = new Date().toISOString();
+        fb.resolutionStatusChangedBy = operatorName;
         feedbackStore.put(fb);
 
         const log: AuditLog = {
@@ -2896,15 +2899,58 @@ export async function toggleFeedbackResolution(feedbackId: string, operatorCpf: 
           action: `Alteracao de resolucao de NPS - Protocolo ${fb.appointmentProtocol}`,
           module: 'Ouvidoria',
           ipAddress: '127.0.0.1',
-          details: `Status de resolucao alterado de ${oldVal ? 'Tratado' : 'Pendente'} para ${newVal ? 'Tratado' : 'Pendente'}.`,
-          changes: {
-            isResolved: { old: oldVal, new: newVal }
-          }
+          details: `Status de resolucao alterado de ${oldVal ? 'Resolvido' : 'Pendente'} para ${newVal ? 'Resolvido' : 'Pendente'}.`,
+          changes: { isResolved: { old: oldVal, new: newVal } }
         };
         auditStore.add(log);
       } else {
         reject(new Error('Feedback não encontrado.'));
       }
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function setFeedbackResolutionStatus(
+  feedbackId: string,
+  targetStatus: 'Pendente' | 'Em andamento' | 'Resolvido',
+  operatorCpf: string,
+  operatorName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['feedbacks', 'audit_logs'], 'readwrite');
+    const feedbackStore = tx.objectStore('feedbacks');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = feedbackStore.get(feedbackId);
+    getReq.onsuccess = () => {
+      const fb = getReq.result as FeedbackResponse;
+      if (!fb) {
+        reject(new Error('Feedback não encontrado.'));
+        return;
+      }
+      const previousStatus = fb.resolutionStatus || (fb.isResolved ? 'Resolvido' : 'Pendente');
+      fb.resolutionStatus = targetStatus;
+      fb.isResolved = targetStatus === 'Resolvido';
+      fb.resolutionStatusChangedAt = new Date().toISOString();
+      fb.resolutionStatusChangedBy = operatorName;
+      feedbackStore.put(fb);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: operatorCpf,
+        userName: operatorName,
+        action: `Workflow de ouvidoria atualizado - Protocolo ${fb.appointmentProtocol}`,
+        module: 'Ouvidoria',
+        ipAddress: '127.0.0.1',
+        details: `Status alterado de "${previousStatus}" para "${targetStatus}".`,
+        changes: { resolutionStatus: { old: previousStatus, new: targetStatus } }
+      };
+      auditStore.add(log);
     };
     getReq.onerror = () => reject(getReq.error);
     tx.oncomplete = () => resolve();

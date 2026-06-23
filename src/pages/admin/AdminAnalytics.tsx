@@ -6,7 +6,7 @@ import {
   addAuditLogAdmin,
   getFeedbacks,
   saveFeedbackReply,
-  toggleFeedbackResolution
+  setFeedbackResolutionStatus
 } from '../../services/db';
 import type { Appointment, Specialty, Exam, PatientUser, FeedbackResponse } from '../../types';
 import jsPDF from 'jspdf';
@@ -60,7 +60,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
   const [npsReportDay] = useState<number>(1);
   const [npsReportSuccessMsg, setNpsReportSuccessMsg] = useState<string>('');
   const [replySuccessMsgMap, setReplySuccessMsgMap] = useState<Record<string, string>>({});
-  const [npsStatusFilter, setNpsStatusFilter] = useState<'Todos' | 'Pendentes' | 'Resolvidos'>('Todos');
+  const [npsStatusFilter, setNpsStatusFilter] = useState<'Todos' | 'Pendentes' | 'Em andamento' | 'Resolvidos'>('Todos');
 
   const [timeOffsetMin, setTimeOffsetMin] = useState(0);
   const [, setAnalyticsTick] = useState(0);
@@ -839,8 +839,18 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
     const app = appointments.find(a => a.protocol.toUpperCase() === fb.appointmentProtocol.toUpperCase());
     if (selectedNpsSpecialty && app?.specialtyId !== selectedNpsSpecialty) return false;
     if (selectedNpsRegion && app?.city !== selectedNpsRegion) return false;
-    if (npsStatusFilter === 'Pendentes' && fb.isResolved === true) return false;
-    if (npsStatusFilter === 'Resolvidos' && fb.isResolved !== true) return false;
+    if (npsStatusFilter === 'Pendentes') {
+      const status = fb.resolutionStatus || (fb.isResolved ? 'Resolvido' : 'Pendente');
+      if (status !== 'Pendente') return false;
+    }
+    if (npsStatusFilter === 'Em andamento') {
+      const status = fb.resolutionStatus || (fb.isResolved ? 'Resolvido' : 'Pendente');
+      if (status !== 'Em andamento') return false;
+    }
+    if (npsStatusFilter === 'Resolvidos') {
+      const status = fb.resolutionStatus || (fb.isResolved ? 'Resolvido' : 'Pendente');
+      if (status !== 'Resolvido') return false;
+    }
     if (npsSearch) {
       const query = npsSearch.toLowerCase();
       const matchComment = fb.comment.toLowerCase().includes(query);
@@ -1644,9 +1654,10 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                   onChange={(e) => setNpsStatusFilter(e.target.value as any)}
                   className="px-3 py-2 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 font-semibold"
                 >
-                  <option value="Todos">Status: Todos</option>
+                  <option value="Todos">Todos</option>
                   <option value="Pendentes">Pendentes</option>
-                  <option value="Resolvidos">Tratados</option>
+                  <option value="Em andamento">Em andamento</option>
+                  <option value="Resolvidos">Resolvidos</option>
                 </select>
               </div>
             </div>
@@ -1659,12 +1670,16 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
               ) : (
                 filteredFeedbacks.map((fb) => {
                   const app = appointments.find(a => a.protocol.toUpperCase() === fb.appointmentProtocol.toUpperCase());
-                  const isResolved = fb.isResolved === true;
+                  const resolutionStatus = fb.resolutionStatus || (fb.isResolved ? 'Resolvido' : 'Pendente');
+                  const isResolved = resolutionStatus === 'Resolvido';
+                  const isInProgress = resolutionStatus === 'Em andamento';
                   const isCritical = fb.npsScore <= 6 || /erro|negligência|ruim|péssimo|atraso/i.test(fb.comment);
                   const formattedDate = fb.createdAt ? new Date(fb.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
                   const successMsg = replySuccessMsgMap[fb.id];
                   const cardBgClass = isResolved
                     ? 'bg-zinc-50/20 border-zinc-200/30 dark:bg-zinc-955/5 dark:border-zinc-850/50 opacity-75'
+                    : isInProgress
+                    ? 'bg-amber-50/30 border-amber-200/50 dark:bg-amber-955/5 dark:border-amber-900/20'
                     : isCritical
                     ? 'bg-red-50/20 border-red-200/40 dark:bg-red-955/5 dark:border-red-900/20'
                     : 'bg-zinc-50/50 border-zinc-200/50 dark:bg-zinc-955/10 dark:border-zinc-850';
@@ -1695,9 +1710,11 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
                             isResolved
                               ? 'bg-emerald-50 border border-emerald-250 text-emerald-700 dark:bg-emerald-955/20 dark:border-emerald-900/30'
-                              : 'bg-rose-50 border border-rose-250 text-rose-700 dark:bg-rose-955/20 dark:text-rose-900/30 animate-pulse'
+                              : isInProgress
+                              ? 'bg-amber-50 border border-amber-250 text-amber-700 dark:bg-amber-955/20 dark:border-amber-900/30'
+                              : 'bg-rose-50 border border-rose-250 text-rose-700 dark:bg-rose-955/20 dark:border-rose-900/30 animate-pulse'
                           }`}>
-                            {isResolved ? '✓ Tratado' : '⚡ Pendente'}
+                            {isResolved ? '✓ Resolvido' : isInProgress ? '🔄 Em andamento' : '⚡ Pendente'}
                           </span>
                           <span className={`px-2 py-0.5 rounded-lg text-[10px] font-extrabold ${
                             fb.npsScore >= 9 
@@ -1747,24 +1764,57 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                         </div>
 
                         {(fb.adminResponse || fb.npsScore <= 6) && (
-                          <button
-                            onClick={async () => {
-                              try {
-                                await toggleFeedbackResolution(fb.id, loggedEmployee.cpf, loggedEmployee.name);
-                                const allFeedbacks = await getFeedbacks();
-                                setFeedbacks(allFeedbacks);
-                              } catch (err) {
-                                console.error(err);
-                              }
-                            }}
-                            className={`px-3 py-1.5 rounded-xl font-bold transition-all text-[11px] shrink-0 border ${
-                              isResolved
-                                ? 'bg-zinc-100 border-zinc-200 hover:bg-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 text-zinc-700'
-                                : 'bg-emerald-600 border-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
-                            }`}
-                          >
-                            {isResolved ? 'Reabrir Caso' : 'Resolvido'}
-                          </button>
+                          <div className="flex flex-col gap-1.5 shrink-0">
+                            {fb.resolutionStatusChangedAt && (
+                              <span className="text-[9px] text-zinc-400 text-right">
+                                Atualizado em {new Date(fb.resolutionStatusChangedAt).toLocaleString('pt-BR')}
+                              </span>
+                            )}
+                            <div className="flex gap-1.5">
+                              {!isInProgress && !isResolved && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await setFeedbackResolutionStatus(fb.id, 'Em andamento', loggedEmployee.cpf, loggedEmployee.name);
+                                      const allFeedbacks = await getFeedbacks();
+                                      setFeedbacks(allFeedbacks);
+                                    } catch (err) { console.error(err); }
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl font-bold text-[10px] bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 dark:bg-amber-955/20 dark:border-amber-900/30 dark:text-amber-400 transition-all"
+                                >
+                                  Em andamento
+                                </button>
+                              )}
+                              {!isResolved && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await setFeedbackResolutionStatus(fb.id, 'Resolvido', loggedEmployee.cpf, loggedEmployee.name);
+                                      const allFeedbacks = await getFeedbacks();
+                                      setFeedbacks(allFeedbacks);
+                                    } catch (err) { console.error(err); }
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl font-bold text-[10px] bg-emerald-600 border border-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all"
+                                >
+                                  Resolvido
+                                </button>
+                              )}
+                              {(isInProgress || isResolved) && (
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      await setFeedbackResolutionStatus(fb.id, 'Pendente', loggedEmployee.cpf, loggedEmployee.name);
+                                      const allFeedbacks = await getFeedbacks();
+                                      setFeedbacks(allFeedbacks);
+                                    } catch (err) { console.error(err); }
+                                  }}
+                                  className="px-2.5 py-1.5 rounded-xl font-bold text-[10px] bg-zinc-100 border border-zinc-200 hover:bg-zinc-200 dark:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 text-zinc-700 transition-all"
+                                >
+                                  Reabrir
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
 

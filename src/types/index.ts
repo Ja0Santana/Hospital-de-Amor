@@ -110,6 +110,9 @@ export interface FeedbackResponse {
   adminResponseAt?: string;
   adminResponseAuthor?: string;
   isResolved?: boolean;
+  resolutionStatus?: 'Pendente' | 'Em andamento' | 'Resolvido';
+  resolutionStatusChangedAt?: string;
+  resolutionStatusChangedBy?: string;
 }
 
 export interface PatientUser {
