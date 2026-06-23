@@ -181,6 +181,28 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
     addBotMessage('Selecione o exame ou consulta que deseja agendar:', specialtyObj.exams.map((e) => ({ label: e.name, value: e.id })));
   };
 
+
+  const promptLgpdConsent = (prefixText = '', fileOverride?: FileAttachment | null, examOverride?: Exam | null) => {
+    setSchedulingStep('consent_lgpd');
+    const fileToUse = fileOverride !== undefined ? fileOverride : attachedFile;
+    const examToUse = examOverride !== undefined ? examOverride : selectedExam;
+    const docName = fileToUse ? fileToUse.name : (examToUse?.requiresEncaminhamento !== false ? 'Pendente' : 'Não exigido');
+    const summary = `Resumo da sua solicitação:
+• Paciente: ${patientUser?.name || patientName || 'Anna Beatriz'}
+• CPF: ${patientCpf}
+• Local: ${selectedCity} - ${selectedState}
+• Especialidade: ${selectedSpecialty?.name || ''}
+• Exame: ${examToUse?.name || ''}
+• Documento: ${docName}
+
+${prefixText}Para concluir a solicitação, é necessário aceitar os termos da LGPD (Lei Geral de Proteção de Dados) para o tratamento dos dados pessoais e de saúde.`;
+
+    addBotMessage(summary, [
+      { label: 'Aceitar e Confirmar', value: 'accept' },
+      { label: 'Cancelar', value: 'cancel' }
+    ]);
+  };
+
   const handleSelectExam = async (examId: string) => {
     if (!selectedSpecialty) return;
     const examObj = selectedSpecialty.exams.find((e) => e.id === examId);
@@ -203,11 +225,7 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
         { label: 'Simular Anexo de Teste', value: 'simulate' }
       ], true);
     } else {
-      setSchedulingStep('consent_lgpd');
-      addBotMessage('Para concluir a solicitação, é necessário aceitar os termos da LGPD (Lei Geral de Proteção de Dados) para o tratamento dos dados pessoais e de saúde.', [
-        { label: 'Aceitar e Confirmar', value: 'accept' },
-        { label: 'Cancelar', value: 'cancel' }
-      ]);
+      promptLgpdConsent('', null, examObj);
     }
   };
 
@@ -237,11 +255,7 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
       status: 'Pendente'
     };
     setAttachedFile(mockFile);
-    setSchedulingStep('consent_lgpd');
-    addBotMessage('Documento anexado com sucesso! Para concluir a solicitação, é necessário aceitar os termos da LGPD (Lei Geral de Proteção de Dados) para o tratamento dos dados pessoais e de saúde.', [
-      { label: 'Aceitar e Confirmar', value: 'accept' },
-      { label: 'Cancelar', value: 'cancel' }
-    ]);
+    promptLgpdConsent('Documento anexado com sucesso!\n\n', mockFile, selectedExam);
   };
 
   const handleRealFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -259,11 +273,7 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
         status: 'Pendente'
       };
       setAttachedFile(fileAttach);
-      setSchedulingStep('consent_lgpd');
-      addBotMessage('Documento real anexado com sucesso! Para concluir a solicitação, é necessário aceitar os termos da LGPD (Lei Geral de Proteção de Dados) para o tratamento dos dados pessoais e de saúde.', [
-        { label: 'Aceitar e Confirmar', value: 'accept' },
-        { label: 'Cancelar', value: 'cancel' }
-      ]);
+      promptLgpdConsent('Documento real anexado com sucesso!\n\n', fileAttach, selectedExam);
     };
     reader.readAsDataURL(file);
   };
