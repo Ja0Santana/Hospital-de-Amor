@@ -52,8 +52,17 @@ interface AdminDashboardProps {
 
 export default function AdminDashboard({ loggedEmployee, permissions }: AdminDashboardProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 25;
+  const [batchConfirmModal, setBatchConfirmModal] = useState<{ action: 'Em análise' | 'Cancelado'; count: number } | null>(null);
+  const [batchConfirmInput, setBatchConfirmInput] = useState('');
   const [, setTick] = useState(0);
   useEffect(() => {
+    getAppointmentsForAdmin().then(data => {
+      setAppointments(data);
+      setIsInitialLoading(false);
+    }).catch(console.error);
     const interval = setInterval(() => {
       setTick((t) => t + 1);
       checkAndProcessExpiredOffers().then(() => {
@@ -659,18 +668,26 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     setActionError('');
     setActionSuccess('');
     if (selectedApps.length === 0) return;
+    setBatchConfirmModal({ action: newStatus, count: selectedApps.length });
+    setBatchConfirmInput('');
+  };
 
+  const handleLoteStatusConfirm = async () => {
+    if (!batchConfirmModal) return;
+    const { action } = batchConfirmModal;
+    setBatchConfirmModal(null);
+    setBatchConfirmInput('');
     try {
       for (const id of selectedApps) {
         await updateAppointmentStatus(
-          id, 
-          newStatus, 
-          'Atualizado em lote pela equipe administrativa.', 
-          loggedEmployee.cpf, 
+          id,
+          action,
+          'Atualizado em lote pela equipe administrativa.',
+          loggedEmployee.cpf,
           loggedEmployee.name
         );
       }
-      setActionSuccess(`Status de ${selectedApps.length} agendamentos alterado para "${newStatus}" com sucesso.`);
+      setActionSuccess(`Status de ${selectedApps.length} agendamentos alterado para "${action}" com sucesso.`);
       setSelectedApps([]);
       await loadData();
     } catch (e) {
@@ -874,6 +891,16 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
       ? valA.localeCompare(valB) 
       : valB.localeCompare(valA);
   });
+
+  const getSlaStatus = (createdAt: string): 'ok' | 'warning' | 'critical' => {
+    const days = Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000);
+    if (days > 50) return 'critical';
+    if (days >= 30) return 'warning';
+    return 'ok';
+  };
+
+  const totalPages = Math.ceil(sortedAppointments.length / ITEMS_PER_PAGE);
+  const paginatedAppointments = sortedAppointments.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const activeFilters: Array<{ id: string, label: string, clear: () => void }> = [];
   if (searchQuery) activeFilters.push({ id: 'search', label: `Busca: "${searchQuery}"`, clear: () => setSearchQuery('') });
@@ -1238,6 +1265,12 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
               >
                 Cancelar Agendamentos
               </button>
+              <button
+                onClick={() => setSelectedApps([])}
+                className="flex-1 sm:flex-none h-9 px-4 rounded-xl text-[11px] font-bold bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 transition-all"
+              >
+                Desmarcar Todos
+              </button>
             </div>
           </div>
         )}
@@ -1274,21 +1307,34 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                 <th className="py-3 px-4 cursor-pointer select-none hover:text-zinc-600 dark:hover:text-zinc-350" onClick={() => handleSort('priority')}>
                   Prioridade{getSortIcon('priority')}
                 </th>
+                <th className="py-3 px-4">SLA</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4">Falta Anexo?</th>
                 <th className="py-3 px-4 text-right">Ação</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-150 dark:divide-zinc-800">
-              {sortedAppointments.length === 0 ? (
+              {isInitialLoading ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse border-b border-zinc-100 dark:border-zinc-800">
+                    {Array.from({ length: 10 }).map((__, j) => (
+                      <td key={j} className="py-4 px-4">
+                        <div className="h-3 bg-zinc-200 dark:bg-zinc-800 rounded-full" style={{ width: j === 0 ? 16 : j === 1 ? 80 : j === 2 ? 120 : j === 3 ? 90 : 60 }} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : sortedAppointments.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-12 text-center text-zinc-500 text-xs font-semibold">
+                  <td colSpan={10} className="py-12 text-center text-zinc-500 text-xs font-semibold">
                     Nenhuma solicitação encontrada na fila de triagem.
                   </td>
                 </tr>
               ) : (
-                sortedAppointments.map(app => {
+                paginatedAppointments.map(app => {
                   const isHighPriority = app.priority === 'Alta';
+                  const slaStatus = getSlaStatus(app.createdAt);
+                  const slaDays = Math.floor((Date.now() - new Date(app.createdAt).getTime()) / 86400000);
                   const todayStr = new Date().toISOString().split('T')[0];
                   const isOverdue = 
                     app.status === 'Aguardando Follow-up' && 
@@ -1390,6 +1436,19 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                         </div>
                       </td>
                       <td className="py-4 px-4">
+                        {app.status !== 'Cancelado' && app.status !== 'Concluído' && (
+                          <span className={`inline-flex items-center gap-1 text-[9px] font-extrabold px-2 py-0.5 rounded-lg border ${
+                            slaStatus === 'critical'
+                              ? 'bg-red-50 border-red-200/40 text-red-700 dark:bg-red-955/20 dark:border-red-900/30 dark:text-red-400 animate-pulse'
+                              : slaStatus === 'warning'
+                              ? 'bg-amber-50 border-amber-200/40 text-amber-700 dark:bg-amber-955/20 dark:border-amber-900/30 dark:text-amber-400'
+                              : 'bg-zinc-50 border-zinc-200/40 text-zinc-500 dark:bg-zinc-900/20 dark:border-zinc-800'
+                          }`}>
+                            {slaStatus === 'critical' ? '⚠' : slaStatus === 'warning' ? '●' : '✓'} {slaDays}d
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
                         {!app.fileAttachment ? (
                           examRequiresEncaminhamento(app.examId) ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-red-650 bg-red-50 dark:bg-red-955/20 px-2 py-0.5 rounded-md border border-red-200/20">
@@ -1441,6 +1500,46 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
             </tbody>
           </table>
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t border-zinc-100 dark:border-zinc-800">
+            <span className="text-[11px] text-zinc-400 font-semibold">
+              Página <strong className="text-zinc-700 dark:text-zinc-300">{currentPage}</strong> de <strong className="text-zinc-700 dark:text-zinc-300">{totalPages}</strong> &nbsp;·&nbsp; {sortedAppointments.length} registros
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 px-3 rounded-xl text-[11px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                ← Anterior
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                const page = Math.max(1, Math.min(currentPage - 2, totalPages - 4)) + i;
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`h-8 w-8 rounded-xl text-[11px] font-bold border transition-all ${
+                      page === currentPage
+                        ? 'bg-pink-600 border-pink-600 text-white shadow-xs'
+                        : 'border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-950 hover:bg-zinc-50'
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="h-8 px-3 rounded-xl text-[11px] font-bold border border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-300 bg-white dark:bg-zinc-950 hover:bg-zinc-50 dark:hover:bg-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+              >
+                Próxima →
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       </div>
@@ -2623,6 +2722,58 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                 className="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-white dark:bg-zinc-100 dark:hover:bg-zinc-200 dark:text-zinc-900 rounded-xl text-xs font-bold transition-all"
               >
                 Concluir Verificação
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {batchConfirmModal && (
+        <div
+          onClick={() => setBatchConfirmModal(null)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-5 animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-red-50 dark:bg-red-955/20 border border-red-200/40 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Confirmar Ação em Lote</h3>
+                <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                  Você está prestes a alterar o status de <strong className="text-zinc-800 dark:text-zinc-200">{batchConfirmModal.count} agendamento(s)</strong> para <strong className="text-zinc-800 dark:text-zinc-200">"{batchConfirmModal.action}"</strong>. Esta ação será registrada na auditoria.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                Digite <span className="text-red-600 font-extrabold">{batchConfirmModal.action === 'Cancelado' ? 'CANCELAR' : 'CONFIRMAR'}</span> para prosseguir
+              </label>
+              <input
+                type="text"
+                autoFocus
+                value={batchConfirmInput}
+                onChange={(e) => setBatchConfirmInput(e.target.value)}
+                placeholder={batchConfirmModal.action === 'Cancelado' ? 'CANCELAR' : 'CONFIRMAR'}
+                className="w-full px-4 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-mono bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-red-500 focus:outline-none dark:text-zinc-100"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setBatchConfirmModal(null)}
+                className="flex-1 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-600 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-950 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleLoteStatusConfirm}
+                disabled={batchConfirmInput !== (batchConfirmModal.action === 'Cancelado' ? 'CANCELAR' : 'CONFIRMAR')}
+                className="flex-1 h-10 rounded-xl text-xs font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
+              >
+                Confirmar Ação em Lote
               </button>
             </div>
           </div>

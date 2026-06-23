@@ -9,7 +9,7 @@ import {
   setFeedbackResolutionStatus
 } from '../../services/db';
 import type { Appointment, Specialty, Exam, PatientUser, FeedbackResponse } from '../../types';
-import jsPDF from 'jspdf';
+
 import {
   Download,
   FileText,
@@ -170,7 +170,8 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
     document.body.removeChild(link);
   };
 
-  const exportWaitTimeToPDF = () => {
+  const exportWaitTimeToPDF = async () => {
+    const { default: jsPDF } = await import('jspdf');
     const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
     doc.setFillColor(227, 20, 99);
     doc.rect(0, 0, 210, 15, 'F');
@@ -448,6 +449,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
       });
 
       if (npsExportFormat === 'pdf') {
+        const { default: jsPDF } = await import('jspdf');
         const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
         doc.setFillColor(227, 20, 99);
         doc.rect(0, 0, 210, 15, 'F');
@@ -643,6 +645,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
       });
 
       if (reportFormat === 'pdf') {
+        const { default: jsPDF } = await import('jspdf');
         const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
         doc.setFillColor(227, 20, 99);
         doc.rect(0, 0, 210, 15, 'F');
