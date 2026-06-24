@@ -22,9 +22,10 @@ import {
   syncAppointmentWithPep,
   registerPatientCheckIn,
   registerAttendanceStart,
-  signAppointmentLaudo
+  signAppointmentLaudo,
+  getAuditLogs
 } from '../../services/db';
-import type { Appointment, City, Specialty, PatientUser, CapacityLimit, AppointmentStatus, SymptomLog } from '../../types';
+import type { Appointment, City, Specialty, PatientUser, CapacityLimit, AppointmentStatus, SymptomLog, AuditLog } from '../../types';
 import { 
   AlertCircle, 
   Clock, 
@@ -69,16 +70,25 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   const [batchConfirmModal, setBatchConfirmModal] = useState<{ action: 'Em análise' | 'Cancelado'; count: number } | null>(null);
   const [batchConfirmInput, setBatchConfirmInput] = useState('');
   const [, setTick] = useState(0);
+
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [isAlertsOpen, setIsAlertsOpen] = useState(true);
+  const [schedulingErrors, setSchedulingErrors] = useState<string[]>([]);
+  const [showOverrideModal, setShowOverrideModal] = useState(false);
+  const [overrideReasonInput, setOverrideReasonInput] = useState('');
+
   useEffect(() => {
     getAppointmentsForAdmin().then(data => {
       setAppointments(data);
       setIsInitialLoading(false);
     }).catch(console.error);
+    getAuditLogs().then(setAuditLogs).catch(console.error);
     const interval = setInterval(() => {
       setTick((t) => t + 1);
       checkAndProcessExpiredOffers().then(() => {
         getAppointmentsForAdmin().then(setAppointments).catch(console.error);
       });
+      getAuditLogs().then(setAuditLogs).catch(console.error);
     }, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -623,6 +633,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
 
       const queue = await getEmailQueue();
       setEmailQueue(queue);
+
+      const logs = await getAuditLogs();
+      setAuditLogs(logs);
     } catch (e) {
       console.error(e);
     }
@@ -771,6 +784,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     e.preventDefault();
     setActionError('');
     setActionSuccess('');
+    setSchedulingErrors([]);
     if (!activeApp) return;
 
     if (!scheduleDate || !scheduleTime || !scheduleRoom.trim() || !scheduleDoctor.trim()) {
@@ -796,9 +810,47 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
       setScheduleRoom('');
       setScheduleDoctor('');
       setActiveApp(null);
+      setSchedulingErrors([]);
       await loadData();
-    } catch (e: any) {
-      setActionError(e.message || 'Erro ao confirmar o agendamento.');
+    } catch (err: any) {
+      const errMsg = err.message || 'Erro ao confirmar o agendamento.';
+      setActionError(errMsg);
+      setSchedulingErrors(errMsg.split('\n'));
+    }
+  };
+
+  const handleConfirmOverride = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeApp || !overrideReasonInput.trim()) return;
+
+    try {
+      await confirmAppointmentSchedule(
+        activeApp.id,
+        scheduleDate,
+        scheduleTime,
+        scheduleRoom.trim(),
+        scheduleDoctor.trim(),
+        loggedEmployee.cpf,
+        loggedEmployee.name,
+        overrideReasonInput.trim()
+      );
+      
+      setActionSuccess(`Consulta confirmada via OVERRIDE para ${activeApp.patientName} em ${scheduleDate} às ${scheduleTime}h.`);
+      setIsScheduling(false);
+      setScheduleDate('');
+      setScheduleTime('');
+      setScheduleRoom('');
+      setScheduleDoctor('');
+      setActiveApp(null);
+      setShowOverrideModal(false);
+      setOverrideReasonInput('');
+      setSchedulingErrors([]);
+      await loadData();
+    } catch (err: any) {
+      const errMsg = err.message || 'Erro ao forçar agendamento.';
+      setActionError(errMsg);
+      setSchedulingErrors(errMsg.split('\n'));
+      setShowOverrideModal(false);
     }
   };
 
@@ -807,6 +859,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     setIsScheduling(false);
     setActionError('');
     setActionSuccess('');
+    setSchedulingErrors([]);
     setEditPhone(app.patientPhone || '');
     setEditEmail(app.patientEmail || '');
     setPriorityInput(app.priority || 'Baixa');
@@ -975,6 +1028,72 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
           <span>Recepção - Check-in Rápido</span>
         </button>
       </div>
+
+      {(() => {
+        const criticalAlerts = auditLogs.filter(log => {
+          const actionLower = log.action.toLowerCase();
+          return actionLower.includes('edição do usuário') ||
+                 actionLower.includes('desativação') ||
+                 actionLower.includes('override crítico') ||
+                 actionLower.includes('desativado') ||
+                 actionLower.includes('edição de permissões');
+        });
+        if (criticalAlerts.length === 0) return null;
+        return (
+          <div className="bg-red-50 border border-red-200 dark:bg-red-955/20 dark:border-red-900/30 rounded-3xl p-6 shadow-sm space-y-4 animate-in fade-in">
+            <div className="flex items-center justify-between border-b border-red-200/50 dark:border-red-900/30 pb-3">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-655 animate-pulse" />
+                <h3 className="text-sm font-extrabold text-red-900 dark:text-red-400">
+                  Alertas de Auditoria de Ações Críticas (Real-time)
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAlertsOpen(!isAlertsOpen)}
+                className="text-xs font-extrabold text-red-700 dark:text-red-400 hover:underline"
+              >
+                {isAlertsOpen ? 'Ocultar Detalhes' : 'Expandir Detalhes'}
+              </button>
+            </div>
+            
+            {isAlertsOpen && (
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {criticalAlerts.map((log) => (
+                  <div
+                    key={log.id}
+                    className="p-4 bg-white dark:bg-zinc-900 border border-red-200/40 dark:border-red-900/20 rounded-2xl flex flex-col sm:flex-row justify-between text-xs gap-3 shadow-sm"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-red-900 dark:text-red-400">
+                          {log.action}
+                        </span>
+                      </div>
+                      <p className="text-zinc-500 dark:text-zinc-400 font-semibold">
+                        Usuário: <strong>{log.userName}</strong> (CPF: {log.userCpf})
+                      </p>
+                      {log.details && (
+                        <p className="text-[10px] text-zinc-450 italic mt-1 bg-zinc-50 dark:bg-zinc-950 p-2 rounded-xl">
+                          {log.details}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] uppercase font-bold text-zinc-400 block mb-1">
+                        Data / Hora
+                      </span>
+                      <span className="font-mono text-[11px] font-semibold text-zinc-655 dark:text-zinc-350">
+                        {new Date(log.timestamp).toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 rounded-2xl shadow-xs">
@@ -1405,9 +1524,10 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                       </td>
                       <td className="py-4 px-4">
                         <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                          app.priority === 'Alta' ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-950/30 dark:text-red-400' :
+                          app.priority === 'Alta' ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-955/30 dark:text-red-400' :
                           app.priority === 'Média' ? 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-955/30 dark:text-amber-400' :
-                          'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-350'
+                          (app.priority === 'Baixa' || !app.priority) ? 'bg-zinc-100 text-zinc-700 border-zinc-200 dark:bg-zinc-800 dark:text-zinc-350' :
+                          'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-955/30 dark:text-blue-400'
                         }`}>
                           {app.priority || 'Baixa'}
                         </span>
@@ -2452,6 +2572,33 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                     })()}
                   </div>
 
+                  {schedulingErrors.length > 0 && (
+                    <div className="p-3.5 rounded-2xl text-xs font-semibold bg-red-50 border border-red-200 text-red-800 dark:bg-red-955/20 dark:text-red-400 dark:border-red-900/30 space-y-1.5 animate-in slide-in-from-top-2">
+                      <div className="flex items-center gap-2 font-bold">
+                        <AlertCircle className="w-4 h-4 shrink-0 text-red-650" />
+                        <span>Impedimentos de Agendamento Detectados:</span>
+                      </div>
+                      <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] font-medium">
+                        {schedulingErrors.map((err, idx) => (
+                          <li key={idx}>{err}</li>
+                        ))}
+                      </ul>
+                      {loggedEmployee.role === 'gestor' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowOverrideModal(true);
+                            setOverrideReasonInput('');
+                          }}
+                          className="w-full mt-2 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-[11px] font-bold transition-all shadow-xs flex items-center justify-center gap-1"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 text-white animate-pulse" />
+                          <span>Forçar Agendamento (Override de Gestor)</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex gap-2 pt-2">
                     <button
                       type="button"
@@ -2829,6 +2976,62 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showOverrideModal && (
+        <div
+          onClick={() => setShowOverrideModal(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 animate-in fade-in"
+        >
+          <form
+            onSubmit={handleConfirmOverride}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl w-full max-w-md p-6 space-y-5 animate-in zoom-in-95 duration-150"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-955/20 border border-amber-200/40 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Justificativa de Override</h3>
+                <p className="text-xs text-zinc-500 mt-1 leading-relaxed">
+                  Você está prestes a forçar a confirmação de agendamento por override de gestor. Forneça uma justificativa obrigatória.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="override-reason-textarea" className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                Justificativa
+              </label>
+              <textarea
+                id="override-reason-textarea"
+                rows={3}
+                required
+                autoFocus
+                value={overrideReasonInput}
+                onChange={(e) => setOverrideReasonInput(e.target.value)}
+                placeholder="Descreva o motivo clínico/administrativo para forçar este agendamento..."
+                className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-amber-500 focus:outline-none dark:text-zinc-100"
+              />
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowOverrideModal(false)}
+                className="flex-1 h-10 rounded-xl border border-zinc-200 dark:border-zinc-800 text-xs font-bold text-zinc-650 dark:text-zinc-355 hover:bg-zinc-50 dark:hover:bg-zinc-950 transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={!overrideReasonInput.trim()}
+                className="flex-1 h-10 rounded-xl text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
+              >
+                Confirmar Override
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </>
