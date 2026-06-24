@@ -23,6 +23,13 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
 
   useEffect(() => {
     loadAppointmentsAndAlerts();
+    const handleReactiveAppointment = () => {
+      loadAppointmentsAndAlerts();
+    };
+    window.addEventListener('appointment-created-reactively', handleReactiveAppointment);
+    return () => {
+      window.removeEventListener('appointment-created-reactively', handleReactiveAppointment);
+    };
   }, [patientCpf]);
 
   const loadAppointmentsAndAlerts = async () => {

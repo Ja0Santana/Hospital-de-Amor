@@ -32,9 +32,15 @@ import {
   createExam,
   syncAllPendingPepEntries,
   syncAppointmentWithPep,
-  getAppointmentsForAdmin
+  getAppointmentsForAdmin,
+  getTemporaryCapacityLimits,
+  createTemporaryCapacityLimit,
+  deleteTemporaryCapacityLimit,
+  getCustomPriorities,
+  createCustomPriority,
+  deleteCustomPriority
 } from '../../services/db';
-import type { Specialty, Exam, CalendarDay, CapacityLimit, AuditLog, PatientUser, TransparencyData, Appointment } from '../../types';
+import type { Specialty, Exam, CalendarDay, CapacityLimit, AuditLog, PatientUser, TransparencyData, Appointment, TemporaryCapacityLimit, CustomPriority } from '../../types';
 
 interface AdminConfigProps {
   loggedEmployee: PatientUser;
@@ -76,6 +82,23 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
   const [newExamIsActive, setNewExamIsActive] = useState(true);
   const [newExamLimit, setNewExamLimit] = useState(10);
   const [newExamMaintenanceLimit, setNewExamMaintenanceLimit] = useState<number>(100);
+
+  const [temporaryLimits, setTemporaryLimits] = useState<TemporaryCapacityLimit[]>([]);
+  const [customPriorities, setCustomPriorities] = useState<CustomPriority[]>([]);
+
+  const [weeklyLimitInput, setWeeklyLimitInput] = useState<number | ''>('');
+  const [monthlyLimitInput, setMonthlyLimitInput] = useState<number | ''>('');
+  const [requiredResourcesInput, setRequiredResourcesInput] = useState<string>('');
+
+  const [newExamWeeklyLimit, setNewExamWeeklyLimit] = useState<number | ''>('');
+  const [newExamMonthlyLimit, setNewExamMonthlyLimit] = useState<number | ''>('');
+  const [newExamRequiredResources, setNewExamRequiredResources] = useState<string>('');
+
+  const [tempLimitExamId, setTempLimitExamId] = useState<string>('');
+  const [tempLimitDate, setTempLimitDate] = useState<string>('');
+  const [tempLimitValue, setTempLimitValue] = useState<number>(10);
+
+  const [newPriorityName, setNewPriorityName] = useState<string>('');
 
   const [newBlockDate, setNewBlockDate] = useState<string>('');
   const [newBlockLabel, setNewBlockLabel] = useState<string>('');
@@ -171,6 +194,10 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
     }
 
     try {
+      const requiredResources = newExamRequiredResources.split(',')
+        .map(r => r.trim())
+        .filter(r => r.length > 0);
+
       const examData = {
         name: newExamName.trim(),
         defaultPrepInstructions: 'Trazer exames de sangue recentes e laudo anterior se aplicável.',
@@ -179,10 +206,18 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
         cost: newExamCost,
         requiresEncaminhamento: newExamRequiresEncaminhamento,
         isActive: newExamIsActive,
-        maintenanceLimit: newExamMaintenanceLimit
+        maintenanceLimit: newExamMaintenanceLimit,
+        requiredResources: requiredResources.length > 0 ? requiredResources : undefined
       };
 
-      await createExam(newExamSpecId, examData, newExamLimit);
+      const created = await createExam(newExamSpecId, examData, newExamLimit);
+
+      await saveCapacityLimit({
+        examId: created.id,
+        dailyLimit: newExamLimit,
+        weeklyLimit: newExamWeeklyLimit === '' ? undefined : Number(newExamWeeklyLimit),
+        monthlyLimit: newExamMonthlyLimit === '' ? undefined : Number(newExamMonthlyLimit)
+      });
 
       const spec = specialties.find(s => s.id === newExamSpecId);
 
@@ -202,6 +237,9 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       setNewExamRequiresEncaminhamento(true);
       setNewExamIsActive(true);
       setNewExamLimit(10);
+      setNewExamWeeklyLimit('');
+      setNewExamMonthlyLimit('');
+      setNewExamRequiredResources('');
       setNewExamMaintenanceLimit(100);
       setIsNewExamModalOpen(false);
       await loadData();
@@ -218,8 +256,12 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       if (activeTab === 'exams') {
         const specs = await getSpecialties();
         const caps = await getCapacityLimits();
+        const temps = await getTemporaryCapacityLimits();
+        const prs = await getCustomPriorities();
         setSpecialties(specs);
         setLimits(caps);
+        setTemporaryLimits(temps);
+        setCustomPriorities(prs);
       } else if (activeTab === 'calendar') {
         const days = await getCalendarDays();
         const sortedDays = days.sort((a, b) => a.date.localeCompare(b.date));
@@ -294,6 +336,9 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
     setRequiresEncaminhamentoInput(exam.requiresEncaminhamento ?? true);
     setIsActiveInput(exam.isActive ?? true);
     setLimitInput(limitObj?.dailyLimit ?? 10);
+    setWeeklyLimitInput(limitObj?.weeklyLimit ?? '');
+    setMonthlyLimitInput(limitObj?.monthlyLimit ?? '');
+    setRequiredResourcesInput(exam.requiredResources ? exam.requiredResources.join(', ') : '');
     setMaintenanceLimitInput(exam.maintenanceLimit ?? 100);
   };
 
@@ -330,6 +375,10 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
         changes.maintenanceLimit = { old: editingExam.maintenanceLimit ?? 100, new: maintenanceLimitInput };
       }
 
+      const requiredResources = requiredResourcesInput.split(',')
+        .map(r => r.trim())
+        .filter(r => r.length > 0);
+
       const updatedExams = spec.exams.map(ex => {
         if (ex.id === editingExam.id) {
           return {
@@ -339,7 +388,8 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
             cost: costInput,
             requiresEncaminhamento: requiresEncaminhamentoInput,
             isActive: isActiveInput,
-            maintenanceLimit: maintenanceLimitInput
+            maintenanceLimit: maintenanceLimitInput,
+            requiredResources: requiredResources.length > 0 ? requiredResources : undefined
           };
         }
         return ex;
@@ -353,7 +403,9 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       await updateSpecialty(updatedSpec);
       await saveCapacityLimit({
         examId: editingExam.id,
-        dailyLimit: limitInput
+        dailyLimit: limitInput,
+        weeklyLimit: weeklyLimitInput === '' ? undefined : Number(weeklyLimitInput),
+        monthlyLimit: monthlyLimitInput === '' ? undefined : Number(monthlyLimitInput)
       });
 
       await addAuditLogAdmin(
@@ -422,6 +474,100 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       await loadData();
     } catch (e: any) {
       setActionError(e.message || 'Erro ao remover bloqueio.');
+    }
+  };
+
+  const handleAddTempLimitSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tempLimitExamId || !tempLimitDate || tempLimitValue < 0) {
+      setActionError('Preencha o exame, a data e um limite válido.');
+      return;
+    }
+    try {
+      await createTemporaryCapacityLimit({
+        examId: tempLimitExamId,
+        date: tempLimitDate,
+        limit: tempLimitValue
+      });
+      const examName = specialties.flatMap(s => s.exams).find(ex => ex.id === tempLimitExamId)?.name || tempLimitExamId;
+      await addAuditLogAdmin(
+        `Criado limite temporário para o exame "${examName}" no dia ${tempLimitDate}: ${tempLimitValue} vagas`,
+        'Configurações',
+        `Cota temporária inserida pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess('Cota temporária configurada com sucesso.');
+      setTempLimitExamId('');
+      setTempLimitDate('');
+      setTempLimitValue(10);
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao salvar cota temporária.');
+    }
+  };
+
+  const handleDeleteTempLimit = async (id: number) => {
+    try {
+      const target = temporaryLimits.find(tl => tl.id === id);
+      await deleteTemporaryCapacityLimit(id);
+      const examName = specialties.flatMap(s => s.exams).find(ex => ex.id === target?.examId)?.name || target?.examId;
+      await addAuditLogAdmin(
+        `Removido limite temporário para o exame "${examName}" no dia ${target?.date}`,
+        'Configurações',
+        `Cota temporária removida pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess('Cota temporária removida com sucesso.');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao remover cota temporária.');
+    }
+  };
+
+  const handleAddPrioritySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPriorityName.trim()) {
+      setActionError('Nome da prioridade é obrigatório.');
+      return;
+    }
+    try {
+      const id = 'priority-' + newPriorityName.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      await createCustomPriority({
+        id,
+        name: newPriorityName.trim()
+      });
+      await addAuditLogAdmin(
+        `Nova prioridade clínica criada: "${newPriorityName.trim()}"`,
+        'Configurações',
+        `Prioridade cadastrada pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess('Prioridade clínica criada com sucesso.');
+      setNewPriorityName('');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao criar prioridade.');
+    }
+  };
+
+  const handleDeletePriority = async (id: string) => {
+    try {
+      const target = customPriorities.find(p => p.id === id);
+      await deleteCustomPriority(id);
+      await addAuditLogAdmin(
+        `Removida prioridade clínica: "${target?.name || id}"`,
+        'Configurações',
+        `Prioridade excluída pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess('Prioridade clínica removida com sucesso.');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao remover prioridade.');
     }
   };
 
@@ -777,6 +923,175 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                 </div>
               </div>
             ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-4">
+              <div>
+                <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Limites de Capacidade Temporários</h3>
+                <p className="text-zinc-500 text-[0.625rem] mt-0.5">Defina exceções de cotas diárias para exames em datas específicas.</p>
+              </div>
+
+              <form onSubmit={handleAddTempLimitSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[0.5625rem] uppercase font-bold text-zinc-400">Exame *</label>
+                    <select
+                      value={tempLimitExamId}
+                      onChange={(e) => setTempLimitExamId(e.target.value)}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-[0.6875rem] bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 cursor-pointer"
+                      required
+                    >
+                      <option value="">Selecione</option>
+                      {specialties.flatMap(s => s.exams).map(ex => (
+                        <option key={ex.id} value={ex.id}>{ex.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[0.5625rem] uppercase font-bold text-zinc-400">Data *</label>
+                    <input
+                      type="date"
+                      value={tempLimitDate}
+                      onChange={(e) => setTempLimitDate(e.target.value)}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-[0.6875rem] bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[0.5625rem] uppercase font-bold text-zinc-400">Limite *</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={500}
+                      value={tempLimitValue}
+                      onChange={(e) => setTempLimitValue(parseInt(e.target.value) || 0)}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-[0.6875rem] bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      required
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white rounded-xl h-9 text-[0.6875rem] font-bold transition-all active:scale-95"
+                >
+                  Adicionar Exceção de Cota
+                </button>
+              </form>
+
+              <div className="overflow-x-auto pt-2">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-150 dark:border-zinc-800 text-[0.5625rem] font-bold uppercase tracking-wider text-zinc-400">
+                      <th className="py-2 px-2">Exame</th>
+                      <th className="py-2 px-2">Data</th>
+                      <th className="py-2 px-2">Cota do Dia</th>
+                      <th className="py-2 px-2 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-150 dark:divide-zinc-800 text-[0.6875rem]">
+                    {temporaryLimits.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-6 text-center text-zinc-450 italic">Nenhum limite temporário cadastrado.</td>
+                      </tr>
+                    ) : (
+                      temporaryLimits.map(tl => {
+                        const examName = specialties.flatMap(s => s.exams).find(ex => ex.id === tl.examId)?.name || tl.examId;
+                        return (
+                          <tr key={tl.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10 text-zinc-700 dark:text-zinc-350">
+                            <td className="py-2 px-2 font-bold">{examName}</td>
+                            <td className="py-2 px-2">{formatDate(tl.date)}</td>
+                            <td className="py-2 px-2 text-zinc-900 dark:text-zinc-100 font-extrabold">{tl.limit} vagas</td>
+                            <td className="py-2 px-2 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteTempLimit(Number(tl.id))}
+                                className="p-1 text-zinc-400 hover:text-red-650 transition-all rounded-lg"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-4">
+              <div>
+                <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Níveis de Prioridade Clínica</h3>
+                <p className="text-zinc-500 text-[0.625rem] mt-0.5">Cadastre prioridades clínicas customizadas adicionais para triagem.</p>
+              </div>
+
+              <form onSubmit={handleAddPrioritySubmit} className="space-y-3">
+                <div className="space-y-1">
+                  <label className="text-[0.5625rem] uppercase font-bold text-zinc-400">Nome da Prioridade *</label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Urgência Oncológica"
+                    value={newPriorityName}
+                    onChange={(e) => setNewPriorityName(e.target.value)}
+                    className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-[0.6875rem] bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 text-white rounded-xl h-9 text-[0.6875rem] font-bold transition-all active:scale-95"
+                >
+                  Criar Nível de Prioridade
+                </button>
+              </form>
+
+              <div className="overflow-x-auto pt-2">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-zinc-150 dark:border-zinc-800 text-[0.5625rem] font-bold uppercase tracking-wider text-zinc-400">
+                      <th className="py-2 px-2">Código/Identificador</th>
+                      <th className="py-2 px-2">Nome da Prioridade</th>
+                      <th className="py-2 px-2 text-right">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-150 dark:divide-zinc-800 text-[0.6875rem]">
+                    <tr className="text-zinc-400 font-semibold italic">
+                      <td className="py-2 px-2">baixa</td>
+                      <td className="py-2 px-2">Baixa (Padrão)</td>
+                      <td className="py-2 px-2 text-right text-[9px] uppercase font-bold tracking-wider text-zinc-500 pr-3">Sistema</td>
+                    </tr>
+                    <tr className="text-zinc-400 font-semibold italic">
+                      <td className="py-2 px-2">media</td>
+                      <td className="py-2 px-2">Média (Padrão)</td>
+                      <td className="py-2 px-2 text-right text-[9px] uppercase font-bold tracking-wider text-zinc-500 pr-3">Sistema</td>
+                    </tr>
+                    <tr className="text-zinc-400 font-semibold italic">
+                      <td className="py-2 px-2">alta</td>
+                      <td className="py-2 px-2">Alta (Padrão)</td>
+                      <td className="py-2 px-2 text-right text-[9px] uppercase font-bold tracking-wider text-zinc-500 pr-3">Sistema</td>
+                    </tr>
+                    {customPriorities.length > 0 && (
+                      customPriorities.map(p => (
+                        <tr key={p.id} className="hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10 text-zinc-700 dark:text-zinc-350">
+                          <td className="py-2 px-2 font-mono">{p.id}</td>
+                          <td className="py-2 px-2 font-bold text-zinc-900 dark:text-zinc-100">{p.name}</td>
+                          <td className="py-2 px-2 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePriority(p.id)}
+                              className="p-1 text-zinc-400 hover:text-red-655 transition-all rounded-lg"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -1407,10 +1722,49 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                       max={10000}
                       value={maintenanceLimitInput}
                       onChange={(e) => setMaintenanceLimitInput(parseInt(e.target.value))}
-                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
                       required
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Limite Semanal</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={3500}
+                      value={weeklyLimitInput}
+                      onChange={(e) => setWeeklyLimitInput(e.target.value === '' ? '' : parseInt(e.target.value))}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      placeholder="Sem limite"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Limite Mensal</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={15000}
+                      value={monthlyLimitInput}
+                      onChange={(e) => setMonthlyLimitInput(e.target.value === '' ? '' : parseInt(e.target.value))}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      placeholder="Sem limite"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Equipamentos e Recursos Obrigatórios (Separados por vírgula)</label>
+                  <input
+                    type="text"
+                    value={requiredResourcesInput}
+                    onChange={(e) => setRequiredResourcesInput(e.target.value)}
+                    className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                    placeholder="Ex: Mamógrafo, Ultrassom, Tomógrafo"
+                  />
                 </div>
 
                 <div className="space-y-3 pt-2">
@@ -1635,6 +1989,45 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                       required
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Limite Semanal</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={3500}
+                      value={newExamWeeklyLimit}
+                      onChange={(e) => setNewExamWeeklyLimit(e.target.value === '' ? '' : parseInt(e.target.value))}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      placeholder="Sem limite"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Limite Mensal</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={15000}
+                      value={newExamMonthlyLimit}
+                      onChange={(e) => setNewExamMonthlyLimit(e.target.value === '' ? '' : parseInt(e.target.value))}
+                      className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                      placeholder="Sem limite"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[0.625rem] uppercase font-bold text-zinc-400">Equipamentos e Recursos Obrigatórios (Separados por vírgula)</label>
+                  <input
+                    type="text"
+                    value={newExamRequiredResources}
+                    onChange={(e) => setNewExamRequiredResources(e.target.value)}
+                    className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                    placeholder="Ex: Mamógrafo, Ultrassom, Tomógrafo"
+                  />
                 </div>
 
                 <div className="space-y-3 pt-2">

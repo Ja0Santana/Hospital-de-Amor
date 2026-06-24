@@ -8,6 +8,7 @@ export interface Exam {
   requiresEncaminhamento?: boolean;
   isActive?: boolean;
   maintenanceLimit?: number;
+  requiredResources?: string[];
 }
 
 export interface Specialty {
@@ -110,6 +111,9 @@ export interface FeedbackResponse {
   adminResponseAt?: string;
   adminResponseAuthor?: string;
   isResolved?: boolean;
+  resolutionStatus?: 'Pendente' | 'Em andamento' | 'Resolvido';
+  resolutionStatusChangedAt?: string;
+  resolutionStatusChangedBy?: string;
 }
 
 export interface PatientUser {
@@ -140,6 +144,7 @@ export interface PatientUser {
   lastConsentAt?: string;
   readBooklets?: string[];
   referredBy?: string;
+  qualifiedExamIds?: string[];
 }
 
 export interface SymptomLog {
@@ -243,6 +248,20 @@ export interface CalendarDay {
 export interface CapacityLimit {
   examId: string;
   dailyLimit: number;
+  weeklyLimit?: number;
+  monthlyLimit?: number;
+}
+
+export interface TemporaryCapacityLimit {
+  id: number;
+  examId: string;
+  date: string;
+  limit: number;
+}
+
+export interface CustomPriority {
+  id: string;
+  name: string;
 }
 
 export interface CustomRole {

@@ -1,7 +1,7 @@
-import type { Exam, Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole, FeedbackResponse, TransparencyData } from '../types';
+import type { Exam, Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole, FeedbackResponse, TransparencyData, TemporaryCapacityLimit, CustomPriority } from '../types';
 
 const DB_NAME = 'HospitalAmorDB';
-const DB_VERSION = 15;
+const DB_VERSION = 16;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -160,6 +160,14 @@ export function initDb(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('saved_filters')) {
         db.createObjectStore('saved_filters', { keyPath: 'id', autoIncrement: true });
       }
+
+      if (!db.objectStoreNames.contains('temporary_capacity')) {
+        db.createObjectStore('temporary_capacity', { keyPath: 'id', autoIncrement: true });
+      }
+
+      if (!db.objectStoreNames.contains('custom_priorities')) {
+        db.createObjectStore('custom_priorities', { keyPath: 'id' });
+      }
     };
   }).then(async (db) => {
     await seedData(db);
@@ -174,7 +182,7 @@ export function initDb(): Promise<IDBDatabase> {
 
 function seedData(db: IDBDatabase): Promise<IDBDatabase> {
   return new Promise<IDBDatabase>((resolve, reject) => {
-    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'calendar_blocks', 'capacity_limits', 'custom_roles', 'feedbacks', 'chatbot_queries', 'transparency_data'], 'readwrite');
+    const tx = db.transaction(['specialties', 'cities', 'appointments', 'users', 'symptoms_diary', 'clinical_history', 'donations', 'donor_points', 'support_messages', 'recurring_subscriptions', 'calendar_blocks', 'capacity_limits', 'custom_roles', 'feedbacks', 'chatbot_queries', 'transparency_data', 'temporary_capacity', 'custom_priorities'], 'readwrite');
     const specStore = tx.objectStore('specialties');
     const cityStore = tx.objectStore('cities');
     const appStore = tx.objectStore('appointments');
@@ -1893,122 +1901,233 @@ export async function confirmAppointmentSchedule(
   room: string,
   doctor: string,
   employeeCpf: string,
-  employeeName: string
+  employeeName: string,
+  overrideReason?: string
 ): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(['appointments', 'audit_logs', 'calendar_blocks', 'capacity_limits', 'email_queue'], 'readwrite');
+    const tx = db.transaction(['appointments', 'audit_logs', 'calendar_blocks', 'capacity_limits', 'email_queue', 'users', 'temporary_capacity', 'specialties'], 'readwrite');
     const appStore = tx.objectStore('appointments');
     const auditStore = tx.objectStore('audit_logs');
     const calStore = tx.objectStore('calendar_blocks');
     const limitStore = tx.objectStore('capacity_limits');
+    const userStore = tx.objectStore('users');
+    const tempCapStore = tx.objectStore('temporary_capacity');
+    const specStore = tx.objectStore('specialties');
 
-    const dateObj = new Date(date + 'T12:00:00');
-    const dayOfWeek = dateObj.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      reject(new Error('Agendamentos não são permitidos nos finais de semana.'));
-      return;
-    }
-
-    const calReq = calStore.get(date);
-    calReq.onsuccess = () => {
-      const block = calReq.result as CalendarDay | undefined;
-      if (block && !block.isWorkingDay) {
-        reject(new Error(`A data selecionada está bloqueada no calendário: ${block.label}`));
+    const getCurReq = appStore.get(id);
+    getCurReq.onsuccess = () => {
+      const currentApp = getCurReq.result as Appointment | undefined;
+      if (!currentApp) {
+        reject(new Error('Agendamento não encontrado.'));
         return;
       }
 
-      const getAllReq = appStore.getAll();
-      getAllReq.onsuccess = () => {
-        const appointments = getAllReq.result as Appointment[];
+      const calReq = calStore.get(date);
+      calReq.onsuccess = () => {
+        const block = calReq.result as CalendarDay | undefined;
 
-        const getCurReq = appStore.get(id);
-        getCurReq.onsuccess = () => {
-          const currentApp = getCurReq.result as Appointment | undefined;
-          if (!currentApp) {
-            reject(new Error('Agendamento não encontrado.'));
-            return;
-          }
+        const limitReq = limitStore.get(currentApp.examId);
+        limitReq.onsuccess = () => {
+          const limitConfig = limitReq.result as CapacityLimit | undefined;
 
-          const hasConflict = appointments.some(app => {
-            if (app.id === id) return false;
-            if (app.status !== 'Confirmado') return false;
+          const tempCapReq = tempCapStore.getAll();
+          tempCapReq.onsuccess = () => {
+            const tempCapacities = tempCapReq.result as TemporaryCapacityLimit[];
 
-            const appDate = app.rescheduledDate || '';
-            const appTime = app.rescheduledTime || '';
-            
-            const isSameDateTime = appDate === date && appTime === time;
-            if (!isSameDateTime) return false;
+            const allUsersReq = userStore.getAll();
+            allUsersReq.onsuccess = () => {
+              const allUsers = allUsersReq.result as PatientUser[];
 
-            const isSameDoctor = app.scheduledDoctor && app.scheduledDoctor.trim().toLowerCase() === doctor.trim().toLowerCase();
-            const isSameRoom = app.scheduledRoom && app.scheduledRoom.trim().toLowerCase() === room.trim().toLowerCase();
+              const specReq = specStore.get(currentApp.specialtyId);
+              specReq.onsuccess = () => {
+                const specialty = specReq.result as Specialty | undefined;
+                const exam = specialty?.exams?.find(e => e.id === currentApp.examId);
 
-            return isSameDoctor || isSameRoom;
-          });
+                const getAllAppsReq = appStore.getAll();
+                getAllAppsReq.onsuccess = () => {
+                  const appointments = getAllAppsReq.result as Appointment[];
 
-          if (hasConflict) {
-            reject(new Error('Conflito de agenda detectado: O médico ou a sala já possuem um agendamento confirmado neste mesmo dia e horário.'));
-            return;
-          }
+                  const errors: string[] = [];
+                  const dateObj = new Date(date + 'T12:00:00');
+                  const dayOfWeek = dateObj.getDay();
 
-          const limitReq = limitStore.get(currentApp.examId);
-          limitReq.onsuccess = () => {
-            const limitConfig = limitReq.result as CapacityLimit | undefined;
-            if (limitConfig) {
-              const dailyLimit = limitConfig.dailyLimit;
-              const count = appointments.filter(app => {
-                if (app.id === id) return false;
-                if (app.examId !== currentApp.examId) return false;
-                const appDate = app.rescheduledDate || '';
-                return (app.status === 'Confirmado' || app.status === 'Reagendamento Pendente') && appDate === date;
-              }).length;
+                  if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    errors.push('Agendamentos não são permitidos nos finais de semana.');
+                  }
 
-              if (count >= dailyLimit) {
-                reject(new Error(`Capacidade máxima atingida para o exame "${currentApp.examName}" no dia ${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}. Limite: ${dailyLimit} vagas.`));
-                return;
-              }
+                  if (block && !block.isWorkingDay) {
+                    errors.push(`A data selecionada está bloqueada no calendário: ${block.label}`);
+                  }
 
-              const newCount = count + 1;
-              const usageRatio = newCount / dailyLimit;
-              if (usageRatio >= 0.8) {
-                const warnLog: AuditLog = {
-                  id: 'log-' + crypto.randomUUID().slice(0, 8),
-                  timestamp: new Date().toISOString(),
-                  userCpf: employeeCpf,
-                  userName: employeeName,
-                  action: `Alerta de Capacidade: Exame "${currentApp.examName}" atingiu ${Math.round(usageRatio * 100)}% da capacidade máxima no dia ${date} (${newCount}/${dailyLimit} vagas)`,
-                  module: 'Configurações',
-                  ipAddress: '192.168.1.100',
-                  details: `Aviso gerado automaticamente pelo sistema de capacidade.`
+                  const hasConflict = appointments.some(app => {
+                    if (app.id === id) return false;
+                    if (app.status !== 'Confirmado') return false;
+
+                    const appDate = app.rescheduledDate || '';
+                    const appTime = app.rescheduledTime || '';
+                    const isSameDateTime = appDate === date && appTime === time;
+                    if (!isSameDateTime) return false;
+
+                    const isSameDoctor = app.scheduledDoctor && app.scheduledDoctor.trim().toLowerCase() === doctor.trim().toLowerCase();
+                    const isSameRoom = app.scheduledRoom && app.scheduledRoom.trim().toLowerCase() === room.trim().toLowerCase();
+
+                    return isSameDoctor || isSameRoom;
+                  });
+
+                  if (hasConflict) {
+                    errors.push('Conflito de agenda detectado: O médico ou a sala já possuem um agendamento confirmado neste mesmo dia e horário.');
+                  }
+
+                  const dateException = tempCapacities.find(tc => tc.examId === currentApp.examId && tc.date === date);
+                  const dailyLimit = dateException ? dateException.limit : (limitConfig ? limitConfig.dailyLimit : Infinity);
+
+                  const dailyCount = appointments.filter(app => {
+                    if (app.id === id) return false;
+                    if (app.examId !== currentApp.examId) return false;
+                    const appDate = app.rescheduledDate || '';
+                    return (app.status === 'Confirmado' || app.status === 'Reagendamento Pendente') && appDate === date;
+                  }).length;
+
+                  if (dailyCount >= dailyLimit) {
+                    errors.push(`Capacidade diária máxima atingida para o exame "${currentApp.examName}" no dia ${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}. Limite: ${dailyLimit} vagas.`);
+                  }
+
+                  const startOfWeek = new Date(dateObj);
+                  startOfWeek.setDate(dateObj.getDate() - dayOfWeek);
+                  const endOfWeek = new Date(startOfWeek);
+                  endOfWeek.setDate(startOfWeek.getDate() + 6);
+                  const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
+                  const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
+
+                  const weeklyLimit = limitConfig?.weeklyLimit ?? Infinity;
+                  const weeklyCount = appointments.filter(app => {
+                    if (app.id === id) return false;
+                    if (app.examId !== currentApp.examId) return false;
+                    const appDate = app.rescheduledDate || '';
+                    const isAppActive = app.status === 'Confirmado' || app.status === 'Reagendamento Pendente';
+                    return isAppActive && appDate >= startOfWeekStr && appDate <= endOfWeekStr;
+                  }).length;
+
+                  if (weeklyCount >= weeklyLimit) {
+                    errors.push(`Capacidade semanal máxima atingida para o exame "${currentApp.examName}" na semana de ${startOfWeek.toLocaleDateString('pt-BR')} a ${endOfWeek.toLocaleDateString('pt-BR')}. Limite: ${weeklyLimit} vagas.`);
+                  }
+
+                  const yearMonth = date.substring(0, 7);
+                  const monthlyLimit = limitConfig?.monthlyLimit ?? Infinity;
+                  const monthlyCount = appointments.filter(app => {
+                    if (app.id === id) return false;
+                    if (app.examId !== currentApp.examId) return false;
+                    const appDate = app.rescheduledDate || '';
+                    const isAppActive = app.status === 'Confirmado' || app.status === 'Reagendamento Pendente';
+                    return isAppActive && appDate.startsWith(yearMonth);
+                  }).length;
+
+                  if (monthlyCount >= monthlyLimit) {
+                    errors.push(`Capacidade mensal máxima atingida para o exame "${currentApp.examName}" no mês ${date.substring(5, 7)}/${date.substring(0, 4)}. Limite: ${monthlyLimit} vagas.`);
+                  }
+
+                  const matchedDoctor = allUsers.find(
+                    u => u.name.trim().toLowerCase() === doctor.trim().toLowerCase() &&
+                         (u.role === 'gestor' || u.role === 'recepcionista' || u.role === 'auditor' || u.role === 'both' || u.qualifiedExamIds !== undefined)
+                  );
+                  if (matchedDoctor) {
+                    if (matchedDoctor.qualifiedExamIds && !matchedDoctor.qualifiedExamIds.includes(currentApp.examId)) {
+                      errors.push(`O profissional Dr(a). ${doctor} não possui qualificação registrada para realizar o exame "${currentApp.examName}".`);
+                    }
+                  }
+
+                  const requiredResources = exam?.requiredResources || [];
+                  if (requiredResources.length > 0) {
+                    for (const resource of requiredResources) {
+                      const resLower = resource.toLowerCase();
+                      const roomLower = room.toLowerCase();
+                      let hasEquipment = false;
+                      if (resLower.includes('mamógrafo') || resLower.includes('mamografia')) {
+                        hasEquipment = roomLower.includes('mamografia') || roomLower.includes('mamógrafo');
+                      } else if (resLower.includes('tomógrafo') || resLower.includes('tomografia')) {
+                        hasEquipment = roomLower.includes('tomografia') || roomLower.includes('tomógrafo');
+                      } else if (resLower.includes('ressonância')) {
+                        hasEquipment = roomLower.includes('ressonância');
+                      } else if (resLower.includes('ultrassom') || resLower.includes('ultrassonografia')) {
+                        hasEquipment = roomLower.includes('ultrassom') || roomLower.includes('ultrassonografia') || roomLower.includes('ecografia');
+                      } else if (resLower.includes('raio-x') || resLower.includes('radiologia')) {
+                        hasEquipment = roomLower.includes('raio-x') || roomLower.includes('radiografia') || roomLower.includes('radiologia');
+                      } else {
+                        hasEquipment = roomLower.includes(resLower) || roomLower.includes('coleta') || roomLower.includes('consultório') || roomLower.includes('sala de exames') || roomLower.includes('sala de coleta');
+                      }
+
+                      if (!hasEquipment) {
+                        errors.push(`A sala "${room}" não possui o equipamento/recurso obrigatório "${resource}" exigido para o exame "${currentApp.examName}".`);
+                      }
+                    }
+                  }
+
+                  if (errors.length > 0) {
+                    const employee = allUsers.find(u => u.cpf.replace(/\D/g, "") === employeeCpf.replace(/\D/g, ""));
+                    const isGestor = employee && employee.role === 'gestor';
+
+                    if (isGestor && overrideReason && overrideReason.trim().length > 0) {
+                      const overrideLog: AuditLog = {
+                        id: 'log-' + crypto.randomUUID().slice(0, 8),
+                        timestamp: new Date().toISOString(),
+                        userCpf: employeeCpf,
+                        userName: employeeName,
+                        action: `OVERRIDE CRÍTICO de agendamento ${currentApp.protocol} para ${date} às ${time} por conflito clínico/capacidade`,
+                        module: 'Agendamento',
+                        ipAddress: '192.168.1.100',
+                        details: `Erros ignorados: [${errors.join(' | ')}]. Justificativa do Gestor: "${overrideReason.trim()}"`
+                      };
+                      auditStore.add(overrideLog);
+                    } else {
+                      reject(new Error(errors.join('\n')));
+                      return;
+                    }
+                  } else if (limitConfig) {
+                    const newCount = dailyCount + 1;
+                    const usageRatio = newCount / dailyLimit;
+                    if (usageRatio >= 0.8) {
+                      const warnLog: AuditLog = {
+                        id: 'log-' + crypto.randomUUID().slice(0, 8),
+                        timestamp: new Date().toISOString(),
+                        userCpf: employeeCpf,
+                        userName: employeeName,
+                        action: `Alerta de Capacidade: Exame "${currentApp.examName}" atingiu ${Math.round(usageRatio * 100)}% da capacidade máxima no dia ${date} (${newCount}/${dailyLimit} vagas)`,
+                        module: 'Configurações',
+                        ipAddress: '192.168.1.100',
+                        details: `Aviso gerado automaticamente pelo sistema de capacidade.`
+                      };
+                      auditStore.add(warnLog);
+                    }
+                  }
+
+                  const oldStatus = currentApp.status;
+                  currentApp.status = 'Confirmado';
+                  currentApp.rescheduledDate = date;
+                  currentApp.rescheduledTime = time;
+                  currentApp.scheduledRoom = room;
+                  currentApp.scheduledDoctor = doctor;
+                  currentApp.assignedTo = employeeName;
+                  currentApp.pepSyncStatus = 'pending';
+                  currentApp.pepSyncAttempts = 0;
+
+                  appStore.put(currentApp);
+                  triggerStatusUpdateEmail(currentApp, undefined, tx);
+
+                  const log: AuditLog = {
+                    id: 'log-' + crypto.randomUUID().slice(0, 8),
+                    timestamp: new Date().toISOString(),
+                    userCpf: employeeCpf,
+                    userName: employeeName,
+                    action: `Confirmação de agendamento ${currentApp.protocol} para ${date} às ${time} na sala ${room} com dr(a). ${doctor}`,
+                    module: 'Agendamento',
+                    ipAddress: '192.168.1.100',
+                    details: `Status alterado de ${oldStatus} para Confirmado.${overrideReason ? ` (Override realizado com justificativa: ${overrideReason})` : ''}`
+                  };
+                  auditStore.add(log);
                 };
-                auditStore.add(warnLog);
-              }
-            }
-
-            const oldStatus = currentApp.status;
-            currentApp.status = 'Confirmado';
-            currentApp.rescheduledDate = date;
-            currentApp.rescheduledTime = time;
-            currentApp.scheduledRoom = room;
-            currentApp.scheduledDoctor = doctor;
-            currentApp.assignedTo = employeeName;
-            currentApp.pepSyncStatus = 'pending';
-            currentApp.pepSyncAttempts = 0;
-
-            appStore.put(currentApp);
-            triggerStatusUpdateEmail(currentApp, undefined, tx);
-
-            const log: AuditLog = {
-              id: 'log-' + crypto.randomUUID().slice(0, 8),
-              timestamp: new Date().toISOString(),
-              userCpf: employeeCpf,
-              userName: employeeName,
-              action: `Confirmação de agendamento ${currentApp.protocol} para ${date} às ${time} na sala ${room} com dr(a). ${doctor}`,
-              module: 'Agendamento',
-              ipAddress: '192.168.1.100',
-              details: `Status alterado de ${oldStatus} para Confirmado.`
+              };
             };
-            auditStore.add(log);
           };
         };
       };
@@ -2411,7 +2530,7 @@ export async function addAuditLogAdmin(
 
 export async function updateUserAdmin(
   cpf: string,
-  updatedData: { name: string; email: string; phone: string; role: UserRole },
+  updatedData: { name: string; email: string; phone: string; role: UserRole; qualifiedExamIds?: string[] },
   employeeCpf: string,
   employeeName: string
 ): Promise<void> {
@@ -2442,6 +2561,7 @@ export async function updateUserAdmin(
         const oldEmail = user.email;
         const oldPhone = user.phone;
         const oldRole = user.role;
+        const oldQualified = user.qualifiedExamIds || [];
 
         const changes: Record<string, { old: any; new: any }> = {};
         if (oldName !== updatedData.name.trim()) changes.name = { old: oldName, new: updatedData.name.trim() };
@@ -2449,10 +2569,17 @@ export async function updateUserAdmin(
         if (oldPhone !== updatedData.phone.trim()) changes.phone = { old: oldPhone, new: updatedData.phone.trim() };
         if (oldRole !== updatedData.role) changes.role = { old: oldRole, new: updatedData.role };
 
+        const newQualified = updatedData.qualifiedExamIds || [];
+        const isQualifiedEqual = oldQualified.length === newQualified.length && oldQualified.every(val => newQualified.includes(val));
+        if (!isQualifiedEqual) {
+          changes.qualifiedExamIds = { old: oldQualified, new: newQualified };
+        }
+
         user.name = updatedData.name.trim();
         user.email = updatedData.email.trim();
         user.phone = updatedData.phone.trim();
         user.role = updatedData.role;
+        user.qualifiedExamIds = newQualified;
 
         userStore.put(user);
 
@@ -2886,6 +3013,9 @@ export async function toggleFeedbackResolution(feedbackId: string, operatorCpf: 
         const oldVal = fb.isResolved || false;
         const newVal = !oldVal;
         fb.isResolved = newVal;
+        fb.resolutionStatus = newVal ? 'Resolvido' : 'Pendente';
+        fb.resolutionStatusChangedAt = new Date().toISOString();
+        fb.resolutionStatusChangedBy = operatorName;
         feedbackStore.put(fb);
 
         const log: AuditLog = {
@@ -2896,15 +3026,58 @@ export async function toggleFeedbackResolution(feedbackId: string, operatorCpf: 
           action: `Alteracao de resolucao de NPS - Protocolo ${fb.appointmentProtocol}`,
           module: 'Ouvidoria',
           ipAddress: '127.0.0.1',
-          details: `Status de resolucao alterado de ${oldVal ? 'Tratado' : 'Pendente'} para ${newVal ? 'Tratado' : 'Pendente'}.`,
-          changes: {
-            isResolved: { old: oldVal, new: newVal }
-          }
+          details: `Status de resolucao alterado de ${oldVal ? 'Resolvido' : 'Pendente'} para ${newVal ? 'Resolvido' : 'Pendente'}.`,
+          changes: { isResolved: { old: oldVal, new: newVal } }
         };
         auditStore.add(log);
       } else {
         reject(new Error('Feedback não encontrado.'));
       }
+    };
+    getReq.onerror = () => reject(getReq.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function setFeedbackResolutionStatus(
+  feedbackId: string,
+  targetStatus: 'Pendente' | 'Em andamento' | 'Resolvido',
+  operatorCpf: string,
+  operatorName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(['feedbacks', 'audit_logs'], 'readwrite');
+    const feedbackStore = tx.objectStore('feedbacks');
+    const auditStore = tx.objectStore('audit_logs');
+
+    const getReq = feedbackStore.get(feedbackId);
+    getReq.onsuccess = () => {
+      const fb = getReq.result as FeedbackResponse;
+      if (!fb) {
+        reject(new Error('Feedback não encontrado.'));
+        return;
+      }
+      const previousStatus = fb.resolutionStatus || (fb.isResolved ? 'Resolvido' : 'Pendente');
+      fb.resolutionStatus = targetStatus;
+      fb.isResolved = targetStatus === 'Resolvido';
+      fb.resolutionStatusChangedAt = new Date().toISOString();
+      fb.resolutionStatusChangedBy = operatorName;
+      feedbackStore.put(fb);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: operatorCpf,
+        userName: operatorName,
+        action: `Workflow de ouvidoria atualizado - Protocolo ${fb.appointmentProtocol}`,
+        module: 'Ouvidoria',
+        ipAddress: '127.0.0.1',
+        details: `Status alterado de "${previousStatus}" para "${targetStatus}".`,
+        changes: { resolutionStatus: { old: previousStatus, new: targetStatus } }
+      };
+      auditStore.add(log);
     };
     getReq.onerror = () => reject(getReq.error);
     tx.oncomplete = () => resolve();
@@ -3441,5 +3614,75 @@ export async function signAppointmentLaudo(
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getTemporaryCapacityLimits(): Promise<TemporaryCapacityLimit[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('temporary_capacity', 'readonly');
+    const store = tx.objectStore('temporary_capacity');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function createTemporaryCapacityLimit(limit: Omit<TemporaryCapacityLimit, 'id'>): Promise<TemporaryCapacityLimit> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('temporary_capacity', 'readwrite');
+    const store = tx.objectStore('temporary_capacity');
+    const newLimit = { ...limit };
+    const request = store.add(newLimit);
+    request.onsuccess = (e: any) => {
+      const generatedId = e.target.result;
+      resolve({ ...newLimit, id: generatedId });
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteTemporaryCapacityLimit(id: number): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('temporary_capacity', 'readwrite');
+    const store = tx.objectStore('temporary_capacity');
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function getCustomPriorities(): Promise<CustomPriority[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('custom_priorities', 'readonly');
+    const store = tx.objectStore('custom_priorities');
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function createCustomPriority(priority: CustomPriority): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('custom_priorities', 'readwrite');
+    const store = tx.objectStore('custom_priorities');
+    const request = store.put(priority);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteCustomPriority(id: string): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction('custom_priorities', 'readwrite');
+    const store = tx.objectStore('custom_priorities');
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
   });
 }
