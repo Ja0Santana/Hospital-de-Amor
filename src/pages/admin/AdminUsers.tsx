@@ -54,6 +54,8 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
 
   const [profileName, setProfileName] = useState('');
   const [profilePermissions, setProfilePermissions] = useState<string[]>([]);
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [blockedDeleteRole, setBlockedDeleteRole] = useState<{ roleName: string; users: PatientUser[] } | null>(null);
 
   const [simulatedEmails, setSimulatedEmails] = useState<any[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<any | null>(null);
@@ -262,6 +264,25 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
       return;
     }
 
+    if (editingProfileId) {
+      try {
+        await saveCustomRole({
+          id: editingProfileId,
+          name: profileName.trim(),
+          permissions: profilePermissions
+        });
+        setSuccessMsg(`Perfil "${profileName.trim()}" atualizado com sucesso.`);
+        setProfileName('');
+        setProfilePermissions([]);
+        setEditingProfileId(null);
+        await loadCustomRoles();
+      } catch (err) {
+        console.error(err);
+        setErrorMsg('Erro ao salvar perfil customizado.');
+      }
+      return;
+    }
+
     const roleId = 'custom-' + profileName.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
     if (roleId === 'gestor' || roleId === 'recepcionista' || roleId === 'auditor') {
@@ -295,6 +316,16 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
   const handleDeleteProfile = async (id: string) => {
     setErrorMsg('');
     setSuccessMsg('');
+
+    const roleObj = customRoles.find(r => r.id === id);
+    const roleName = roleObj ? roleObj.name : id;
+
+    const associatedUsers = users.filter(u => u.role === id);
+    if (associatedUsers.length > 0) {
+      setBlockedDeleteRole({ roleName, users: associatedUsers });
+      return;
+    }
+
     try {
       await deleteCustomRole(id);
       setSuccessMsg('Perfil removido com sucesso.');
@@ -705,13 +736,26 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                   <div key={role.id} className="pt-4 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-50">{role.name}</span>
-                      <button 
-                        onClick={() => handleDeleteProfile(role.id)}
-                        className="p-1 text-zinc-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20"
-                        title="Excluir Perfil"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => {
+                            setEditingProfileId(role.id);
+                            setProfileName(role.name);
+                            setProfilePermissions(role.permissions);
+                          }}
+                          className="p-1 text-zinc-400 hover:text-pink-600 transition-colors rounded-lg hover:bg-pink-50 dark:hover:bg-pink-950/20"
+                          title="Editar Perfil"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteProfile(role.id)}
+                          className="p-1 text-zinc-400 hover:text-red-600 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20"
+                          title="Excluir Perfil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
                       {role.permissions.map(pId => {
@@ -731,8 +775,8 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
 
           <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-sm space-y-4">
             <h2 className="text-sm font-extrabold text-zinc-900 dark:text-zinc-50 flex items-center gap-2">
-              <UserPlus className="w-4 h-4 text-pink-600" />
-              Criar Perfil Personalizado
+              <Shield className="w-4 h-4 text-pink-600" />
+              {editingProfileId ? 'Editar Perfil Personalizado' : 'Criar Perfil Personalizado'}
             </h2>
 
             <form onSubmit={handleSaveProfile} className="space-y-4">
@@ -766,12 +810,27 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full h-11 bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs rounded-2xl transition-all shadow-sm shadow-pink-600/20 active:scale-[0.98]"
-              >
-                Criar Perfil
-              </button>
+              <div className="flex gap-2">
+                {editingProfileId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingProfileId(null);
+                      setProfileName('');
+                      setProfilePermissions([]);
+                    }}
+                    className="w-1/2 h-11 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-350 hover:bg-zinc-50 dark:hover:bg-zinc-950 font-bold text-xs rounded-2xl transition-all"
+                  >
+                    Cancelar
+                  </button>
+                )}
+                <button
+                  type="submit"
+                  className={`h-11 bg-pink-600 hover:bg-pink-700 text-white font-bold text-xs rounded-2xl transition-all shadow-sm shadow-pink-600/20 active:scale-[0.98] ${editingProfileId ? 'w-1/2' : 'w-full'}`}
+                >
+                  {editingProfileId ? 'Salvar Alterações' : 'Criar Perfil'}
+                </button>
+              </div>
             </form>
           </div>
         </div>
@@ -815,6 +874,59 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                 className="h-9 px-4 bg-zinc-200 hover:bg-zinc-250 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 rounded-xl text-xs font-bold transition-all"
               >
                 Fechar Leitor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {blockedDeleteRole && (
+        <div 
+          onClick={() => setBlockedDeleteRole(null)}
+          className="fixed inset-0 bg-black/55 z-55 flex items-center justify-center p-4 backdrop-blur-xs"
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-2xl overflow-hidden animate-in scale-in"
+          >
+            <div className="px-6 py-4 border-b border-zinc-150 dark:border-zinc-800 flex items-center justify-between bg-zinc-50 dark:bg-zinc-950/40">
+              <div>
+                <h3 className="font-extrabold text-zinc-900 dark:text-zinc-50 text-xs">Exclusão Bloqueada</h3>
+                <span className="text-[10px] text-zinc-400 mt-0.5">O perfil possui colaboradores associados</span>
+              </div>
+              <button 
+                onClick={() => setBlockedDeleteRole(null)}
+                className="p-1 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-450 dark:text-zinc-500"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-left">
+              <div className="p-4 bg-red-50 dark:bg-red-955/20 border border-red-200/50 dark:border-red-900/30 text-red-850 dark:text-red-400 rounded-2xl text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>Não é possível excluir o perfil "{blockedDeleteRole.roleName}" enquanto houver colaboradores vinculados a ele. Reassocie-os para outros perfis antes de prosseguir.</span>
+              </div>
+              <div className="space-y-2">
+                <div className="text-[10px] uppercase font-bold text-zinc-450">Colaboradores Vinculados:</div>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-2">
+                  {blockedDeleteRole.users.map(u => (
+                    <div 
+                      key={u.cpf} 
+                      className="p-2.5 border border-zinc-150 dark:border-zinc-800 rounded-xl bg-zinc-50/50 dark:bg-zinc-950/20 flex justify-between text-xs font-semibold"
+                    >
+                      <span className="text-zinc-800 dark:text-zinc-200">{u.name}</span>
+                      <span className="text-zinc-450 font-mono">{u.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-3.5 bg-zinc-50 dark:bg-zinc-950/40 border-t border-zinc-150 dark:border-zinc-800 text-right">
+              <button
+                onClick={() => setBlockedDeleteRole(null)}
+                className="h-9 px-4 bg-pink-600 hover:bg-pink-700 text-white rounded-xl text-xs font-bold transition-all"
+              >
+                Entendido
               </button>
             </div>
           </div>

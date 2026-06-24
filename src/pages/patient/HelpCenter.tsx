@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../..
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { Search, BookOpen, Download, HelpCircle, ChevronDown, Check, Send, Sparkles, FileText, Play, Pause, Captions } from 'lucide-react';
+import { Search, BookOpen, Download, HelpCircle, ChevronDown, Check, Send, Sparkles, FileText, Play, Pause, Captions, Accessibility, ThumbsUp, Hand } from 'lucide-react';
 import { getUserByCpf, updatePatientUser, getAppointmentByCpf } from '../../services/db';
 
 interface HelpCenterProps {
@@ -603,8 +603,9 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
               </div>
               <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-center justify-between relative z-10">
                 <div className="space-y-2">
-                  <Badge className="bg-primary text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg">
-                    ✨ Recomendado para o preparo do seu próximo exame
+                  <Badge className="bg-primary text-white text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 text-secondary fill-secondary animate-pulse" />
+                    <span>Recomendado para o preparo do seu próximo exame</span>
                   </Badge>
                   <h3 className="text-base sm:text-lg font-black text-zinc-900 dark:text-zinc-50">
                     {recommendedBooklet.title}
@@ -646,8 +647,9 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
                           {booklet.category} • {booklet.size}
                         </Badge>
                         {readBooklets.includes(booklet.id) && (
-                          <Badge variant="secondary" className="px-2 py-0.5 text-[8px] font-bold rounded-lg uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border-none">
-                            ✓ Lido
+                          <Badge variant="secondary" className="px-2 py-0.5 text-[8px] font-bold rounded-lg uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:bg-emerald-950/20 dark:text-emerald-400 border-none flex items-center gap-0.5">
+                            <Check className="w-2.5 h-2.5" />
+                            <span>Lido</span>
                           </Badge>
                         )}
                       </div>
@@ -716,10 +718,19 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
               <div className="relative aspect-video w-full max-w-2xl mx-auto rounded-2xl overflow-hidden bg-slate-950 border border-slate-900 flex flex-col justify-between p-4 shadow-inner">
                 {isLibras && (
                   <div className="absolute bottom-16 right-4 w-24 h-24 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex flex-col items-center justify-center text-center p-1.5 z-20 animate-in zoom-in-95 duration-200">
-                    <span className="text-3xl animate-bounce duration-1000 select-none">
-                      {isPlaying ? ['🖐️', '👌', '👍', '👋'][Math.floor(progress / 5) % 4] : '🙋'}
-                    </span>
-                    <span className="text-[8px] font-bold text-white uppercase tracking-wider mt-1 opacity-90">Libras</span>
+                    <div className="h-10 flex items-center justify-center text-white select-none transition-all duration-300 transform scale-110">
+                      {isPlaying ? (
+                        [
+                          <Hand key="h1" className="w-7 h-7 text-white animate-pulse" />,
+                          <Check key="c1" className="w-7 h-7 text-white animate-pulse" />,
+                          <ThumbsUp key="t1" className="w-7 h-7 text-white animate-pulse" />,
+                          <Hand key="h2" className="w-7 h-7 text-white -rotate-12 animate-pulse" />
+                        ][Math.floor(progress / 5) % 4]
+                      ) : (
+                        <Accessibility className="w-7 h-7 text-white" />
+                      )}
+                    </div>
+                    <span className="text-[8px] font-bold text-white uppercase tracking-wider mt-2 opacity-90">Libras</span>
                   </div>
                 )}
 
@@ -769,7 +780,7 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
                           variant="ghost"
                           className={`h-7 px-2.5 rounded-lg font-extrabold flex items-center gap-1 transition-colors text-[10px] border-none ${isLibras ? 'bg-primary text-white hover:bg-primary' : 'bg-white/10 hover:bg-white/20 text-white'}`}
                         >
-                          <span>🙋</span>
+                          <Accessibility className="w-3.5 h-3.5" />
                           <span>Libras</span>
                         </Button>
                       </div>
