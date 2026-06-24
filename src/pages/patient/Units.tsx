@@ -465,7 +465,7 @@ export default function Units({ onNavigate }: UnitsProps) {
                     <MapPin className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                     <span>{unit.address}</span>
                   </p>
-                  <div className="grid grid-cols-2 gap-2 text-[10px] pt-2 border-t border-zinc-100 dark:border-zinc-900">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[10px] pt-2 border-t border-zinc-100 dark:border-zinc-900">
                     <div>
                       <span className="text-zinc-400 font-bold block">TELEFONE</span>
                       <span className="font-semibold text-zinc-800 dark:text-zinc-200">{unit.phone}</span>

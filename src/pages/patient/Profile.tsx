@@ -765,12 +765,12 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                 <p className="text-[10px] text-zinc-400 dark:text-zinc-500 leading-normal">
                   Ajuste a escala das fontes do portal:
                 </p>
-                <div className="grid grid-cols-5 gap-1 p-1 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200/30 dark:border-zinc-800">
+                <div className="flex flex-wrap gap-1 p-1 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200/30 dark:border-zinc-800">
                   <Button
                     type="button"
                     variant="ghost"
                     onClick={() => setFontSize('small')}
-                    className={`h-9 px-0 text-[10px] font-bold rounded-lg transition-colors ${fontSize === 'small' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                    className={`h-9 px-0 text-[10px] font-bold rounded-lg transition-colors flex-1 min-w-[50px] ${fontSize === 'small' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
                   >
                     Menor
                   </Button>
@@ -778,7 +778,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                     type="button"
                     variant="ghost"
                     onClick={() => setFontSize('default')}
-                    className={`h-9 px-0 text-xs font-bold rounded-lg transition-colors ${fontSize === 'default' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                    className={`h-9 px-0 text-xs font-bold rounded-lg transition-colors flex-1 min-w-[50px] ${fontSize === 'default' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
                   >
                     Padrão
                   </Button>
@@ -786,7 +786,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                     type="button"
                     variant="ghost"
                     onClick={() => setFontSize('medium')}
-                    className={`h-9 px-0 text-sm font-bold rounded-lg transition-colors ${fontSize === 'medium' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                    className={`h-9 px-0 text-sm font-bold rounded-lg transition-colors flex-1 min-w-[50px] ${fontSize === 'medium' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
                   >
                     Médio
                   </Button>
@@ -794,7 +794,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                     type="button"
                     variant="ghost"
                     onClick={() => setFontSize('large')}
-                    className={`h-9 px-0 text-base font-bold rounded-lg transition-colors ${fontSize === 'large' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                    className={`h-9 px-0 text-base font-bold rounded-lg transition-colors flex-1 min-w-[50px] ${fontSize === 'large' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
                   >
                     Grande
                   </Button>
@@ -802,7 +802,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                     type="button"
                     variant="ghost"
                     onClick={() => setFontSize('xlarge')}
-                    className={`h-9 px-0 text-lg font-bold rounded-lg transition-colors ${fontSize === 'xlarge' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
+                    className={`h-9 px-0 text-lg font-bold rounded-lg transition-colors flex-1 min-w-[50px] ${fontSize === 'xlarge' ? 'bg-white dark:bg-zinc-800 shadow-sm text-primary font-extrabold' : 'text-zinc-500 hover:text-zinc-900'}`}
                   >
                     G+
                   </Button>

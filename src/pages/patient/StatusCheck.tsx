@@ -1298,7 +1298,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
               )}
               <div className="space-y-2">
                 <span className="text-[0.625rem] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Dia</span>
-                <div className="grid grid-cols-5 gap-2">
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {getNext5BusinessDays().map((date, idx) => {
                     const isSelected = selectedDate?.toDateString() === date.toDateString();
                     return (
@@ -1329,7 +1329,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
 
               <div className="space-y-2">
                 <span className="text-[0.625rem] uppercase font-bold text-zinc-400 block tracking-wider">Selecione o Horário</span>
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {['08:30', '10:00', '13:30', '15:00'].map((time) => {
                     const isSelected = selectedTime === time;
                     return (
