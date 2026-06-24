@@ -272,8 +272,10 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
       .find(h => h.status === 'Confirmado' || h.status === 'Concluído');
     const baseDate = historyItem ? new Date(historyItem.changedAt) : new Date(appointment.createdAt);
     const changeTime = baseDate.getTime();
-    const simulatedNow = new Date().getTime() + simulatedHours * 60 * 60 * 1000;
-    const hoursElapsed = (simulatedNow - changeTime) / (1000 * 60 * 60);
+    let hoursElapsed = (new Date().getTime() - changeTime) / (1000 * 60 * 60);
+    if (simulatedHours !== 0) {
+      hoursElapsed = simulatedHours;
+    }
     if (hoursElapsed < 24) {
       const availableDate = new Date(changeTime + 24 * 60 * 60 * 1000);
       return {
@@ -1249,7 +1251,7 @@ export default function StatusCheck({ initialProtocol = '', onNavigate, patientC
                                     O link desta pesquisa de feedback expirou (validade máxima de 7 dias após o envio).
                                   </span>
                                 </div>
-                                <Button type="button" variant="outline" onClick={() => setSimulatedHours(0)} className="text-xs font-bold border-zinc-200 text-zinc-650 bg-white dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">
+                                <Button type="button" variant="outline" onClick={() => setSimulatedHours(12)} className="text-xs font-bold border-zinc-200 text-zinc-650 bg-white dark:bg-zinc-950 dark:border-zinc-800 dark:text-zinc-400">
                                   Resetar Simulação de Tempo
                                 </Button>
                               </div>
