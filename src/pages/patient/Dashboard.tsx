@@ -331,20 +331,20 @@ export default function Dashboard({ onNavigate, patientCpf, patientName, onOpenC
                       {appointments.slice(0, 3).map((app) => (
                         <li
                           key={app.id}
-                          className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900/30 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-xs hover:border-primary/30 transition-all gap-4"
+                          className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-white dark:bg-zinc-900/30 rounded-2xl border border-zinc-100 dark:border-zinc-800/80 shadow-xs hover:border-primary/30 transition-all gap-3 sm:gap-4"
                         >
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-bold text-zinc-950 dark:text-zinc-50">{app.examName}</h3>
+                          <div className="space-y-1 min-w-0">
+                            <h3 className="text-sm font-bold text-zinc-950 dark:text-zinc-50 truncate">{app.examName}</h3>
                             <span className="text-[10px] text-zinc-400 block">Solicitado em <time dateTime={app.createdAt.split('T')[0]}>{new Date(app.createdAt).toLocaleDateString('pt-BR')}</time> • Protocolo: {app.protocol}</span>
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-zinc-800/50">
                             {getStatusBadge(app.status)}
                             <Button
                               variant="ghost"
                               size="icon"
                               aria-label={`Ver detalhes do agendamento ${app.protocol}`}
                               onClick={() => onNavigate(`status-${app.protocol}`)}
-                              className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"
+                              className="h-8 w-8 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg shrink-0"
                             >
                               <ChevronRight className="w-4 h-4 text-zinc-400" aria-hidden="true" />
                             </Button>

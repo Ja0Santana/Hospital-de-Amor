@@ -94,6 +94,15 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
   const [activeTab, setActiveTab] = useState<'faq' | 'booklets'>('faq');
   const [faqSearch, setFaqSearch] = useState('');
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+  const [isRobofaqHidden, setIsRobofaqHidden] = useState(() => sessionStorage.getItem('robofaq-widget-hidden') === 'true');
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      setIsRobofaqHidden(sessionStorage.getItem('robofaq-widget-hidden') === 'true');
+    };
+    window.addEventListener('robofaq-visibility-change', handleVisibility);
+    return () => window.removeEventListener('robofaq-visibility-change', handleVisibility);
+  }, []);
 
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [downloadProgress, setDownloadProgress] = useState(0);
@@ -422,13 +431,28 @@ export default function HelpCenter({ patientCpf }: HelpCenterProps) {
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto px-4 py-4">
-      <div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">
-          Central de Ajuda e Orientações
-        </h1>
-        <p className="text-zinc-500 mt-1">
-          Tire suas dúvidas operacionais e baixe guias de preparo oficiais elaborados pelo corpo médico.
-        </p>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">
+            Central de Ajuda e Orientações
+          </h1>
+          <p className="text-zinc-500 mt-1">
+            Tire suas dúvidas operacionais e baixe guias de preparo oficiais elaborados pelo corpo médico.
+          </p>
+        </div>
+        {isRobofaqHidden && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              sessionStorage.removeItem('robofaq-widget-hidden');
+              window.dispatchEvent(new Event('robofaq-visibility-change'));
+            }}
+            className="text-[10px] h-8 px-3 rounded-xl border-zinc-200 text-zinc-650 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-350 dark:hover:bg-zinc-900 font-bold shrink-0 mt-1 self-start sm:self-center"
+          >
+            Reexibir Balão Assistente
+          </Button>
+        )}
       </div>
 
       <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-6">

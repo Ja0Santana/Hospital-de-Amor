@@ -2569,7 +2569,7 @@ export async function updateUserAdmin(
         if (oldPhone !== updatedData.phone.trim()) changes.phone = { old: oldPhone, new: updatedData.phone.trim() };
         if (oldRole !== updatedData.role) changes.role = { old: oldRole, new: updatedData.role };
 
-        const newQualified = updatedData.qualifiedExamIds || [];
+        const newQualified = updatedData.qualifiedExamIds !== undefined ? updatedData.qualifiedExamIds : oldQualified;
         const isQualifiedEqual = oldQualified.length === newQualified.length && oldQualified.every(val => newQualified.includes(val));
         if (!isQualifiedEqual) {
           changes.qualifiedExamIds = { old: oldQualified, new: newQualified };
@@ -3633,13 +3633,26 @@ export async function createTemporaryCapacityLimit(limit: Omit<TemporaryCapacity
   return new Promise((resolve, reject) => {
     const tx = db.transaction('temporary_capacity', 'readwrite');
     const store = tx.objectStore('temporary_capacity');
-    const newLimit = { ...limit };
-    const request = store.add(newLimit);
-    request.onsuccess = (e: any) => {
-      const generatedId = e.target.result;
-      resolve({ ...newLimit, id: generatedId });
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = () => {
+      const allLimits = getAllReq.result as TemporaryCapacityLimit[];
+      const existing = allLimits.find(l => l.examId === limit.examId && l.date === limit.date);
+      if (existing) {
+        const updated = { ...existing, limit: limit.limit };
+        const putReq = store.put(updated);
+        putReq.onsuccess = () => resolve(updated);
+        putReq.onerror = () => reject(putReq.error);
+      } else {
+        const newLimit = { ...limit };
+        const addReq = store.add(newLimit);
+        addReq.onsuccess = (e: any) => {
+          const generatedId = e.target.result;
+          resolve({ ...newLimit, id: generatedId });
+        };
+        addReq.onerror = () => reject(addReq.error);
+      }
     };
-    request.onerror = () => reject(request.error);
+    getAllReq.onerror = () => reject(getAllReq.error);
   });
 }
 

@@ -15,6 +15,7 @@ import {
   FileText,
   Settings,
   CheckCircle,
+  AlertCircle,
   Database,
   Mail,
   Info,
@@ -49,6 +50,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
   const [isReportScheduled, setIsReportScheduled] = useState<boolean>(false);
   const [scheduledReportSuccess, setScheduledReportSuccess] = useState<string>('');
   const [archiveSuccessMsg, setArchiveSuccessMsg] = useState<string>('');
+  const [archiveErrorMsg, setArchiveErrorMsg] = useState<string>('');
 
   const [simulatedReportAlert, setSimulatedReportAlert] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'demanda' | 'nps' | 'espera'>('demanda');
@@ -321,6 +323,8 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
   };
 
   const handleRunColdStorage = async () => {
+    setArchiveSuccessMsg('');
+    setArchiveErrorMsg('');
     try {
       const count = await runDataLifecycleArchiving();
       await loadData();
@@ -335,6 +339,8 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
       setTimeout(() => setArchiveSuccessMsg(''), 5000);
     } catch (e: any) {
       console.error(e);
+      setArchiveErrorMsg(e.message || 'Erro ao rodar rotina de arquivamento.');
+      setTimeout(() => setArchiveErrorMsg(''), 5000);
     }
   };
 
@@ -914,12 +920,6 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
         </div>
       )}
 
-      {archiveSuccessMsg && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-400 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-top-3">
-          <CheckCircle className="w-4 h-4 shrink-0 text-emerald-500" />
-          <span>{archiveSuccessMsg}</span>
-        </div>
-      )}
 
       {activeTab === 'demanda' && (
         <div className="space-y-8 animate-in fade-in">
@@ -1411,9 +1411,9 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4">
-                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-350">Formato de Saída:</label>
-                  <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4">
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-350">Formato:</label>
+                  <div className="flex flex-wrap items-center gap-3">
                     <label className="flex items-center gap-1.5 text-xs text-zinc-650 dark:text-zinc-300 cursor-pointer">
                       <input
                         type="radio"
@@ -1445,7 +1445,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
                         onChange={() => setReportFormat('excel')}
                         className="text-pink-600 focus:ring-pink-500"
                       />
-                      Excel (Planilha Formatada)
+                      Excel
                     </label>
                   </div>
                 </div>
@@ -1538,6 +1538,23 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
               <Database className="w-5 h-5 text-pink-600" />
               <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">Manutenção e Ciclo de Vida de Dados</h3>
             </div>
+
+            {(archiveSuccessMsg || archiveErrorMsg) && (
+              <div className="space-y-3 w-full animate-in fade-in">
+                {archiveSuccessMsg && (
+                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <CheckCircle className="w-4 h-4 shrink-0 text-emerald-500" />
+                    <span>{archiveSuccessMsg}</span>
+                  </div>
+                )}
+                {archiveErrorMsg && (
+                  <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 text-red-800 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>{archiveErrorMsg}</span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="space-y-1 max-w-xl">

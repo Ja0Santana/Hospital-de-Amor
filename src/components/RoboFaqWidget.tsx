@@ -22,6 +22,7 @@ interface RoboFaqWidgetProps {
 
 export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName = '' }: RoboFaqWidgetProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isHidden, setIsHidden] = useState(() => sessionStorage.getItem('robofaq-widget-hidden') === 'true');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     { sender: 'bot', text: 'Olá! Sou o Robo-FAQ. Tire suas dúvidas sobre preparo de exames, febre pós-quimioterapia, transporte municipal ou direitos do paciente. Como posso ajudar?', timestamp: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }
   ]);
@@ -54,6 +55,14 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [chatMessages, isBotTyping, isOpen]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      setIsHidden(sessionStorage.getItem('robofaq-widget-hidden') === 'true');
+    };
+    window.addEventListener('robofaq-visibility-change', handleVisibility);
+    return () => window.removeEventListener('robofaq-visibility-change', handleVisibility);
+  }, []);
 
   const getBotResponse = (userText: string): string => {
     const text = userText.toLowerCase();
@@ -435,6 +444,10 @@ ${prefixText}Para concluir a solicitação, é necessário aceitar os termos da 
     }, 850);
   };
 
+  if (isHidden) {
+    return null;
+  }
+
   return (
     <div className="fixed right-6 bottom-6 z-40 font-sans">
       {isOpen ? (
@@ -586,13 +599,26 @@ ${prefixText}Para concluir a solicitação, é necessário aceitar os termos da 
           </form>
         </Card>
       ) : (
-        <Button
-          onClick={() => setIsOpen(true)}
-          className="w-12 h-12 bg-primary hover:bg-primary/95 text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/20 transition-all hover:scale-110 active:scale-95"
-          aria-label="Abrir assistente virtual"
-        >
-          <MessageSquare className="w-5 h-5" />
-        </Button>
+        <div className="relative group">
+          <button
+            onClick={() => {
+              sessionStorage.setItem('robofaq-widget-hidden', 'true');
+              setIsHidden(true);
+            }}
+            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md border border-white dark:border-zinc-900 transition-all opacity-80 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 z-50 hover:scale-110 active:scale-95"
+            title="Ocultar Assistente"
+            aria-label="Ocultar assistente virtual"
+          >
+            <X className="w-2.5 h-2.5" />
+          </button>
+          <Button
+            onClick={() => setIsOpen(true)}
+            className="w-12 h-12 bg-primary hover:bg-primary/95 text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/20 transition-all hover:scale-110 active:scale-95"
+            aria-label="Abrir assistente virtual"
+          >
+            <MessageSquare className="w-5 h-5" />
+          </Button>
+        </div>
       )}
     </div>
   );

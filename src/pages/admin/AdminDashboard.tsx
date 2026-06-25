@@ -124,6 +124,36 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [tvFeedbackSuccess, setTvFeedbackSuccess] = useState('');
+  const [tvFeedbackError, setTvFeedbackError] = useState('');
+
+  useEffect(() => {
+    setTvFeedbackSuccess('');
+    setTvFeedbackError('');
+  }, [activeApp]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCityId, selectedSpecialtyId, statusFilter, startDateFilter, endDateFilter, showColdStorage, sortKey, sortOrder]);
+
+  const renderFeedback = () => {
+    return (
+      <div className="space-y-3 w-full animate-in fade-in">
+        {actionSuccess && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+        )}
+        {actionError && (
+          <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 text-red-800 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const [newNoteText, setNewNoteText] = useState('');
   const [newNoteIsUrgent, setNewNoteIsUrgent] = useState(false);
@@ -673,10 +703,11 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      const visibleIds = filteredAppointments.map(app => app.id);
-      setSelectedApps(visibleIds);
+      const pageIds = paginatedAppointments.map(app => app.id);
+      setSelectedApps(prev => Array.from(new Set([...prev, ...pageIds])));
     } else {
-      setSelectedApps([]);
+      const pageIds = paginatedAppointments.map(app => app.id);
+      setSelectedApps(prev => prev.filter(id => !pageIds.includes(id)));
     }
   };
 
@@ -756,6 +787,9 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   const handleCallOnTv = async () => {
     if (!activeApp) return;
 
+    setTvFeedbackSuccess('');
+    setTvFeedbackError('');
+
     const firstName = activeApp.patientName.split(' ')[0];
     const lastNameParts = activeApp.patientName.split(' ');
     const lastInitial = lastNameParts.length > 1 ? ' ' + lastNameParts[lastNameParts.length - 1][0] + '.' : '';
@@ -764,7 +798,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     const callTicket = 'S-' + Math.floor(100 + Math.random() * 900);
     const callDestination = activeApp.scheduledRoom || 'Consultório 1';
 
-    dispatchLobbyCall(maskedName, callDestination, callTicket);
+    dispatchLobbyCall(maskedName, callDestination, callTicket, loggedEmployee.name);
 
     try {
       await addAuditLogAdmin(
@@ -774,9 +808,10 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
         loggedEmployee.cpf,
         loggedEmployee.name
       );
-      setActionSuccess(`Chamado enviado para a TV: Senha ${callTicket}.`);
-    } catch (e) {
+      setTvFeedbackSuccess(`Chamado enviado para a TV: Senha ${callTicket}.`);
+    } catch (e: any) {
       console.error(e);
+      setTvFeedbackError(e.message || 'Erro ao chamar na TV.');
     }
   };
 
@@ -1177,19 +1212,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
         );
       })()}
 
-      {actionSuccess && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-250/50 dark:border-emerald-900/30 text-emerald-800 dark:text-emerald-400 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-top-3">
-          <CheckCircle className="w-4 h-4 shrink-0" />
-          <span>{actionSuccess}</span>
-        </div>
-      )}
-
-      {actionError && (
-        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-900/30 text-red-800 dark:text-red-400 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in slide-in-from-top-3">
-          <AlertCircle className="w-4 h-4 shrink-0" />
-          <span>{actionError}</span>
-        </div>
-      )}
+      {renderFeedback()}
 
       <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-sm space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -1722,6 +1745,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {renderFeedback()}
               {isActiveAppOfferActive && (
                 <div className="p-4 bg-pink-50 dark:bg-pink-955/15 border border-pink-200/40 dark:border-pink-900/20 text-pink-850 dark:text-pink-400 rounded-2xl flex flex-col gap-1.5 animate-in slide-in-from-top-3">
                   <div className="flex items-center gap-2 font-black text-xs text-pink-700 dark:text-pink-400">
@@ -2348,14 +2372,28 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
 
                   <div className="flex flex-col gap-2 pt-2 border-t border-zinc-150 dark:border-zinc-800">
                     {activeApp.status === 'Confirmado' && (
-                      <button
-                        onClick={handleCallOnTv}
-                        disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
-                        className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/15 disabled:opacity-50 flex items-center justify-center gap-2 mb-1"
-                      >
-                        <Tv className="w-4 h-4" />
-                        Chamar na TV da Recepção
-                      </button>
+                      <div className="space-y-2 mb-1">
+                        <button
+                          onClick={handleCallOnTv}
+                          disabled={!!activeApp.digitalSignature || isActiveAppOfferActive}
+                          className="w-full h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-600/15 disabled:opacity-50 flex items-center justify-center gap-2"
+                        >
+                          <Tv className="w-4 h-4" />
+                          Chamar na TV da Recepção
+                        </button>
+                        {tvFeedbackSuccess && (
+                          <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                            <CheckCircle className="w-4 h-4 shrink-0" />
+                            <span>{tvFeedbackSuccess}</span>
+                          </div>
+                        )}
+                        {tvFeedbackError && (
+                          <div className="p-2.5 bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 text-red-800 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <span>{tvFeedbackError}</span>
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     <button
@@ -2960,6 +2998,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                 className="w-full px-4 py-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs font-mono bg-white dark:bg-zinc-950 focus:ring-1 focus:ring-red-500 focus:outline-none dark:text-zinc-100"
               />
             </div>
+            {renderFeedback()}
             <div className="flex gap-2 pt-1">
               <button
                 onClick={() => setBatchConfirmModal(null)}
@@ -3015,6 +3054,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
                 className="w-full border border-zinc-200 dark:border-zinc-800 rounded-xl p-2.5 text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-amber-500 focus:outline-none dark:text-zinc-100"
               />
             </div>
+            {renderFeedback()}
             <div className="flex gap-2 pt-1">
               <button
                 type="button"

@@ -662,11 +662,6 @@ export default function CorporateSponsorship() {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-3.5 text-xs text-left">
-              {formError && (
-                <div className="p-3 bg-red-50/10 border border-red-200/50 text-red-500 text-[11px] font-bold rounded-xl">
-                  {formError}
-                </div>
-              )}
 
               <div className="space-y-1.5">
                 <Label htmlFor="razaoSocial" className="font-semibold text-zinc-700 dark:text-zinc-300">Razão Social</Label>
@@ -835,6 +830,12 @@ export default function CorporateSponsorship() {
                   </div>
                 )}
               </div>
+
+              {formError && (
+                <div className="p-3 bg-red-50/10 border border-red-200/50 text-red-500 text-[11px] font-bold rounded-xl mt-2">
+                  {formError}
+                </div>
+              )}
 
               <Button type="submit" className="w-full h-10 bg-brand-pink hover:bg-brand-pink/95 text-white font-bold rounded-xl text-xs mt-2 flex items-center justify-center gap-1.5 shadow-md shadow-brand-pink/15">
                 <Send className="w-3.5 h-3.5" />

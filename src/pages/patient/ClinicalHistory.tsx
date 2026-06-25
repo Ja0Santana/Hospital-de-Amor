@@ -259,7 +259,7 @@ export default function ClinicalHistory({ patientCpf, onNavigate }: ClinicalHist
                   </select>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <Label htmlFor="date" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Data do Exame *</Label>
                     <Input
