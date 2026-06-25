@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui/ca
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
 import { Badge } from '../../components/ui/badge';
-import { Heart, Activity, RefreshCw, Search, MapPin, Compass, AlertCircle } from 'lucide-react';
+import { Heart, Activity, RefreshCw, Search, MapPin, Compass, AlertCircle, ChevronDown } from 'lucide-react';
 
 interface Unit {
   id: string;
@@ -406,27 +406,33 @@ export default function Units({ onNavigate }: UnitsProps) {
             })}
           </div>
 
-          <select
-            value={filterCity}
-            onChange={(e) => setFilterCity(e.target.value)}
-            className="h-9 px-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 text-xs font-bold focus:ring-1 focus:ring-pink-500 focus:outline-none text-zinc-750 dark:text-zinc-300 cursor-pointer shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors w-[48%] sm:w-auto"
-          >
-            <option value="Todas">Todas as Cidades</option>
-            {cities.map((city) => (
-              <option key={city} value={city}>{city}</option>
-            ))}
-          </select>
+          <div className="relative w-full sm:w-52 shrink-0">
+            <select
+              value={filterCity}
+              onChange={(e) => setFilterCity(e.target.value)}
+              className="h-10 pl-3 pr-9 w-full border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 text-xs font-bold focus:ring-2 focus:ring-pink-500/10 focus:border-pink-500 focus:outline-none text-zinc-750 dark:text-zinc-300 cursor-pointer shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all appearance-none"
+            >
+              <option value="Todas">Todas as Cidades</option>
+              {cities.map((city) => (
+                <option key={city} value={city}>{city}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+          </div>
 
-          <select
-            value={filterSpecialty}
-            onChange={(e) => setFilterSpecialty(e.target.value)}
-            className="h-9 px-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 text-xs font-bold focus:ring-1 focus:ring-pink-500 focus:outline-none text-zinc-750 dark:text-zinc-300 cursor-pointer shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors w-[48%] sm:w-auto"
-          >
-            <option value="Todas">Todas as Especialidades</option>
-            {specialties.map((spec) => (
-              <option key={spec} value={spec}>{spec}</option>
-            ))}
-          </select>
+          <div className="relative w-full sm:w-56 shrink-0">
+            <select
+              value={filterSpecialty}
+              onChange={(e) => setFilterSpecialty(e.target.value)}
+              className="h-10 pl-3 pr-9 w-full border border-zinc-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-950 text-xs font-bold focus:ring-2 focus:ring-pink-500/10 focus:border-pink-500 focus:outline-none text-zinc-750 dark:text-zinc-300 cursor-pointer shadow-2xs hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-all appearance-none"
+            >
+              <option value="Todas">Todas as Especialidades</option>
+              {specialties.map((spec) => (
+                <option key={spec} value={spec}>{spec}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+          </div>
         </div>
       </div>
 

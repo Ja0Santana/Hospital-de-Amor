@@ -32,8 +32,13 @@ interface ProfileProps {
 export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, setFontSize, theme, setTheme, onPhotoUpdate, userRole = 'patient' }: ProfileProps) {
   const [user, setUser] = useState<PatientUser | null>(null);
   const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+
+  const [photoSuccess, setPhotoSuccess] = useState('');
+  const [photoError, setPhotoError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
+  const [profileError, setProfileError] = useState('');
+  const [privacySuccess, setPrivacySuccess] = useState('');
+  const [privacyError, setPrivacyError] = useState('');
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -125,13 +130,23 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
     };
   }, [showBlockedModal, showDeleteModal]);
 
+  const clearLocalMessages = () => {
+    setPhotoSuccess('');
+    setPhotoError('');
+    setProfileSuccess('');
+    setProfileError('');
+    setPrivacySuccess('');
+    setPrivacyError('');
+  };
+
   const handlePhotoUpload = (file: File) => {
+    clearLocalMessages();
     if (file.size > 2 * 1024 * 1024) {
-      setErrorMessage('A imagem deve ter no máximo 2MB.');
+      setPhotoError('A imagem deve ter no máximo 2MB.');
       return;
     }
     if (!file.type.startsWith('image/')) {
-      setErrorMessage('Formato de arquivo inválido. Selecione uma imagem.');
+      setPhotoError('Formato de arquivo inválido. Selecione uma imagem.');
       return;
     }
 
@@ -147,9 +162,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
           if (onPhotoUpdate) {
             onPhotoUpdate(base64);
           }
-          setSuccessMessage('Foto de perfil atualizada com sucesso.');
+          setPhotoSuccess('Foto de perfil atualizada com sucesso.');
         } catch (err) {
-          setErrorMessage('Erro ao salvar a foto de perfil.');
+          setPhotoError('Erro ao salvar a foto de perfil.');
         }
       }
     };
@@ -164,6 +179,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
   };
 
   const handleRemovePhoto = async () => {
+    clearLocalMessages();
     try {
       await updatePatientUser(patientCpf, { photoUrl: '' });
       if (user) {
@@ -172,19 +188,18 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
       if (onPhotoUpdate) {
         onPhotoUpdate('');
       }
-      setSuccessMessage('Foto de perfil removida com sucesso.');
+      setPhotoSuccess('Foto de perfil removida com sucesso.');
     } catch (err) {
-      setErrorMessage('Erro ao remover a foto de perfil.');
+      setPhotoError('Erro ao remover a foto de perfil.');
     }
   };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccessMessage('');
-    setErrorMessage('');
+    clearLocalMessages();
 
     if (!email.trim() || !phone.trim() || !city.trim() || !state.trim()) {
-      setErrorMessage('Todos os campos de contato e endereço são obrigatórios.');
+      setProfileError('Todos os campos de contato e endereço são obrigatórios.');
       return;
     }
 
@@ -223,9 +238,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
         }
         setUser(updated);
       }
-      setSuccessMessage('Dados atualizados com sucesso no banco de dados local.');
+      setProfileSuccess('Dados atualizados com sucesso no banco de dados local.');
     } catch (err: any) {
-      setErrorMessage('Erro ao atualizar os dados.');
+      setProfileError('Erro ao atualizar os dados.');
     } finally {
       setLoading(false);
     }
@@ -233,8 +248,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
 
   const handleUpdatePrivacy = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccessMessage('');
-    setErrorMessage('');
+    clearLocalMessages();
     setLoading(true);
     try {
       const consentTime = new Date().toISOString();
@@ -257,9 +271,9 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
           ...privacyData
         });
       }
-      setSuccessMessage('Preferências de privacidade e consentimento atualizados com sucesso.');
+      setPrivacySuccess('Preferências de privacidade e consentimento atualizados com sucesso.');
     } catch (err) {
-      setErrorMessage('Erro ao atualizar preferências de privacidade.');
+      setPrivacyError('Erro ao atualizar preferências de privacidade.');
     } finally {
       setLoading(false);
     }
@@ -438,18 +452,7 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
             </div>
             <CardContent className="p-6">
               <form onSubmit={handleUpdateProfile} className="space-y-6">
-                {successMessage && (
-                  <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/30 text-green-600 dark:text-green-400 text-xs font-semibold rounded-xl flex gap-2.5 items-start">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{successMessage}</span>
-                  </div>
-                )}
-                {errorMessage && (
-                  <div className="p-3 bg-red-50/10 border border-red-200/80 text-red-500 text-xs font-semibold rounded-xl flex gap-2.5 items-start">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{errorMessage}</span>
-                  </div>
-                )}
+                {/* As mensagens de sucesso/erro globais foram substituídas por feedbacks locais próximos aos botões */}
 
                 <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-zinc-150 dark:border-zinc-800/50">
                   <div className="relative group w-20 h-20 bg-zinc-100 dark:bg-zinc-900 rounded-full border-2 border-zinc-200 dark:border-zinc-800 flex items-center justify-center overflow-hidden shrink-0">
@@ -506,6 +509,19 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                     </div>
                   </div>
                 </div>
+
+                {photoSuccess && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/30 text-green-600 dark:text-green-400 text-xs font-semibold rounded-xl flex gap-2.5 items-start animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{photoSuccess}</span>
+                  </div>
+                )}
+                {photoError && (
+                  <div className="p-3 bg-red-50/10 border border-red-200/80 text-red-500 text-xs font-semibold rounded-xl flex gap-2.5 items-start animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{photoError}</span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5 md:col-span-2">
@@ -658,6 +674,19 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                       </div>
                     </div>
                   </>
+                )}
+
+                {profileSuccess && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/30 text-green-600 dark:text-green-400 text-xs font-semibold rounded-xl flex gap-2.5 items-start animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{profileSuccess}</span>
+                  </div>
+                )}
+                {profileError && (
+                  <div className="p-3 bg-red-50/10 border border-red-200/80 text-red-500 text-xs font-semibold rounded-xl flex gap-2.5 items-start animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{profileError}</span>
+                  </div>
                 )}
 
                 <div className="flex justify-end pt-6">
@@ -922,6 +951,19 @@ export default function Profile({ patientCpf, onLogout, onNavigate, fontSize, se
                   <span>Último consentimento: {lastConsentAt ? new Date(lastConsentAt).toLocaleString('pt-BR') : 'Não registrado'}</span>
                   <a href={userRole === 'donor' ? '#/doador/central-ajuda' : '#/paciente/central-ajuda'} className="text-primary hover:underline font-bold">Ver Política de Privacidade</a>
                 </div>
+
+                {privacySuccess && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200/50 dark:border-green-800/30 text-green-600 dark:text-green-400 text-xs font-semibold rounded-xl flex gap-2.5 items-start animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{privacySuccess}</span>
+                  </div>
+                )}
+                {privacyError && (
+                  <div className="p-3 bg-red-50/10 border border-red-200/80 text-red-500 text-xs font-semibold rounded-xl flex gap-2.5 items-start animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span>{privacyError}</span>
+                  </div>
+                )}
 
                 <Button type="submit" disabled={loading} className="w-full bg-primary hover:bg-primary/95 text-white font-bold h-10 rounded-xl text-xs">
                   Salvar Preferências de Privacidade

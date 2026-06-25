@@ -3,6 +3,7 @@ export interface LobbyMessage {
   patientDisplayName?: string;
   examType?: string;
   callTicket?: string;
+  professionalName?: string;
   timestamp: number;
 }
 
@@ -16,12 +17,13 @@ function getChannel(): BroadcastChannel {
   return channel;
 }
 
-export function dispatchLobbyCall(patientDisplayName: string, examType: string, callTicket: string): void {
+export function dispatchLobbyCall(patientDisplayName: string, examType: string, callTicket: string, professionalName?: string): void {
   const msg: LobbyMessage = {
     type: 'call',
     patientDisplayName,
     examType,
     callTicket,
+    professionalName,
     timestamp: Date.now()
   };
   getChannel().postMessage(msg);
