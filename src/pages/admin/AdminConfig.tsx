@@ -59,6 +59,25 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
 
+  const renderFeedback = () => {
+    return (
+      <div className="space-y-3 w-full animate-in fade-in">
+        {actionSuccess && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-400 rounded-xl text-xs font-bold flex items-center gap-2">
+            <CheckCircle className="w-4 h-4 shrink-0" />
+            <span>{actionSuccess}</span>
+          </div>
+        )}
+        {actionError && (
+          <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200/50 dark:border-red-800/30 text-red-800 dark:text-red-400 rounded-xl text-xs font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
   const [editingExamSpecId, setEditingExamSpecId] = useState<string>('');
   const [durationInput, setDurationInput] = useState<number>(30);
@@ -740,10 +759,10 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
         <p className="text-zinc-500 mt-1 text-sm">Gerencie parâmetros de exames, regras de capacidade e calendário operacional institucional.</p>
       </div>
 
-      <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-4">
+      <div className="flex border-b border-zinc-200 dark:border-zinc-800 gap-4 overflow-x-auto scrollbar-none flex-nowrap pb-1">
         <button
           onClick={() => setActiveTab('exams')}
-          className={`pb-3 text-xs font-bold transition-all relative ${
+          className={`pb-3 text-xs font-bold transition-all relative shrink-0 ${
             activeTab === 'exams' 
               ? 'text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400' 
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-350'
@@ -757,7 +776,7 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
 
         <button
           onClick={() => setActiveTab('calendar')}
-          className={`pb-3 text-xs font-bold transition-all relative ${
+          className={`pb-3 text-xs font-bold transition-all relative shrink-0 ${
             activeTab === 'calendar' 
               ? 'text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400' 
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-350'
@@ -771,7 +790,7 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
 
         <button
           onClick={() => setActiveTab('logs')}
-          className={`pb-3 text-xs font-bold transition-all relative ${
+          className={`pb-3 text-xs font-bold transition-all relative shrink-0 ${
             activeTab === 'logs' 
               ? 'text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400' 
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-350'
@@ -785,7 +804,7 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
 
         <button
           onClick={() => setActiveTab('transparency')}
-          className={`pb-3 text-xs font-bold transition-all relative ${
+          className={`pb-3 text-xs font-bold transition-all relative shrink-0 ${
             activeTab === 'transparency' 
               ? 'text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400' 
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-355'
@@ -799,7 +818,7 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
 
         <button
           onClick={() => setActiveTab('pep')}
-          className={`pb-3 text-xs font-bold transition-all relative ${
+          className={`pb-3 text-xs font-bold transition-all relative shrink-0 ${
             activeTab === 'pep' 
               ? 'text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400' 
               : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-350'
@@ -812,22 +831,9 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
         </button>
       </div>
 
-      {actionSuccess && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 text-emerald-800 dark:text-emerald-400 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-          <CheckCircle className="w-4 h-4" />
-          {actionSuccess}
-        </div>
-      )}
-
-      {actionError && (
-        <div className="p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/30 text-red-800 dark:text-red-400 rounded-2xl text-xs font-semibold flex items-center gap-2 animate-in fade-in">
-          <AlertCircle className="w-4 h-4" />
-          {actionError}
-        </div>
-      )}
-
       {activeTab === 'exams' && (
         <div className="space-y-6">
+          {renderFeedback()}
           <div className="flex justify-end gap-3 px-1">
             <button
               onClick={() => setIsNewSpecModalOpen(true)}
@@ -1097,7 +1103,9 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
       )}
 
       {activeTab === 'calendar' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="space-y-6">
+          {renderFeedback()}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1 bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs h-fit space-y-6">
             <div>
               <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Bloquear Data</h3>
@@ -1226,10 +1234,13 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
             </div>
           </div>
         </div>
+        </div>
       )}
 
       {activeTab === 'logs' && (
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-4">
+        <div className="space-y-6">
+          {renderFeedback()}
+          <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Histórico de Alterações</h3>
@@ -1281,10 +1292,13 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
             </table>
           </div>
         </div>
+        </div>
       )}
 
       {activeTab === 'transparency' && transparencyData && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="space-y-6">
+          {renderFeedback()}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-6">
             <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs space-y-6">
               <div>
@@ -1511,12 +1525,14 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
             </div>
           </div>
         </div>
+        </div>
       )}
 
       {activeTab === 'pep' && (() => {
         const pepAppointments = appointments.filter(app => app.pepSyncStatus !== undefined);
         return (
           <div className="space-y-6 animate-in fade-in">
+            {renderFeedback()}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs">
               <div className="space-y-1">
                 <h3 className="font-extrabold text-sm text-zinc-900 dark:text-zinc-50">Fila de Mensagens & Integração PEP</h3>
@@ -1532,7 +1548,7 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                   type="button"
                   onClick={handleReprocessPepBatch}
                   disabled={isProcessingPepBatch}
-                  className="bg-pink-650 hover:bg-pink-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-pink-600/10 flex items-center gap-2 disabled:opacity-55"
+                  className="bg-brand-pink hover:bg-brand-pink/90 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md shadow-brand-pink/10 flex items-center gap-2 disabled:opacity-55"
                 >
                   {isProcessingPepBatch ? (
                     <>
@@ -1796,6 +1812,8 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                 </div>
               </div>
 
+              <div className="px-5">{renderFeedback()}</div>
+
               <div className="border-t border-zinc-100 dark:border-zinc-800 p-5 flex gap-3">
                 <button
                   type="button"
@@ -1852,6 +1870,8 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                   />
                 </div>
               </div>
+
+              <div className="px-5">{renderFeedback()}</div>
 
               <div className="border-t border-zinc-100 dark:border-zinc-800 p-5 flex gap-3">
                 <button
@@ -2058,6 +2078,8 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                   </div>
                 </div>
               </div>
+
+              <div className="px-5">{renderFeedback()}</div>
 
               <div className="border-t border-zinc-100 dark:border-zinc-800 p-5 flex gap-3">
                 <button

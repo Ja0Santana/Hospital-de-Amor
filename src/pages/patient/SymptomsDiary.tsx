@@ -484,7 +484,7 @@ export default function SymptomsDiary({ patientCpf }: SymptomsDiaryProps) {
             <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-3">
               <label className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Como você está se sentindo hoje?</label>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 min-[420px]:grid-cols-3 sm:grid-cols-5 gap-2">
                 {MOODS.map((m) => {
                   const isActive = selectedMood === m.label;
                   return (

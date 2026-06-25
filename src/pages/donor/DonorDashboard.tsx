@@ -493,12 +493,12 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
             </div>
 
             {isEligibleForPrestige && (
-              <div className="absolute top-2 right-2">
+              <div className="pt-2">
                 <Button 
                   onClick={() => setIsPrestigeModalOpen(true)}
-                  className="bg-brand-pink hover:bg-brand-pink/95 text-white font-black text-[9px] h-7 px-2.5 rounded-xl shadow-md uppercase tracking-wider gap-1 flex items-center"
+                  className="w-full bg-brand-pink hover:bg-brand-pink/95 text-white font-bold text-xs h-10 rounded-xl shadow-md uppercase tracking-wider gap-1.5 flex items-center justify-center transition-all active:scale-[0.99]"
                 >
-                  <Sparkles className="w-3 h-3 fill-white" />
+                  <Sparkles className="w-4 h-4 fill-white" />
                   Ativar Prestígio
                 </Button>
               </div>
@@ -726,7 +726,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                 <History className="w-4 h-4 text-brand-pink" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Histórico de Contribuições</h3>
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                 <Button
                   variant="outline"
                   size="sm"
@@ -739,7 +739,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                       donations
                     });
                   }}
-                  className="h-8 border-brand-pink/30 hover:border-brand-pink text-brand-pink font-bold text-[10px] rounded-lg gap-1.5 active:scale-[0.98] transition-all uppercase tracking-wider"
+                  className="h-8 border-brand-pink/30 hover:border-brand-pink text-brand-pink font-bold text-[10px] rounded-lg gap-1.5 active:scale-[0.98] transition-all uppercase tracking-wider w-full sm:w-auto justify-center"
                 >
                   <Download className="w-3.5 h-3.5" />
                   IR {new Date().getFullYear() - 1} (Download Direto)
@@ -755,7 +755,7 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                     setSelectedTaxYear(mostRecentYear ? mostRecentYear.toString() : new Date().getFullYear().toString());
                     setIsTaxModalOpen(true);
                   }}
-                  className="h-8 border-brand-pink/30 hover:border-brand-pink text-brand-pink font-bold text-[10px] rounded-lg gap-1.5 active:scale-[0.98] transition-all uppercase tracking-wider"
+                  className="h-8 border-brand-pink/30 hover:border-brand-pink text-brand-pink font-bold text-[10px] rounded-lg gap-1.5 active:scale-[0.98] transition-all uppercase tracking-wider w-full sm:w-auto justify-center"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   Declaração de IR
@@ -1077,13 +1077,6 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
               <p className="text-[10px] text-zinc-500">Deixe uma mensagem de apoio de até 300 caracteres para nossos pacientes e equipe.</p>
             </div>
 
-            {supportSuccessAvulsa && (
-              <div className="p-3 bg-green-50/10 border border-green-200/50 text-green-600 text-xs font-semibold rounded-xl flex gap-2.5 items-start">
-                <Check className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>Mensagem enviada com sucesso! A administração avaliará a exibição nos painéis do hospital.</span>
-              </div>
-            )}
-
             <div className="space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="supportMsgAvulsa" className="text-xs font-bold text-zinc-600 flex justify-between items-center">
@@ -1112,6 +1105,13 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
                   Autorizo exibir meu primeiro nome junto à mensagem nos painéis do hospital.
                 </Label>
               </div>
+
+              {supportSuccessAvulsa && (
+                <div className="p-3 bg-green-50/10 border border-green-200/50 text-green-600 text-xs font-semibold rounded-xl flex gap-2.5 items-start">
+                  <Check className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>Mensagem enviada com sucesso! A administração avaliará a exibição nos painéis do hospital.</span>
+                </div>
+              )}
 
               <Button
                 onClick={handleSendSupportMsgAvulsa}
@@ -1403,8 +1403,8 @@ export default function DonorDashboard({ donorCpf, donorName, updateTrigger }: D
 
               <div className="space-y-2">
                 <h4 className="text-[0.625rem] font-bold text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">Doações Recebidas em {selectedTaxYear}</h4>
-                <div className="border border-zinc-150 dark:border-zinc-800 rounded-xl overflow-hidden">
-                  <table className="w-full text-[0.625rem] text-left">
+                <div className="border border-zinc-150 dark:border-zinc-800 rounded-xl overflow-x-auto">
+                  <table className="w-full text-[0.625rem] text-left min-w-[450px]">
                     <thead>
                       <tr className="bg-zinc-50 dark:bg-zinc-900/40 text-zinc-500 border-b border-zinc-150 dark:border-zinc-800 font-bold uppercase tracking-wider text-[0.5625rem]">
                         <th className="py-2 px-3">Data</th>

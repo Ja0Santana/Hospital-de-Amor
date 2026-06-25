@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Card, CardContent, CardFooter } from '../../components/ui/card';
+import { Card, CardContent } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '../../components/ui/alert';
 import StepPatientData from './components/StepPatientData';
@@ -49,7 +49,6 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
   const [isReadyToSave, setIsReadyToSave] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [draftData, setDraftData] = useState<any | null>(null);
-  const [showDraftSavedToast, setShowDraftSavedToast] = useState(false);
 
   useEffect(() => {
     const initForm = async () => {
@@ -91,8 +90,6 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
     const interval = setInterval(async () => {
       if (successData) return;
       await saveAppointmentDraft(patientCpf, { formData, currentStep });
-      setShowDraftSavedToast(true);
-      setTimeout(() => setShowDraftSavedToast(false), 3000);
     }, 30000);
 
     return () => clearInterval(interval);
@@ -292,11 +289,11 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
               </ul>
             </div>
           </CardContent>
-          <CardFooter className="bg-zinc-50 dark:bg-zinc-900/30 border-t border-zinc-100 dark:border-zinc-800/80 p-5 flex justify-center gap-4">
+          <div className="bg-zinc-50 dark:bg-zinc-900/30 border-t border-zinc-100 dark:border-zinc-800/80 px-6 md:px-8 py-5 flex justify-center items-center gap-4 w-full box-border">
             <Button onClick={() => onNavigate('dashboard')} className="w-full bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-50 dark:hover:bg-zinc-200 dark:text-zinc-900 font-semibold h-11 text-white rounded-xl">
               Voltar ao Início
             </Button>
-          </CardFooter>
+          </div>
         </Card>
       </div>
     );
@@ -363,39 +360,41 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
             />
           )}
         </CardContent>
-        <CardFooter className="bg-zinc-50 dark:bg-zinc-900/30 border-t border-zinc-100 dark:border-zinc-800/80 p-5 flex justify-between gap-4">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 0 || loading}
-            className="h-11 px-5 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 font-semibold rounded-xl"
-          >
-            <ChevronLeft className="w-4 h-4 mr-1.5" />
-            Anterior
-          </Button>
+        <div className="bg-zinc-50 dark:bg-zinc-900/30 border-t border-zinc-100 dark:border-zinc-800/80 px-6 md:px-8 py-5 w-full box-border">
+          <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-3 sm:gap-4 w-full box-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentStep === 0 || loading}
+              className="h-11 px-5 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 font-semibold rounded-xl w-full sm:w-auto"
+            >
+              <ChevronLeft className="w-4 h-4 mr-1.5" />
+              Anterior
+            </Button>
 
-          {currentStep < steps.length - 1 ? (
-            <Button
-              type="button"
-              onClick={handleNext}
-              disabled={loading}
-              className="h-11 px-5 bg-primary hover:bg-primary/95 text-white font-semibold rounded-xl"
-            >
-              Próximo
-              <ChevronRight className="w-4 h-4 ml-1.5" />
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              onClick={handleSubmit}
-              disabled={loading}
-              className="h-11 px-6 bg-brand-pink hover:bg-brand-pink/95 text-white font-semibold rounded-xl shadow-md shadow-brand-pink/20"
-            >
-              {loading ? 'Enviando...' : 'Confirmar e Enviar'}
-            </Button>
-          )}
-        </CardFooter>
+            {currentStep < steps.length - 1 ? (
+              <Button
+                type="button"
+                onClick={handleNext}
+                disabled={loading}
+                className="h-11 px-5 bg-primary hover:bg-primary/95 text-white font-semibold rounded-xl border border-transparent w-full sm:w-auto"
+              >
+                Próximo
+                <ChevronRight className="w-4 h-4 ml-1.5" />
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="h-11 px-6 bg-brand-pink hover:bg-brand-pink/95 text-white font-semibold rounded-xl shadow-md shadow-brand-pink/20 border border-transparent w-full sm:w-auto"
+              >
+                {loading ? 'Enviando...' : 'Confirmar e Enviar'}
+              </Button>
+            )}
+          </div>
+        </div>
       </Card>
 
       {showRestoreModal && createPortal(
@@ -435,12 +434,6 @@ export default function NewRequest({ onNavigate, patientCpf }: NewRequestProps) 
           </div>
         </div>,
         document.body
-      )}
-      {showDraftSavedToast && (
-        <div className="fixed bottom-4 right-4 bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2.5 z-[9999] border border-zinc-700/30 animate-in fade-in slide-in-from-bottom-5 duration-350">
-          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-          <span className="text-xs font-bold font-sans">Rascunho salvo automaticamente</span>
-        </div>
       )}
     </div>
   );
