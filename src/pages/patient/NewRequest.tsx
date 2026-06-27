@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Card, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Alert, AlertTitle, AlertDescription } from '../../components/ui/alert';
+import { Card, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Alert, AlertTitle, AlertDescription } from '../../components/ui/Alert';
 import StepPatientData from './components/StepPatientData';
 import StepExamSelection from './components/StepExamSelection';
 import StepUploadReview from './components/StepUploadReview';

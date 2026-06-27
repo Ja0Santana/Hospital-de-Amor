@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from './ui/card';
-import { Button } from './ui/button';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 import { X, Save, Activity, CheckCircle } from 'lucide-react';
-import { addSymptomLog, getSymptomLogs } from '../services/db';
-import type { SymptomLog } from '../types';
+import { addSymptomLog, getSymptomLogs } from '../../services/db';
+import type { SymptomLog } from '../../types';
 
 interface SymptomFloatingWidgetProps {
   patientCpf: string;
