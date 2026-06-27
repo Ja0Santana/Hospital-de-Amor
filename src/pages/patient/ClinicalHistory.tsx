@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
-import { Label } from '../../components/ui/label';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Badge } from '../../components/ui/badge';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Label } from '../../components/ui/Label';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Badge } from '../../components/ui/Badge';
 import { getClinicalRecords, addClinicalRecord, deleteClinicalRecord } from '../../services/db';
 import type { ClinicalRecord, FileAttachment } from '../../types';
 import { FileText, Trash2, Eye, Plus, Calendar, Search, Upload, AlertCircle, CheckCircle2, X } from 'lucide-react';

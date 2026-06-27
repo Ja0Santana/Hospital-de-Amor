@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Label } from '../../../components/ui/label';
-import { Checkbox } from '../../../components/ui/checkbox';
-import { Button } from '../../../components/ui/button';
-import { Card, CardContent } from '../../../components/ui/card';
+import { Label } from '../../../components/ui/Label';
+import { Checkbox } from '../../../components/ui/Checkbox';
+import { Button } from '../../../components/ui/Button';
+import { Card, CardContent } from '../../../components/ui/Card';
 import type { FileAttachment } from '../../../types';
 import { AlertCircle, Upload, FileText, Eye, Trash2, Edit2, HelpCircle } from 'lucide-react';
 import Tooltip from '../../../components/ui/Tooltip';

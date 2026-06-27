@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Card } from '../components/ui/card';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Checkbox } from '../components/ui/checkbox';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Label } from '../components/ui/Label';
+import { Checkbox } from '../components/ui/Checkbox';
 import { formatCpf, validateCpf, formatPhone, sanitizeString } from '../lib/sanitizer';
 import { AlertCircle, Lock, ShieldCheck, User, Calendar, Mail, Phone, ChevronLeft, CheckCircle2, Heart, Sun, Moon, Eye, EyeOff } from 'lucide-react';
 import { authenticateUser, createUser, getUserByCpf, updateUserPassword, getLoginAttempts, recordLoginAttempt, clearLoginAttempts } from '../services/db';
 
 import type { PatientUser } from '../types';
 import logoHospitalDeAmor from '../assets/logoHospitalDeAmor.png';
-import { PasswordStrengthMeter } from '../components/PasswordStrengthMeter';
+import { PasswordStrengthMeter } from '../components/common/PasswordStrengthMeter';
 
 
 interface LoginProps {

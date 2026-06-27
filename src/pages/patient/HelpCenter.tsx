@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import jsPDF from 'jspdf';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Badge } from '../../components/ui/badge';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Badge } from '../../components/ui/Badge';
 import { Search, BookOpen, Download, HelpCircle, ChevronDown, Check, Send, Sparkles, FileText, Play, Pause, Captions, Accessibility, ThumbsUp, Hand } from 'lucide-react';
 import { getUserByCpf, updatePatientUser, getAppointmentByCpf } from '../../services/db';
 

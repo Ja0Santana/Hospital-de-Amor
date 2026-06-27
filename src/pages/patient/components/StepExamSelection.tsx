@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Label } from '../../../components/ui/label';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../../components/ui/select';
-import { Card, CardContent } from '../../../components/ui/card';
+import { Label } from '../../../components/ui/Label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '../../../components/ui/Select';
+import { Card, CardContent } from '../../../components/ui/Card';
 import { getSpecialties } from '../../../services/db';
 import type { Specialty, Exam } from '../../../types';
 import { AlertCircle, FileText, HelpCircle } from 'lucide-react';
