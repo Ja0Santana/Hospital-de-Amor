@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Card, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Checkbox } from '../../components/ui/checkbox';
+import { Card, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Label } from '../../components/ui/Label';
+import { Checkbox } from '../../components/ui/Checkbox';
 import { formatPhone, formatCpf } from '../../lib/sanitizer';
 import { getUserByCpf, updatePatientUser, deleteUserAndAppointments, getAppointmentByCpf, updateUserPassword, getDonationsByCpf } from '../../services/db';
 import type { PatientUser, Appointment } from '../../types';
@@ -14,7 +14,7 @@ import {
   Type, Activity, Eye, EyeOff, Camera, HelpCircle
 } from 'lucide-react';
 import Tooltip from '../../components/ui/Tooltip';
-import { PasswordStrengthMeter } from '../../components/PasswordStrengthMeter';
+import { PasswordStrengthMeter } from '../../components/common/PasswordStrengthMeter';
 
 
 interface ProfileProps {

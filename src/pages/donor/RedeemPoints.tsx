@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { getDonorPoints, redeemDonorBadge, triggerDonorPrestige } from '../../services/db';
 import type { DonorPoints } from '../../types';
 import { Award, Star, Sparkles, X } from 'lucide-react';

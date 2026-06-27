@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Label } from '../../components/ui/label';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Label } from '../../components/ui/Label';
 import { getDonationsByCpf, getDonorPoints, getRecurringSubscriptionsByCpf, updateRecurringSubscription, triggerDonorPrestige, addDonorPoints, saveSupportMessage, getUserByCpf, getTransparencyData } from '../../services/db';
 import type { Donation, DonorPoints, RecurringSubscription, TransparencyData } from '../../types';
 import { Trophy, History, TrendingUp, Users, Award, Heart, Play, Pause, XCircle, Edit2, Sparkles, Star, X, FileText, Download, Copy, Check, Send, AlertTriangle, Mail } from 'lucide-react';

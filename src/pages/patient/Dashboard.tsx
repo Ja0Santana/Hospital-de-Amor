@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 import { getAppointmentByCpf, getSymptomLogs, getSpecialties } from '../../services/db';
 import type { Appointment } from '../../types';
 import { Search, AlertCircle, CheckCircle2, Clock, XCircle, Info, ChevronRight, ChevronDown, FileText } from 'lucide-react';

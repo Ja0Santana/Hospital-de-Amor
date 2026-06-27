@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import jsPDF from 'jspdf';
-import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { Activity, Save, AlertCircle, CheckCircle, Loader2, Download } from 'lucide-react';
 import { addSymptomLog, getSymptomLogs } from '../../services/db';
 import type { SymptomLog } from '../../types';

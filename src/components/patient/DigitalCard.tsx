@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Heart, Phone, Printer, RotateCw, X, ShieldAlert, HeartHandshake } from 'lucide-react';
-import { getUserByCpf } from '../services/db';
-import type { PatientUser } from '../types';
-import { formatCpf, formatPhone } from '../lib/sanitizer';
-import logoHospitalDeAmor from '../assets/logoHospitalDeAmor.png';
+import { getUserByCpf } from '../../services/db';
+import type { PatientUser } from '../../types';
+import { formatCpf, formatPhone } from '../../lib/sanitizer';
+import logoHospitalDeAmor from '../../assets/logoHospitalDeAmor.png';
 
 interface DigitalCardProps {
   patientCpf: string;

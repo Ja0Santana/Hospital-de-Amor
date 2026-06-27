@@ -1,18 +1,16 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from './ui/card';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { X, Send, Sparkles, MessageSquare, Calendar } from 'lucide-react';
-import { saveChatbotQuery, getSpecialties, getCities, getUserByCpf, checkDuplicateRequest, createAppointment } from '../services/db';
-import type { Specialty, City, Exam, FileAttachment, PatientUser } from '../types';
-
-interface ChatMessage {
-  sender: 'user' | 'bot';
-  text: string;
-  timestamp: string;
-  options?: Array<{ label: string; value: string }>;
-  fileInput?: boolean;
-}
+import { useState, useRef, useEffect } from 'react';
+import type { ChangeEvent, FormEvent } from 'react';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../ui/Card';
+import { Button } from '../ui/Button';
+import { X, Sparkles } from 'lucide-react';
+import { saveChatbotQuery, getSpecialties, getCities, getUserByCpf, checkDuplicateRequest, createAppointment } from '../../services/db';
+import type { Specialty, City, Exam, FileAttachment, PatientUser } from '../../types';
+import { MinimizedBubble } from './MinimizedBubble';
+import { ClosedWidgetButton } from './ClosedWidgetButton';
+import { ChatSuggestions } from './ChatSuggestions';
+import { ChatInputForm } from './ChatInputForm';
+import { ChatMessagesList } from './ChatMessagesList';
+import type { ChatMessage } from './ChatMessagesList';
 
 interface RoboFaqWidgetProps {
   onNavigate?: (page: string) => void;
@@ -190,7 +188,6 @@ export default function RoboFaqWidget({ onNavigate, patientCpf = '', patientName
     addBotMessage('Selecione o exame ou consulta que deseja agendar:', specialtyObj.exams.map((e) => ({ label: e.name, value: e.id })));
   };
 
-
   const promptLgpdConsent = (prefixText = '', fileOverride?: FileAttachment | null, examOverride?: Exam | null) => {
     setSchedulingStep('consent_lgpd');
     const fileToUse = fileOverride !== undefined ? fileOverride : attachedFile;
@@ -267,7 +264,7 @@ ${prefixText}Para concluir a solicitação, é necessário aceitar os termos da 
     promptLgpdConsent('Documento anexado com sucesso!\n\n', mockFile, selectedExam);
   };
 
-  const handleRealFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRealFileUpload = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -368,7 +365,7 @@ ${prefixText}Para concluir a solicitação, é necessário aceitar os termos da 
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = (e: FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
 
@@ -445,13 +442,22 @@ ${prefixText}Para concluir a solicitação, é necessário aceitar os termos da 
   };
 
   if (isHidden) {
-    return null;
+    return (
+      <MinimizedBubble
+        onRestore={() => {
+          sessionStorage.removeItem('robofaq-widget-hidden');
+          setIsHidden(false);
+          setIsOpen(true);
+          window.dispatchEvent(new Event('robofaq-visibility-change'));
+        }}
+      />
+    );
   }
 
   return (
     <div className="fixed right-6 bottom-6 z-40 font-sans">
       {isOpen ? (
-        <Card className={`w-[310px] sm:w-[330px] ${schedulingStep !== 'none' ? 'h-[540px]' : 'h-[440px]'} bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-2xl rounded-3xl overflow-hidden flex flex-col transition-all duration-300 animate-in slide-in-from-bottom-5`}>
+        <Card className={`w-[310px] sm:w-[330px] ${schedulingStep !== 'none' ? 'h-[540px]' : 'h-[440px]'} bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-850 shadow-2xl rounded-3xl overflow-hidden flex flex-col transition-all duration-300 animate-in slide-in-from-bottom-5`}>
           <CardHeader className="bg-primary p-3.5 text-white flex flex-row items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-white/15 rounded-xl flex items-center justify-center border border-white/10 shrink-0">
@@ -473,152 +479,35 @@ ${prefixText}Para concluir a solicitação, é necessário aceitar os termos da 
           </CardHeader>
 
           <CardContent className="flex-1 overflow-y-auto p-3.5 space-y-3.5 bg-zinc-50/50 dark:bg-zinc-950/20">
-            {chatMessages.map((msg, idx) => {
-              const isLastMessage = idx === chatMessages.length - 1;
-              return (
-                <div
-                  key={idx}
-                  className={`flex flex-col max-w-[85%] ${msg.sender === 'user' ? 'ml-auto items-end' : 'items-start'}`}
-                >
-                  <div
-                    className={`p-2.5 rounded-2xl text-[11px] leading-relaxed shadow-xs ${
-                      msg.sender === 'user'
-                        ? 'bg-primary text-white rounded-tr-none'
-                        : 'bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 text-zinc-800 dark:text-zinc-250 rounded-tl-none'
-                    }`}
-                  >
-                    {msg.text}
-                    {isLastMessage && msg.options && msg.options.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 mt-2 pt-1 border-t border-zinc-100 dark:border-zinc-800">
-                        {schedulingStep === 'select_city' ? (
-                          <select
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (val) {
-                                handleOptionClick(val);
-                              }
-                            }}
-                            className="text-[11px] h-8 w-full bg-white dark:bg-zinc-950 border border-zinc-205 dark:border-zinc-800 rounded-xl px-2 text-zinc-800 dark:text-zinc-300 focus:outline-none focus:ring-1 focus:ring-primary font-bold"
-                            defaultValue=""
-                          >
-                            <option value="" disabled>Selecione sua cidade...</option>
-                            {msg.options.map((opt, optIdx) => (
-                              <option key={optIdx} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                            <option value="other">Outra</option>
-                          </select>
-                        ) : (
-                          msg.options.map((opt, optIdx) => (
-                            <Button
-                              key={optIdx}
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOptionClick(opt.value)}
-                              className="text-[9px] h-6 px-2.5 rounded-xl border-primary/20 text-primary hover:bg-primary/5 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800 font-bold"
-                            >
-                              {opt.label}
-                            </Button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                    {isLastMessage && msg.fileInput && (
-                      <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800 flex flex-col gap-1.5">
-                        <Input
-                          type="file"
-                          accept="image/*,application/pdf"
-                          onChange={handleRealFileUpload}
-                          className="text-[9px] h-7 bg-white dark:bg-zinc-950 dark:border-zinc-850 p-1"
-                        />
-                      </div>
-                    )}
-                  </div>
-                  <span className="text-[7px] text-zinc-400 mt-0.5 font-semibold px-1">{msg.timestamp}</span>
-                </div>
-              );
-            })}
-
-            {isBotTyping && (
-              <div className="flex flex-col items-start max-w-[85%] animate-pulse">
-                <div className="p-2.5 bg-white dark:bg-zinc-900 border border-zinc-200/50 dark:border-zinc-800 text-zinc-405 text-[11px] rounded-2xl rounded-tl-none">
-                  Digitando...
-                </div>
-              </div>
-            )}
-            <div ref={chatEndRef} />
+            <ChatMessagesList
+              chatMessages={chatMessages}
+              schedulingStep={schedulingStep}
+              isBotTyping={isBotTyping}
+              chatEndRef={chatEndRef}
+              onOptionClick={handleOptionClick}
+              onRealFileUpload={handleRealFileUpload}
+            />
           </CardContent>
 
-          <div className="p-2.5 border-t border-zinc-100 dark:border-zinc-850 shrink-0 space-y-1 bg-white dark:bg-zinc-950">
-            <span className="text-[7px] font-bold text-zinc-400 uppercase tracking-wider block">Sugestões:</span>
-            <div className="flex flex-wrap gap-1">
-              <button
-                type="button"
-                onClick={() => startSchedulingFlow()}
-                className="px-2 py-0.5 bg-pink-100 hover:bg-pink-200 border border-pink-250 text-pink-700 rounded-lg text-[8px] font-bold transition-all flex items-center gap-1"
-              >
-                <span>Novo Agendamento</span>
-                <Calendar className="w-2.5 h-2.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => selectShortcut('Preparo Mamografia')}
-                className="px-2 py-0.5 bg-zinc-50 hover:bg-primary/5 border border-zinc-150 hover:border-primary/20 dark:bg-zinc-900 dark:border-zinc-850 rounded-lg text-[8px] font-bold text-zinc-600 dark:text-zinc-400 transition-colors"
-              >
-                Preparo Mama
-              </button>
-              <button
-                type="button"
-                onClick={() => selectShortcut('Febre na quimioterapia')}
-                className="px-2 py-0.5 bg-zinc-50 hover:bg-primary/5 border border-zinc-150 hover:border-primary/20 dark:bg-zinc-900 dark:border-zinc-850 rounded-lg text-[8px] font-bold text-zinc-600 dark:text-zinc-400 transition-colors"
-              >
-                Febre pós-Quimio
-              </button>
-              <button
-                type="button"
-                onClick={() => selectShortcut('Direitos do Paciente')}
-                className="px-2 py-0.5 bg-zinc-50 hover:bg-primary/5 border border-zinc-150 hover:border-primary/20 dark:bg-zinc-900 dark:border-zinc-850 rounded-lg text-[8px] font-bold text-zinc-600 dark:text-zinc-400 transition-colors"
-              >
-                Direitos
-              </button>
-            </div>
-          </div>
+          <ChatSuggestions
+            onStartScheduling={startSchedulingFlow}
+            onSelectShortcut={selectShortcut}
+          />
 
-          <form onSubmit={handleSendMessage} className="p-2 bg-zinc-50 border-t border-zinc-200/50 dark:bg-zinc-900/30 dark:border-zinc-800 flex gap-1.5 shrink-0">
-            <Input
-              type="text"
-              placeholder="Digite aqui..."
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              className="bg-white border-zinc-250 dark:bg-zinc-950 dark:border-zinc-850 h-8 text-[11px] focus-visible:ring-primary"
-            />
-            <Button type="submit" size="icon" className="h-8 w-8 shrink-0 bg-primary hover:bg-primary/95 text-white">
-              <Send className="w-3.5 h-3.5" />
-            </Button>
-          </form>
+          <ChatInputForm
+            chatInput={chatInput}
+            onChangeChatInput={setChatInput}
+            onSubmit={handleSendMessage}
+          />
         </Card>
       ) : (
-        <div className="relative group">
-          <button
-            onClick={() => {
-              sessionStorage.setItem('robofaq-widget-hidden', 'true');
-              setIsHidden(true);
-            }}
-            className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-md border border-white dark:border-zinc-900 transition-all opacity-80 md:opacity-0 md:group-hover:opacity-100 focus:opacity-100 z-50 hover:scale-110 active:scale-95"
-            title="Ocultar Assistente"
-            aria-label="Ocultar assistente virtual"
-          >
-            <X className="w-2.5 h-2.5" />
-          </button>
-          <Button
-            onClick={() => setIsOpen(true)}
-            className="w-12 h-12 bg-primary hover:bg-primary/95 text-white rounded-full flex items-center justify-center shadow-xl shadow-primary/20 transition-all hover:scale-110 active:scale-95"
-            aria-label="Abrir assistente virtual"
-          >
-            <MessageSquare className="w-5 h-5" />
-          </Button>
-        </div>
+        <ClosedWidgetButton
+          onOpen={() => setIsOpen(true)}
+          onHide={() => {
+            sessionStorage.setItem('robofaq-widget-hidden', 'true');
+            setIsHidden(true);
+          }}
+        />
       )}
     </div>
   );

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
 import { createPortal } from 'react-dom';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/card';
-import { Label } from '../../components/ui/label';
-import { Button } from '../../components/ui/button';
-import { Badge } from '../../components/ui/badge';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../../components/ui/Card';
+import { Label } from '../../components/ui/Label';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 import { getAppointmentByCpf, getSpecialties, updateAppointment, getAverageTriageTime, createAuditLog, saveFeedback, triggerConfirmationEmail, getFeedbacks, acceptWaitlistOffer, rejectWaitlistOffer, checkAndProcessExpiredOffers } from '../../services/db';
 import type { Appointment, Specialty, FeedbackResponse } from '../../types';
 import { formatCpf } from '../../lib/sanitizer';

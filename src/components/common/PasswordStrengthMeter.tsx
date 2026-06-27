@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { validatePasswordStrength } from '../lib/validators';
+import { validatePasswordStrength } from '../../lib/validators';
 import { Check, X } from 'lucide-react';
 
 interface PasswordStrengthMeterProps {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Card } from '../../components/ui/card';
-import { Button } from '../../components/ui/button';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
 import { getAppointmentByCpf, getUserByCpf, getEmailQueue, setMailBounced, acceptWaitlistOffer, rejectWaitlistOffer } from '../../services/db';
 import type { Appointment, PatientUser } from '../../types';
 import { Mail, MailOpen, Inbox, Clock, Calendar, MapPin, AlertCircle, ChevronRight } from 'lucide-react';

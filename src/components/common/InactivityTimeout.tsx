@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Clock } from 'lucide-react';
-import { Button } from './ui/button';
+import { Button } from '../ui/Button';
 
 interface InactivityTimeoutProps {
   onLogout: () => void;
