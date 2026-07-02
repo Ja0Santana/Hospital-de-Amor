@@ -21,6 +21,7 @@ import DonorDashboard from './pages/donor/DonorDashboard';
 import DonationModal from './components/donor/DonationModal';
 import RedeemPoints from './pages/donor/RedeemPoints';
 import CorporateSponsorship from './pages/donor/CorporateSponsorship';
+import { useAccessibility } from './hooks/useAccessibility';
 
 
 function App() {
@@ -32,39 +33,12 @@ function App() {
   const [currentPage, setCurrentPage] = useState('dashboard');
   const [selectedProtocol, setSelectedProtocol] = useState('');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [fontSize, setFontSize] = useState(() => {
-    return localStorage.getItem('font-size-level') || 'default';
-  });
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('portal-theme') || 'light';
-  });
+  const { fontSize, theme, setFontSize, setTheme } = useAccessibility();
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const [isCardOpen, setIsCardOpen] = useState(false);
   const [userRole, setUserRole] = useState<'patient' | 'donor'>('patient');
   const [donationsTrigger, setDonationsTrigger] = useState(0);
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
-
-  useEffect(() => {
-    let sizePercent = '106.25%';
-    if (fontSize === 'small') sizePercent = '93.75%';
-    if (fontSize === 'medium') sizePercent = '112.5%';
-    if (fontSize === 'large') sizePercent = '125%';
-    if (fontSize === 'xlarge') sizePercent = '137.5%';
-    
-    document.documentElement.style.fontSize = sizePercent;
-    localStorage.setItem('font-size-level', fontSize);
-  }, [fontSize]);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    root.classList.remove('dark', 'high-contrast');
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else if (theme === 'contrast') {
-      root.classList.add('high-contrast');
-    }
-    localStorage.setItem('portal-theme', theme);
-  }, [theme]);
 
   useEffect(() => {
     const handleScrollLock = () => {

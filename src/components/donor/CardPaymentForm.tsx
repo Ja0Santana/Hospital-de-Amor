@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Label } from '../ui/Label';
+import { formatCardNumber, formatCardExpiry } from '../../lib/sanitizer';
 
 interface CardPaymentFormProps {
   amount: number;
@@ -22,17 +23,6 @@ export default function CardPaymentForm({
   const [cardCvv, setCardCvv] = useState('');
   const [cardRecurrence, setCardRecurrence] = useState<'single' | 'recurring'>('single');
   const [cardError, setCardError] = useState('');
-
-  const formatCardNumber = (val: string) => {
-    const digits = val.replace(/\D/g, '');
-    return digits.replace(/(\d{4})(?=\d)/g, '$1 ').slice(0, 19);
-  };
-
-  const formatCardExpiry = (val: string) => {
-    const digits = val.replace(/\D/g, '');
-    if (digits.length <= 2) return digits;
-    return digits.slice(0, 2) + '/' + digits.slice(2, 4);
-  };
 
   // Real-time structural validation
   const cleanNumber = cardNumber.replace(/\D/g, '');

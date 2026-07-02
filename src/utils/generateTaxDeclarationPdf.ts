@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import type { Donation } from '../types';
+import { formatCpf } from '../lib/sanitizer';
 
 interface TaxDeclarationPdfOptions {
   donorName: string;
@@ -23,7 +24,7 @@ export function generateTaxDeclarationPdf({ donorName, donorCpf, year, donations
 
   const totalAmount = confirmedDonations.reduce((sum, d) => sum + d.amount, 0);
 
-  const maskedCpf = donorCpf.replace(/\D/g, '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  const maskedCpf = formatCpf(donorCpf);
   const emissionDate = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
   const authKey = `HA${year}-DF9A-87C2-E23B-98F1-44A9B8CE3A1D`;
 

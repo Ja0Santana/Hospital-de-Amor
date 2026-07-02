@@ -21,6 +21,7 @@ import RolesListPanel from '../../components/admin/users/RolesListPanel';
 import RoleFormPanel from '../../components/admin/users/RoleFormPanel';
 import EmailDetailModal from '../../components/admin/users/EmailDetailModal';
 import DeleteRoleBlockedModal from '../../components/admin/users/DeleteRoleBlockedModal';
+import { formatCpf } from '../../lib/sanitizer';
 
 interface AdminUsersProps {
   loggedEmployee: PatientUser;
@@ -174,7 +175,7 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
         recipient: userData.email,
         subject: 'Convite de Acesso - Portal Staff Hospital de Amor',
         date: new Date().toLocaleString('pt-BR'),
-        body: `Olá, ${userData.name}!\n\nVocê foi convidado a fazer parte da equipe do Hospital de Amor como ${roleLabel}.\n\nSeus dados de acesso temporários são:\nCPF: ${userData.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}\nSenha Provisória: ${userData.password}\n\nPor razões de segurança, altere sua senha no primeiro acesso.`,
+        body: `Olá, ${userData.name}!\n\nVocê foi convidado a fazer parte da equipe do Hospital de Amor como ${roleLabel}.\n\nSeus dados de acesso temporários são:\nCPF: ${formatCpf(userData.cpf)}\nSenha Provisória: ${userData.password}\n\nPor razões de segurança, altere sua senha no primeiro acesso.`,
         tempPassword: userData.password
       };
 

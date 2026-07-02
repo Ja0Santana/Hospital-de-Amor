@@ -45,3 +45,14 @@ export function formatPhone(val: string): string {
   if (clean.length <= 10) return `(${clean.slice(0, 2)}) ${clean.slice(2, 6)}-${clean.slice(6)}`;
   return `(${clean.slice(0, 2)}) ${clean.slice(2, 7)}-${clean.slice(7, 11)}`;
 }
+
+export function formatCardNumber(val: string): string {
+  const digits = val.replace(/\D/g, "");
+  return digits.replace(/(\d{4})(?=\d)/g, "$1 ").slice(0, 19);
+}
+
+export function formatCardExpiry(val: string): string {
+  const digits = val.replace(/\D/g, "");
+  if (digits.length <= 2) return digits;
+  return digits.slice(0, 2) + "/" + digits.slice(2, 4);
+}
