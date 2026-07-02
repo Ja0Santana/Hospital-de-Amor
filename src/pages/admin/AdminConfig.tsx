@@ -5,7 +5,10 @@ import {
   ShieldAlert,
   DollarSign,
   RefreshCw,
-  Settings
+  Settings,
+  Sun,
+  Moon,
+  Eye
 } from 'lucide-react';
 import { useAccessibility } from '../../hooks/useAccessibility';
 import {
@@ -682,7 +685,9 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                     : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300'
                 }`}
               >
-                <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600 text-sm">☀️</div>
+                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <Sun className="w-4 h-4" />
+                </div>
                 <span>Tema Claro</span>
               </button>
               
@@ -695,7 +700,9 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                     : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300'
                 }`}
               >
-                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-650 dark:text-blue-400 text-sm">🌙</div>
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <Moon className="w-4 h-4" />
+                </div>
                 <span>Tema Escuro</span>
               </button>
               
@@ -708,7 +715,9 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
                     : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300'
                 }`}
               >
-                <div className="w-8 h-8 rounded-lg bg-zinc-950 flex items-center justify-center text-white border border-zinc-800 text-sm">👁️</div>
+                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center text-zinc-900 dark:text-zinc-350 border border-zinc-200/50 dark:border-zinc-800">
+                  <Eye className="w-4 h-4" />
+                </div>
                 <span>Alto Contraste</span>
               </button>
             </div>
