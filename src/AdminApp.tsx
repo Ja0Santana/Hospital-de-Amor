@@ -21,7 +21,7 @@ export default function AdminApp() {
     return stored ? JSON.parse(stored) : [];
   });
   const [isSidebarMobileOpen, setIsSidebarMobileOpen] = useState(false);
-  const { fontSize, theme, setFontSize, setTheme } = useAccessibility();
+  useAccessibility();
 
   useEffect(() => {
     const storedUser = localStorage.getItem('hospital_amor_admin_user');
@@ -257,78 +257,6 @@ export default function AdminApp() {
         </nav>
 
         <div className="p-4 border-t border-zinc-150 dark:border-zinc-800 space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider select-none">Fonte:</span>
-            <div className="flex items-center bg-zinc-100 dark:bg-zinc-950 p-0.5 rounded-lg border border-zinc-200/40 dark:border-zinc-800 shadow-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  if (fontSize === 'medium') setFontSize('default');
-                  else if (fontSize === 'large') setFontSize('medium');
-                  else if (fontSize === 'xlarge') setFontSize('large');
-                  else if (fontSize === 'default') setFontSize('small');
-                }}
-                disabled={fontSize === 'small'}
-                className="h-7 w-7 text-[10px] font-extrabold hover:bg-white dark:hover:bg-zinc-850 rounded-md transition-colors text-zinc-600 dark:text-zinc-400 disabled:opacity-35"
-                aria-label="Diminuir tamanho da fonte"
-              >
-                A-
-              </button>
-              <button
-                type="button"
-                onClick={() => setFontSize('default')}
-                className={`h-7 px-2.5 text-[10px] font-bold hover:bg-white dark:hover:bg-zinc-850 rounded-md transition-colors text-zinc-600 dark:text-zinc-400 ${fontSize === 'default' ? 'bg-white dark:bg-zinc-800 shadow-sm text-pink-600 dark:text-white font-extrabold' : ''}`}
-                aria-label="Tamanho de fonte padrão"
-              >
-                A
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (fontSize === 'small') setFontSize('default');
-                  else if (fontSize === 'default') setFontSize('medium');
-                  else if (fontSize === 'medium') setFontSize('large');
-                  else if (fontSize === 'large') setFontSize('xlarge');
-                }}
-                disabled={fontSize === 'xlarge'}
-                className="h-7 w-7 text-xs font-bold hover:bg-white dark:hover:bg-zinc-850 rounded-md transition-colors text-zinc-600 dark:text-zinc-400 disabled:opacity-35"
-                aria-label="Aumentar tamanho da fonte"
-              >
-                A+
-              </button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider select-none">Tema:</span>
-            <div className="flex items-center bg-zinc-100 dark:bg-zinc-950 p-0.5 rounded-lg border border-zinc-200/40 dark:border-zinc-800 shadow-sm">
-              <button
-                type="button"
-                onClick={() => setTheme('light')}
-                className={`h-7 px-2 text-[9px] font-bold rounded-md transition-colors ${theme === 'light' ? 'bg-white dark:bg-zinc-800 shadow-sm text-pink-600 dark:text-white font-extrabold' : 'text-zinc-600 dark:text-zinc-400'}`}
-                title="Tema Claro"
-              >
-                Claro
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme('dark')}
-                className={`h-7 px-2 text-[9px] font-bold rounded-md transition-colors ${theme === 'dark' ? 'bg-white dark:bg-zinc-800 shadow-sm text-pink-600 dark:text-white font-extrabold' : 'text-zinc-600 dark:text-zinc-400'}`}
-                title="Tema Escuro"
-              >
-                Escuro
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme('contrast')}
-                className={`h-7 px-2 text-[9px] font-bold rounded-md transition-colors ${theme === 'contrast' ? 'bg-white dark:bg-zinc-800 shadow-sm text-pink-600 dark:text-white font-extrabold' : 'text-zinc-600 dark:text-zinc-400'}`}
-                title="Alto Contraste"
-              >
-                Contraste
-              </button>
-            </div>
-          </div>
-
           <div className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-xl flex items-center gap-3 border border-zinc-200/50 dark:border-zinc-800/80">
             <div className="w-9 h-9 rounded-lg bg-pink-100 dark:bg-pink-950/30 text-pink-750 dark:text-pink-400 flex items-center justify-center font-bold text-xs uppercase shrink-0">
               {loggedEmployee.name.slice(0, 2)}
