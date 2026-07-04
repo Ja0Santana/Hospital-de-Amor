@@ -56,3 +56,13 @@ export function formatCardExpiry(val: string): string {
   if (digits.length <= 2) return digits;
   return digits.slice(0, 2) + "/" + digits.slice(2, 4);
 }
+
+export function formatCnpj(val: string): string {
+  const digits = val.replace(/\D/g, "");
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2")
+    .slice(0, 18);
+}
