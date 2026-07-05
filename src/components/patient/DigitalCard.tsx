@@ -187,8 +187,13 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
               style={cardStyle}
               className="relative w-full h-full preserve-3d"
             >
-              <div className="absolute inset-0 w-full h-full rounded-2xl bg-zinc-300 dark:bg-zinc-800 border border-zinc-400/10 [transform:translateZ(0.3px)]" />
-              <div className="absolute inset-0 w-full h-full rounded-2xl bg-zinc-300 dark:bg-zinc-800 border border-zinc-400/10 [transform:translateZ(-0.3px)]" />
+              {Array.from({ length: 9 }).map((_, index) => (
+                <div
+                  key={index}
+                  style={{ transform: `translateZ(${-0.8 + index * 0.2}px)` }}
+                  className="absolute inset-0 w-full h-full rounded-2xl bg-zinc-300 dark:bg-zinc-800 border border-zinc-400/5 dark:border-zinc-700/5"
+                />
+              ))}
               
               <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-4 text-white flex flex-col justify-between shadow-xl border border-white/10 [transform:translateZ(1px)]">
                 <div className="flex justify-between items-start">
