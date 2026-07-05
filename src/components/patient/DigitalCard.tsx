@@ -195,9 +195,9 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                 />
               ))}
               
-              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-4 text-white flex flex-col justify-between shadow-xl border border-white/10 [transform:translateZ(1px)]">
+              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-3 sm:p-4 text-white flex flex-col justify-between shadow-xl border border-white/10 [transform:translateZ(1px)]">
                 <div className="flex justify-between items-start">
-                  <div className="font-comfortaa font-bold text-xs tracking-wider flex items-center uppercase">
+                  <div className="font-comfortaa font-bold text-[10px] sm:text-xs tracking-wider flex items-center uppercase">
                     <span>Hospital de Am</span>
                     <Heart className="w-3.5 h-3.5 fill-brand-pink text-brand-pink inline mx-0.5" />
                     <span>r</span>
@@ -210,29 +210,29 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                 </div>
 
                 <div className="flex-1 flex items-center justify-start pl-1 py-1">
-                  <img src={logoHospitalDeAmor} alt="Logo" className="w-14 h-14 object-contain" />
+                  <img src={logoHospitalDeAmor} alt="Logo" className="w-10 h-10 sm:w-14 sm:h-14 object-contain" />
                 </div>
 
                 <div className="flex justify-between items-end gap-3">
                   <div className="space-y-1.5 min-w-0 flex-1">
                     <div className="space-y-0.5">
-                      <span className="text-[9px] font-bold text-blue-200/80 uppercase tracking-widest block">Nome do Paciente</span>
-                      <p className="text-base font-black truncate leading-none">{user?.name || 'Carregando...'}</p>
+                      <span className="text-[8px] sm:text-[9px] font-bold text-blue-200/80 uppercase tracking-widest block">Nome do Paciente</span>
+                      <p className="text-sm sm:text-base font-black truncate leading-none">{user?.name || 'Carregando...'}</p>
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2 pt-1">
                       <div className="space-y-0.5">
-                        <span className="text-[8px] font-bold text-blue-200/80 uppercase tracking-widest block">CPF</span>
-                        <p className="text-xs font-bold tracking-wider whitespace-nowrap">{user ? formatCpf(user.cpf) : '***.***.***-**'}</p>
+                        <span className="text-[7px] sm:text-[8px] font-bold text-blue-200/80 uppercase tracking-widest block">CPF</span>
+                        <p className="text-[10px] sm:text-xs font-bold tracking-wider whitespace-nowrap">{user ? formatCpf(user.cpf) : '***.***.***-**'}</p>
                       </div>
                       <div className="space-y-0.5">
-                        <span className="text-[8px] font-bold text-blue-200/80 uppercase tracking-widest block">ID Carteira</span>
-                        <p className="text-xs font-bold tracking-wider whitespace-nowrap">{getPatientId()}</p>
+                        <span className="text-[7px] sm:text-[8px] font-bold text-blue-200/80 uppercase tracking-widest block">ID Carteira</span>
+                        <p className="text-[10px] sm:text-xs font-bold tracking-wider whitespace-nowrap">{getPatientId()}</p>
                       </div>
                     </div>
                   </div>
 
-                  <svg className="w-16 h-16 bg-white p-1 rounded-lg shrink-0 shadow-md" viewBox="0 0 100 100" aria-label="QR Code da Carteira">
+                  <svg className="w-12 h-12 sm:w-16 sm:h-16 bg-white p-1 rounded-lg shrink-0 shadow-md" viewBox="0 0 100 100" aria-label="QR Code da Carteira">
                     <rect x="5" y="5" width="25" height="25" fill="#000" />
                     <rect x="10" y="10" width="15" height="15" fill="#fff" />
                     <rect x="13" y="13" width="9" height="9" fill="#000" />
@@ -250,10 +250,10 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                 </div>
               </div>
 
-              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-zinc-950 text-white p-4 flex flex-col justify-between shadow-xl border border-zinc-850 digital-card-back [transform:translateZ(-1px)_rotateY(180deg)]">
-                <div className="flex justify-between items-center pb-1.5 border-b border-zinc-900">
-                  <span className="text-[10px] font-black tracking-widest text-red-500 uppercase flex items-center gap-1">
-                    <ShieldAlert className="w-4.5 h-4.5" />
+              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-zinc-950 text-white p-3 sm:p-4 flex flex-col justify-between shadow-xl border border-zinc-850 digital-card-back [transform:translateZ(-1px)_rotateY(180deg)]">
+                <div className="flex justify-between items-center pb-1 sm:pb-1.5 border-b border-zinc-900">
+                  <span className="text-[9px] sm:text-[10px] font-black tracking-widest text-red-500 uppercase flex items-center gap-1">
+                    <ShieldAlert className="w-3.5 h-3.5 sm:w-4.5 sm:h-4.5" />
                     Ficha de Emergência
                   </span>
                   <div className="flex items-center gap-1.5">
@@ -269,37 +269,37 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                       {showSensitiveData ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                     {user?.bloodType && (
-                      <span className="bg-red-650 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-red-500/30">
+                      <span className="bg-red-650 text-white font-extrabold text-[8px] sm:text-[10px] px-2 sm:px-2.5 py-0.5 rounded-full border border-red-500/30">
                         SANGUE: {showSensitiveData ? user.bloodType : '••'}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="flex-1 py-1.5 flex flex-col justify-between text-left min-w-0">
+                <div className="flex-1 py-1 sm:py-1.5 flex flex-col justify-between text-left min-w-0">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="min-w-0">
-                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Alergias</span>
-                      <p className="text-xs font-bold text-zinc-150 truncate leading-none">
+                      <span className="text-[8px] sm:text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Alergias</span>
+                      <p className="text-[10px] sm:text-xs font-bold text-zinc-150 truncate leading-none">
                         {showSensitiveData ? (user?.allergies || 'Nenhuma alergia relatada') : '••••••••••••'}
                       </p>
                     </div>
 
                     <div className="min-w-0">
-                      <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Diagnóstico</span>
-                      <p className="text-xs font-bold text-zinc-150 truncate leading-none">
+                      <span className="text-[8px] sm:text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Diagnóstico</span>
+                      <p className="text-[10px] sm:text-xs font-bold text-zinc-150 truncate leading-none">
                         {showSensitiveData ? (user?.clinicalDiagnosis || 'Sem diagnóstico') : '••••••••••••'}
                       </p>
                     </div>
                   </div>
 
-                  <div className="min-w-0 border-t border-zinc-900 pt-1.5">
-                    <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Contato de Emergência</span>
-                    <p className="text-xs font-bold text-zinc-100 truncate leading-none">
+                  <div className="min-w-0 border-t border-zinc-900 pt-1 sm:pt-1.5">
+                    <span className="text-[8px] sm:text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Contato de Emergência</span>
+                    <p className="text-[10px] sm:text-xs font-bold text-zinc-100 truncate leading-none">
                       {user?.emergencyContactName ? `${user.emergencyContactName} (${user.emergencyContactRelation})` : 'Não informado'}
                     </p>
                     {user?.emergencyContactPhone && (
-                      <p className="text-[10px] text-zinc-400 tracking-wider mt-0.5">
+                      <p className="text-[9px] sm:text-[10px] text-zinc-400 tracking-wider mt-0.5">
                         Tel: {formatPhone(user.emergencyContactPhone)}
                       </p>
                     )}
@@ -310,18 +310,18 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                   <div className="flex gap-2 pt-1">
                     <button
                       onClick={handleCall}
-                      className="flex-1 h-11 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-extrabold text-sm rounded-xl flex items-center justify-center gap-2 transition-transform"
+                      className="flex-1 h-8 sm:h-11 bg-green-600 hover:bg-green-700 active:scale-95 text-white font-extrabold text-[11px] sm:text-sm rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition-transform"
                     >
-                      <Phone className="w-4 h-4" />
+                      <Phone className="w-3 h-3 sm:w-4 sm:h-4" />
                       {isCalling ? 'Ligando...' : 'Ligar para Contato'}
                     </button>
                     <button
                       onClick={handlePrint}
-                      className="h-11 w-14 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl flex items-center justify-center transition-colors"
+                      className="h-8 sm:h-11 w-10 sm:w-14 bg-zinc-850 hover:bg-zinc-800 text-zinc-300 hover:text-white rounded-xl flex items-center justify-center transition-colors"
                       title="Imprimir Carteira"
                       aria-label="Imprimir Carteira"
                     >
-                      <Printer className="w-5 h-5" />
+                      <Printer className="w-4 h-4 sm:w-5 sm:h-5" />
                     </button>
                   </div>
                 )}
