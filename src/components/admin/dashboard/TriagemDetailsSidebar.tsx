@@ -52,6 +52,7 @@ interface TriagemDetailsSidebarProps {
   setOverrideReasonInput: (val: string) => void;
   onCheckIn: (id: string) => Promise<void>;
   appointments: Appointment[];
+  scheduleSuccess: string;
 }
 
 const GRAVE_KEYWORDS = ['febre', 'falta de ar', 'dispneia', 'dor forte', 'dor intensa', 'sangramento', 'convulsão'];
@@ -106,7 +107,8 @@ export default function TriagemDetailsSidebar({
   setShowOverrideModal,
   setOverrideReasonInput,
   onCheckIn,
-  appointments
+  appointments,
+  scheduleSuccess
 }: TriagemDetailsSidebarProps) {
   const [visibleLogsCount, setVisibleLogsCount] = React.useState(3);
 
@@ -838,6 +840,13 @@ export default function TriagemDetailsSidebar({
                         <span>Forçar Agendamento (Override de Gestor)</span>
                       </button>
                     )}
+                  </div>
+                )}
+
+                {scheduleSuccess && (
+                  <div className="p-3.5 rounded-2xl text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30 flex items-center gap-2 animate-in slide-in-from-top-2">
+                    <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>{scheduleSuccess}</span>
                   </div>
                 )}
 

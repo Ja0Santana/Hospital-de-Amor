@@ -106,6 +106,14 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
   
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [scheduleSuccess, setScheduleSuccess] = useState('');
+
+  const handleSetIsScheduling = (val: boolean) => {
+    setIsScheduling(val);
+    if (!val) {
+      setScheduleSuccess('');
+    }
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -154,6 +162,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
       setActiveApp(null);
       setIsClosing(false);
       setIsScheduling(false);
+      setScheduleSuccess('');
     }, 300);
   };
 
@@ -532,6 +541,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     setActionError('');
     setActionSuccess('');
     setSchedulingErrors([]);
+    setScheduleSuccess('');
     if (!activeApp) return;
 
     if (!scheduleDate || !scheduleTime || !scheduleRoom.trim() || !scheduleDoctor.trim()) {
@@ -550,15 +560,18 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
         loggedEmployee.name
       );
       
-      setActionSuccess(`Consulta confirmada para ${activeApp.patientName} em ${scheduleDate} às ${scheduleTime}h.`);
-      setIsScheduling(false);
+      setScheduleSuccess(`Consulta confirmada para ${activeApp.patientName} em ${scheduleDate} às ${scheduleTime}h.`);
       setScheduleDate('');
       setScheduleTime('');
       setScheduleRoom('');
       setScheduleDoctor('');
-      setActiveApp(null);
       setSchedulingErrors([]);
       await loadData();
+      const allApps = await getAppointmentsForAdmin();
+      const updated = allApps.find(a => a.id === activeApp.id);
+      if (updated) {
+        setActiveApp(updated);
+      }
     } catch (err: any) {
       const errMsg = err.message || 'Erro ao confirmar o agendamento.';
       setActionError(errMsg);
@@ -568,6 +581,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
 
   const handleConfirmOverride = async (e: React.FormEvent) => {
     e.preventDefault();
+    setScheduleSuccess('');
     if (!activeApp || !overrideReasonInput.trim()) return;
 
     try {
@@ -582,17 +596,20 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
         overrideReasonInput.trim()
       );
       
-      setActionSuccess(`Consulta confirmada via OVERRIDE para ${activeApp.patientName} em ${scheduleDate} às ${scheduleTime}h.`);
-      setIsScheduling(false);
+      setScheduleSuccess(`Consulta confirmada via OVERRIDE para ${activeApp.patientName} em ${scheduleDate} às ${scheduleTime}h.`);
       setScheduleDate('');
       setScheduleTime('');
       setScheduleRoom('');
       setScheduleDoctor('');
-      setActiveApp(null);
       setShowOverrideModal(false);
       setOverrideReasonInput('');
       setSchedulingErrors([]);
       await loadData();
+      const allApps = await getAppointmentsForAdmin();
+      const updated = allApps.find(a => a.id === activeApp.id);
+      if (updated) {
+        setActiveApp(updated);
+      }
     } catch (err: any) {
       const errMsg = err.message || 'Erro ao forçar agendamento.';
       setActionError(errMsg);
@@ -606,6 +623,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
     setIsScheduling(false);
     setActionError('');
     setActionSuccess('');
+    setScheduleSuccess('');
     setSchedulingErrors([]);
     setPriorityInput(app.priority || 'Baixa');
     setStatusInput(app.status || 'Pendente');
@@ -849,7 +867,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
           setFollowUpReason={setFollowUpReason}
           handleSaveFollowUp={handleFollowUpSubmit}
           isScheduling={isScheduling}
-          setIsScheduling={setIsScheduling}
+          setIsScheduling={handleSetIsScheduling}
           scheduleDate={scheduleDate}
           setScheduleDate={setScheduleDate}
           scheduleTime={scheduleTime}
@@ -867,6 +885,7 @@ export default function AdminDashboard({ loggedEmployee, permissions }: AdminDas
           setOverrideReasonInput={setOverrideReasonInput}
           onCheckIn={handleRegisterCheckIn}
           appointments={appointments}
+          scheduleSuccess={scheduleSuccess}
         />
       )}
 
