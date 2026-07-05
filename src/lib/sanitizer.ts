@@ -66,3 +66,50 @@ export function formatCnpj(val: string): string {
     .replace(/(\d{4})(\d)/, "$1-$2")
     .slice(0, 18);
 }
+
+export interface FileValidationResult {
+  isValid: boolean;
+  error?: string;
+  sanitizedName?: string;
+}
+
+export function validateClinicalFile(fileName: string, fileType: string, fileSize: number): FileValidationResult {
+  const forbiddenExtensions = ['.exe', '.bat', '.sh', '.msi', '.cmd', '.js', '.vbs'];
+  const lowerName = fileName.toLowerCase();
+  const isForbidden = forbiddenExtensions.some((ext) => lowerName.endsWith(ext));
+
+  if (isForbidden) {
+    return {
+      isValid: false,
+      error: 'Arquivo não permitido. Selecione apenas imagens (JPG, PNG) ou PDF.'
+    };
+  }
+
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+  if (!allowedMimeTypes.includes(fileType)) {
+    return {
+      isValid: false,
+      error: 'Tipo de arquivo inválido. Apenas imagens (JPG/PNG) ou PDF são aceitos.'
+    };
+  }
+
+  if (fileSize > 5 * 1024 * 1024) {
+    return {
+      isValid: false,
+      error: 'O arquivo excede o limite máximo de 5MB.'
+    };
+  }
+
+  const lastDotIndex = fileName.lastIndexOf('.');
+  const baseName = lastDotIndex !== -1 ? fileName.substring(0, lastDotIndex) : fileName;
+  const extension = lastDotIndex !== -1 ? fileName.substring(lastDotIndex) : '';
+  const cleanBaseName = baseName
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
+
+  return {
+    isValid: true,
+    sanitizedName: cleanBaseName + extension.toLowerCase()
+  };
+}
