@@ -10,6 +10,8 @@ import AdminAnalytics from './pages/admin/AdminAnalytics';
 import AdminLobby from './pages/admin/AdminLobby';
 import { getEmployeePermissions } from './services/db';
 import type { PatientUser } from './types';
+import { useAccessibility } from './hooks/useAccessibility';
+import { AccessDenied } from './components/common/AccessDenied';
 
 export default function AdminApp() {
   const [currentHash, setCurrentHash] = useState(window.location.hash || '#/login');
@@ -19,20 +21,7 @@ export default function AdminApp() {
     return stored ? JSON.parse(stored) : [];
   });
   const [isSidebarMobileOpen, setIsSidebarMobileOpen] = useState(false);
-  const [fontSize, setFontSize] = useState(() => {
-    return localStorage.getItem('font-size-level') || 'default';
-  });
-
-  useEffect(() => {
-    let sizePercent = '106.25%';
-    if (fontSize === 'small') sizePercent = '93.75%';
-    if (fontSize === 'medium') sizePercent = '112.5%';
-    if (fontSize === 'large') sizePercent = '125%';
-    if (fontSize === 'xlarge') sizePercent = '137.5%';
-    
-    document.documentElement.style.fontSize = sizePercent;
-    localStorage.setItem('font-size-level', fontSize);
-  }, [fontSize]);
+  useAccessibility();
 
   useEffect(() => {
     const storedUser = localStorage.getItem('hospital_amor_admin_user');
@@ -103,30 +92,41 @@ export default function AdminApp() {
       case '/dashboard':
         if (!permissions.includes('view_appointments')) {
           return (
-            <div className="flex flex-col items-center justify-center min-h-[50vh] p-8 text-center bg-white dark:bg-zinc-900 rounded-3xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
-              <Shield className="w-12 h-12 text-zinc-400 mb-4" />
-              <h2 className="text-lg font-bold text-zinc-900 dark:text-zinc-50 mb-2">Acesso Negado</h2>
-              <p className="text-xs text-zinc-500 max-w-sm">Você não tem permissão para visualizar o Painel de Triagem. Entre em contato com o administrador.</p>
-            </div>
+            <AccessDenied
+              title="Acesso Negado ao Painel"
+              description="Você não tem permissão para visualizar o Painel de Triagem de agendamentos."
+            />
           );
         }
         return <AdminDashboard loggedEmployee={loggedEmployee} permissions={permissions} />;
       case '/usuarios':
         if (!permissions.includes('manage_users')) {
-          window.location.hash = '#/dashboard';
-          return null;
+          return (
+            <AccessDenied
+              title="Acesso Negado à Equipe"
+              description="Você não tem permissão para gerenciar a equipe e perfis de colaboradores."
+            />
+          );
         }
         return <AdminUsers loggedEmployee={loggedEmployee} />;
       case '/configuracoes':
         if (!permissions.includes('manage_config')) {
-          window.location.hash = '#/dashboard';
-          return null;
+          return (
+            <AccessDenied
+              title="Acesso Negado às Configurações"
+              description="Você não tem permissão para alterar parâmetros e configurações do hospital."
+            />
+          );
         }
         return <AdminConfig loggedEmployee={loggedEmployee} />;
       case '/auditoria':
         if (!permissions.includes('view_audit')) {
-          window.location.hash = '#/dashboard';
-          return null;
+          return (
+            <AccessDenied
+              title="Acesso Negado à Auditoria"
+              description="Você não tem permissão para visualizar os logs de auditoria operacional do sistema."
+            />
+          );
         }
         return <AuditLogs />;
       case '/relatorios':
@@ -257,48 +257,6 @@ export default function AdminApp() {
         </nav>
 
         <div className="p-4 border-t border-zinc-150 dark:border-zinc-800 space-y-4">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase tracking-wider select-none">Fonte:</span>
-            <div className="flex items-center bg-zinc-100 dark:bg-zinc-950 p-0.5 rounded-lg border border-zinc-200/40 dark:border-zinc-800 shadow-sm">
-              <button
-                type="button"
-                onClick={() => {
-                  if (fontSize === 'medium') setFontSize('default');
-                  else if (fontSize === 'large') setFontSize('medium');
-                  else if (fontSize === 'xlarge') setFontSize('large');
-                  else if (fontSize === 'default') setFontSize('small');
-                }}
-                disabled={fontSize === 'small'}
-                className="h-7 w-7 text-[10px] font-extrabold hover:bg-white dark:hover:bg-zinc-850 rounded-md transition-colors text-zinc-600 dark:text-zinc-400 disabled:opacity-35"
-                aria-label="Diminuir tamanho da fonte"
-              >
-                A-
-              </button>
-              <button
-                type="button"
-                onClick={() => setFontSize('default')}
-                className={`h-7 px-2.5 text-[10px] font-bold hover:bg-white dark:hover:bg-zinc-850 rounded-md transition-colors text-zinc-600 dark:text-zinc-400 ${fontSize === 'default' ? 'bg-white dark:bg-zinc-800 shadow-sm text-pink-600 dark:text-white font-extrabold' : ''}`}
-                aria-label="Tamanho de fonte padrão"
-              >
-                A
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (fontSize === 'small') setFontSize('default');
-                  else if (fontSize === 'default') setFontSize('medium');
-                  else if (fontSize === 'medium') setFontSize('large');
-                  else if (fontSize === 'large') setFontSize('xlarge');
-                }}
-                disabled={fontSize === 'xlarge'}
-                className="h-7 w-7 text-xs font-bold hover:bg-white dark:hover:bg-zinc-850 rounded-md transition-colors text-zinc-600 dark:text-zinc-400 disabled:opacity-35"
-                aria-label="Aumentar tamanho da fonte"
-              >
-                A+
-              </button>
-            </div>
-          </div>
-
           <div className="bg-zinc-50 dark:bg-zinc-950 p-4 rounded-xl flex items-center gap-3 border border-zinc-200/50 dark:border-zinc-800/80">
             <div className="w-9 h-9 rounded-lg bg-pink-100 dark:bg-pink-950/30 text-pink-750 dark:text-pink-400 flex items-center justify-center font-bold text-xs uppercase shrink-0">
               {loggedEmployee.name.slice(0, 2)}

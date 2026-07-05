@@ -4,8 +4,13 @@ import {
   Calendar,
   ShieldAlert,
   DollarSign,
-  RefreshCw
+  RefreshCw,
+  Settings,
+  Sun,
+  Moon,
+  Eye
 } from 'lucide-react';
+import { useAccessibility } from '../../hooks/useAccessibility';
 import {
   getSpecialties,
   updateSpecialty,
@@ -43,7 +48,8 @@ interface AdminConfigProps {
 }
 
 export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
-  const [activeTab, setActiveTab] = useState<'exams' | 'calendar' | 'logs' | 'transparency' | 'pep'>('exams');
+  const [activeTab, setActiveTab] = useState<'exams' | 'calendar' | 'logs' | 'transparency' | 'pep' | 'accessibility'>('exams');
+  const { fontSize, theme, setFontSize, setTheme } = useAccessibility();
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [limits, setLimits] = useState<CapacityLimit[]>([]);
   const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
@@ -580,6 +586,20 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
             Integração PEP
           </div>
         </button>
+
+        <button
+          onClick={() => setActiveTab('accessibility')}
+          className={`pb-3 text-xs font-bold transition-all relative shrink-0 ${
+            activeTab === 'accessibility'
+              ? 'text-pink-600 dark:text-pink-400 border-b-2 border-pink-600 dark:border-pink-400'
+              : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-350'
+          }`}
+        >
+          <div className="flex items-center gap-1.5 px-1">
+            <Settings className="w-4 h-4" />
+            Acessibilidade e Tema
+          </div>
+        </button>
       </div>
 
       {activeTab === 'exams' && (
@@ -645,6 +665,95 @@ export default function AdminConfig({ loggedEmployee }: AdminConfigProps) {
           isProcessingPepBatch={isProcessingPepBatch}
           pepBatchResult={pepBatchResult}
         />
+      )}
+
+      {activeTab === 'accessibility' && (
+        <div className="space-y-6 animate-in fade-in duration-200">
+          <div className="p-6 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl shadow-xs space-y-6">
+            <div>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">Configurações de Tema</h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Ajuste o contraste e as cores da interface conforme suas preferências.</p>
+            </div>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                type="button"
+                onClick={() => setTheme('light')}
+                className={`p-4 rounded-2xl border text-xs font-bold transition-all text-center flex flex-col items-center gap-2 ${
+                  theme === 'light'
+                    ? 'border-pink-600 bg-pink-50/50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400 dark:border-pink-500'
+                    : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <Sun className="w-4 h-4" />
+                </div>
+                <span>Tema Claro</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setTheme('dark')}
+                className={`p-4 rounded-2xl border text-xs font-bold transition-all text-center flex flex-col items-center gap-2 ${
+                  theme === 'dark'
+                    ? 'border-pink-600 bg-pink-50/50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400 dark:border-pink-500'
+                    : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <Moon className="w-4 h-4" />
+                </div>
+                <span>Tema Escuro</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setTheme('contrast')}
+                className={`p-4 rounded-2xl border text-xs font-bold transition-all text-center flex flex-col items-center gap-2 ${
+                  theme === 'contrast'
+                    ? 'border-pink-600 bg-pink-50/50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400 dark:border-pink-500'
+                    : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850 text-zinc-700 dark:text-zinc-300'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-zinc-950 flex items-center justify-center text-zinc-900 dark:text-zinc-350 border border-zinc-200/50 dark:border-zinc-800">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <span>Alto Contraste</span>
+              </button>
+            </div>
+
+            <div className="pt-4 border-t border-zinc-150 dark:border-zinc-800">
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-50">Escala de Fonte</h3>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1">Aumente ou diminua o tamanho do texto para melhor legibilidade.</p>
+              
+              <div className="flex flex-wrap gap-2 mt-4">
+                {['small', 'default', 'medium', 'large', 'xlarge'].map((size) => {
+                  const sizeLabels: Record<string, string> = {
+                    small: 'Pequena',
+                    default: 'Padrão',
+                    medium: 'Média',
+                    large: 'Grande',
+                    xlarge: 'Extra Grande'
+                  };
+                  return (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setFontSize(size)}
+                      className={`h-9 px-4 rounded-xl border text-xs font-bold transition-all ${
+                        fontSize === size
+                          ? 'border-pink-600 bg-pink-50/50 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400 dark:border-pink-500'
+                          : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-850 text-zinc-600 dark:text-zinc-400'
+                      }`}
+                    >
+                      {sizeLabels[size]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

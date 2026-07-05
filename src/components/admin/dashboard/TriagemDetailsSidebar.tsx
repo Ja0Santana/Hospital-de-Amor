@@ -52,6 +52,7 @@ interface TriagemDetailsSidebarProps {
   setOverrideReasonInput: (val: string) => void;
   onCheckIn: (id: string) => Promise<void>;
   appointments: Appointment[];
+  scheduleSuccess: string;
 }
 
 const GRAVE_KEYWORDS = ['febre', 'falta de ar', 'dispneia', 'dor forte', 'dor intensa', 'sangramento', 'convulsão'];
@@ -106,7 +107,8 @@ export default function TriagemDetailsSidebar({
   setShowOverrideModal,
   setOverrideReasonInput,
   onCheckIn,
-  appointments
+  appointments,
+  scheduleSuccess
 }: TriagemDetailsSidebarProps) {
   const [visibleLogsCount, setVisibleLogsCount] = React.useState(3);
 
@@ -730,25 +732,33 @@ export default function TriagemDetailsSidebar({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label htmlFor="sch-room" className="text-xs font-bold text-zinc-700 dark:text-zinc-300">Sala do Atendimento</label>
-                    <select
-                      id="sch-room"
-                      value={scheduleRoom}
-                      onChange={(e) => setScheduleRoom(e.target.value)}
-                      className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 cursor-pointer"
-                      required
-                    >
-                      <option value="">Selecione a Sala...</option>
-                      {activeApp.statusHistory && (
-                        <>
-                          <option value="Consultório 1">Consultório 1 - Oncologia Geral</option>
-                          <option value="Consultório 2">Consultório 2 - Mastologia</option>
-                          <option value="Consultório 3">Consultório 3 - Ginecologia</option>
-                          <option value="Consultório 4">Consultório 4 - Triagem Geral</option>
-                          <option value="Sala de Exames 1">Sala de Exames 1 - Ultrassom</option>
-                          <option value="Sala de Exames 2">Sala de Exames 2 - Mamografia</option>
-                        </>
-                      )}
-                    </select>
+                    {activeApp.statusHistory ? (
+                      <select
+                        id="sch-room"
+                        value={scheduleRoom}
+                        onChange={(e) => setScheduleRoom(e.target.value)}
+                        className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100 cursor-pointer"
+                        required
+                      >
+                        <option value="">Selecione a Sala...</option>
+                        <option value="Consultório 1">Consultório 1 - Oncologia Geral</option>
+                        <option value="Consultório 2">Consultório 2 - Mastologia</option>
+                        <option value="Consultório 3">Consultório 3 - Ginecologia</option>
+                        <option value="Consultório 4">Consultório 4 - Triagem Geral</option>
+                        <option value="Sala de Exames 1">Sala de Exames 1 - Ultrassom</option>
+                        <option value="Sala de Exames 2">Sala de Exames 2 - Mamografia</option>
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        id="sch-room"
+                        value={scheduleRoom}
+                        onChange={(e) => setScheduleRoom(e.target.value)}
+                        placeholder="Digite o nome da sala..."
+                        className="w-full p-2.5 border border-zinc-200 dark:border-zinc-800 rounded-xl text-xs bg-white dark:bg-zinc-955 focus:ring-1 focus:ring-pink-500 focus:outline-none dark:text-zinc-100"
+                        required
+                      />
+                    )}
                   </div>
 
                   <div className="space-y-1.5">
@@ -830,6 +840,13 @@ export default function TriagemDetailsSidebar({
                         <span>Forçar Agendamento (Override de Gestor)</span>
                       </button>
                     )}
+                  </div>
+                )}
+
+                {scheduleSuccess && (
+                  <div className="p-3.5 rounded-2xl text-xs font-semibold bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-955/20 dark:text-emerald-400 dark:border-emerald-900/30 flex items-center gap-2 animate-in slide-in-from-top-2">
+                    <Check className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>{scheduleSuccess}</span>
                   </div>
                 )}
 
