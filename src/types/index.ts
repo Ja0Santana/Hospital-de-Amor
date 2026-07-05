@@ -313,3 +313,17 @@ export interface TransparencyData {
   ctaText?: string;
   ctaAction?: string;
 }
+
+export interface Unit {
+  id: string;
+  name: string;
+  city: string;
+  state: string;
+  lat: number;
+  lng: number;
+  types: ('Prevenção' | 'Tratamento' | 'Reabilitação')[];
+  address: string;
+  phone: string;
+  hours: string;
+  specialties: string[];
+}
