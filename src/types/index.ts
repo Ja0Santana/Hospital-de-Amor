@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 export interface Exam {
   id: string;
   name: string;
@@ -299,6 +301,15 @@ export interface TransparencyData {
   sectors: SectorDistribution[];
   monthlyRecords: TransparencyMonthlyRecord[];
   projects: TransparencyProject[];
+}export interface Email {
+  id: string;
+  sender: string;
+  recipient: string;
+  subject: string;
+  date: string;
+  preview: string;
+  isRead: boolean;
+  body: ReactNode;
+  ctaText?: string;
+  ctaAction?: string;
 }
-
-
