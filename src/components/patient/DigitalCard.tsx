@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Heart, Phone, Printer, RotateCw, X, ShieldAlert, HeartHandshake } from 'lucide-react';
+import { Heart, Phone, Printer, RotateCw, X, ShieldAlert, HeartHandshake, Eye, EyeOff } from 'lucide-react';
 import { getUserByCpf } from '../../services/db';
 import type { PatientUser } from '../../types';
 import { formatCpf, formatPhone } from '../../lib/sanitizer';
@@ -16,6 +16,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
   const [isFlipped, setIsFlipped] = useState(false);
   const [angle, setAngle] = useState(0);
   const [isCalling, setIsCalling] = useState(false);
+  const [showSensitiveData, setShowSensitiveData] = useState(false);
 
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
@@ -88,6 +89,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
       setIsFlipped(false);
       setAngle(0);
       setIsCalling(false);
+      setShowSensitiveData(false);
     }
   }, [patientCpf, isOpen]);
 
@@ -163,7 +165,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
         </div>        <div className="flex justify-center py-4">
           <div 
             id="printable-digital-card"
-            className="w-full max-w-[430px] h-[270px] perspective-1000 cursor-grab active:cursor-grabbing group select-none"
+            className="w-full max-w-[430px] aspect-[1.58/1] h-auto perspective-1000 cursor-grab active:cursor-grabbing group select-none"
             onMouseDown={(e) => {
               if (e.button !== 0) return;
               handleDragStart(e.clientX);
@@ -247,11 +249,24 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                     <ShieldAlert className="w-4.5 h-4.5" />
                     Ficha de Emergência
                   </span>
-                  {user?.bloodType && (
-                    <span className="bg-red-650 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-red-500/30">
-                      SANGUE: {user.bloodType}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowSensitiveData(!showSensitiveData);
+                      }}
+                      className="p-1 hover:bg-zinc-800 active:scale-95 rounded text-zinc-400 hover:text-white transition-all"
+                      title={showSensitiveData ? 'Ocultar informações sensíveis' : 'Mostrar informações sensíveis'}
+                    >
+                      {showSensitiveData ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                    {user?.bloodType && (
+                      <span className="bg-red-650 text-white font-extrabold text-[10px] px-2.5 py-0.5 rounded-full border border-red-500/30">
+                        SANGUE: {showSensitiveData ? user.bloodType : '••'}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex-1 py-1.5 flex flex-col justify-between text-left min-w-0">
@@ -259,14 +274,14 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                     <div className="min-w-0">
                       <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Alergias</span>
                       <p className="text-xs font-bold text-zinc-150 truncate leading-none">
-                        {user?.allergies || 'Nenhuma alergia relatada'}
+                        {showSensitiveData ? (user?.allergies || 'Nenhuma alergia relatada') : '••••••••••••'}
                       </p>
                     </div>
 
                     <div className="min-w-0">
                       <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest block">Diagnóstico</span>
                       <p className="text-xs font-bold text-zinc-150 truncate leading-none">
-                        {user?.clinicalDiagnosis || 'Sem diagnóstico'}
+                        {showSensitiveData ? (user?.clinicalDiagnosis || 'Sem diagnóstico') : '••••••••••••'}
                       </p>
                     </div>
                   </div>
