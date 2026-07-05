@@ -187,8 +187,10 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
               style={cardStyle}
               className="relative w-full h-full preserve-3d"
             >
+              <div className="absolute inset-0 w-full h-full rounded-2xl bg-zinc-300 dark:bg-zinc-800 border border-zinc-400/10 [transform:translateZ(0.3px)]" />
+              <div className="absolute inset-0 w-full h-full rounded-2xl bg-zinc-300 dark:bg-zinc-800 border border-zinc-400/10 [transform:translateZ(-0.3px)]" />
               
-              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-4 text-white flex flex-col justify-between shadow-xl border border-white/10">
+              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-gradient-to-br from-primary via-indigo-950 to-secondary/80 p-4 text-white flex flex-col justify-between shadow-xl border border-white/10 [transform:translateZ(1px)]">
                 <div className="flex justify-between items-start">
                   <div className="font-comfortaa font-bold text-xs tracking-wider flex items-center uppercase">
                     <span>Hospital de Am</span>
@@ -243,7 +245,7 @@ export default function DigitalCard({ patientCpf, isOpen, onClose }: DigitalCard
                 </div>
               </div>
 
-              <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180 rounded-2xl bg-zinc-950 text-white p-4 flex flex-col justify-between shadow-xl border border-zinc-800 digital-card-back">
+              <div className="absolute inset-0 w-full h-full backface-hidden rounded-2xl bg-zinc-950 text-white p-4 flex flex-col justify-between shadow-xl border border-zinc-850 digital-card-back [transform:translateZ(-1px)_rotateY(180deg)]">
                 <div className="flex justify-between items-center pb-1.5 border-b border-zinc-900">
                   <span className="text-[10px] font-black tracking-widest text-red-500 uppercase flex items-center gap-1">
                     <ShieldAlert className="w-4.5 h-4.5" />
