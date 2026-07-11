@@ -160,15 +160,27 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
         if (userRole === 'paciente') userRole = 'patient';
         if (userRole === 'doador') userRole = 'donor';
 
-        if (userRole !== activeRole && userRole !== 'both') {
+        const rolesList = userRole.split(',').map((r) => r.trim());
+        if (rolesList.includes('both')) {
+          rolesList.push('patient', 'donor');
+        }
+
+        const hasActiveRole = rolesList.includes(activeRole);
+
+        if (!hasActiveRole) {
           setLoading(false);
-          if (['recepcionista', 'gestor', 'auditor'].includes(userRole)) {
+          const hasAdmin = rolesList.some((r) =>
+            ['recepcionista', 'gestor', 'auditor'].includes(r)
+          );
+          if (hasAdmin) {
             setError(
               'Este CPF está cadastrado como Colaborador Administrativo. Por favor, acesse o Portal Administrativo para entrar.'
             );
           } else {
             setError(
-              `Este CPF está cadastrado como ${userRole === 'donor' ? 'Doador' : 'Paciente'}. Por favor, selecione a aba correta acima para entrar.`
+              `Este CPF está cadastrado como ${
+                rolesList.includes('donor') ? 'Doador' : 'Paciente'
+              }. Por favor, selecione a aba correta acima para entrar.`
             );
           }
           return;
