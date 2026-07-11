@@ -4,6 +4,8 @@ import {
   createUser, 
   updateUserStatusAdmin,
   updateUserAdmin,
+  deleteUserAdmin,
+  addAuditLogAdmin,
   getCustomRoles,
   saveCustomRole,
   deleteCustomRole
@@ -402,6 +404,24 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                 setSuccessMsg('');
               }}
               onToggleStatus={handleToggleStatus}
+              onDelete={async (cpf, name) => {
+                setErrorMsg('');
+                setSuccessMsg('');
+                try {
+                  await deleteUserAdmin(cpf);
+                  await addAuditLogAdmin(
+                    'DELETE_USER',
+                    'Gestão da Equipe',
+                    `Colaborador ${name} (CPF: ${cpf}) removido da equipe`,
+                    loggedEmployee.cpf,
+                    loggedEmployee.name
+                  );
+                  setSuccessMsg(`Colaborador ${name} removido com sucesso.`);
+                  await loadUsers();
+                } catch (err: any) {
+                  setErrorMsg(err.message || 'Erro ao remover colaborador.');
+                }
+              }}
             />
 
             <SandboxEmailsViewer
