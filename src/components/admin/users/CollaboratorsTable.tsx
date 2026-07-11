@@ -25,7 +25,9 @@ export default function CollaboratorsTable({
     if (!userRole) {
       return 'Staff';
     }
-    switch (userRole) {
+    const roles = userRole.split(',').map((r) => r.trim());
+    const mainRole = roles.find((r) => ['recepcionista', 'gestor', 'auditor'].includes(r)) || userRole;
+    switch (mainRole) {
       case 'recepcionista':
         return 'Recepcionista';
       case 'gestor':
@@ -33,8 +35,8 @@ export default function CollaboratorsTable({
       case 'auditor':
         return 'Auditor';
       default:
-        const custom = customRoles.find((r) => r.id === userRole);
-        return custom ? custom.name : userRole;
+        const custom = customRoles.find((r) => r.id === mainRole);
+        return custom ? custom.name : mainRole;
     }
   };
 

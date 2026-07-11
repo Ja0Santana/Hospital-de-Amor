@@ -33,7 +33,9 @@ export default function AdminApp() {
         if (storedPerms) {
           setPermissions(JSON.parse(storedPerms));
         } else if (parsed.role) {
-          getEmployeePermissions(parsed.role).then(perms => {
+          const rolesList = parsed.role.split(',').map((r: string) => r.trim());
+          const adminRole = rolesList.find((r: string) => ['recepcionista', 'gestor', 'auditor'].includes(r)) || parsed.role;
+          getEmployeePermissions(adminRole).then(perms => {
             setPermissions(perms);
             localStorage.setItem('hospital_amor_admin_permissions', JSON.stringify(perms));
           });
@@ -56,7 +58,9 @@ export default function AdminApp() {
     setLoggedEmployee(employee);
     localStorage.setItem('hospital_amor_admin_user', JSON.stringify(employee));
     if (employee.role) {
-      const perms = await getEmployeePermissions(employee.role);
+      const rolesList = employee.role.split(',').map(r => r.trim());
+      const adminRole = rolesList.find(r => ['recepcionista', 'gestor', 'auditor'].includes(r)) || employee.role;
+      const perms = await getEmployeePermissions(adminRole);
       setPermissions(perms);
       localStorage.setItem('hospital_amor_admin_permissions', JSON.stringify(perms));
     } else {
@@ -72,6 +76,11 @@ export default function AdminApp() {
     localStorage.removeItem('hospital_amor_admin_user');
     localStorage.removeItem('hospital_amor_admin_permissions');
     window.location.hash = '#/login';
+  };
+
+  const hasRole = (roleToCheck: string) => {
+    if (!loggedEmployee?.role) return false;
+    return loggedEmployee.role.split(',').map(r => r.trim()).includes(roleToCheck);
   };
 
   const currentPath = currentHash.replace(/^#/, '');
@@ -94,7 +103,7 @@ export default function AdminApp() {
           return (
             <AccessDenied
               title="Acesso Negado ao Painel"
-              description="Você não tem permissão para visualizar o Painel de Triagem de agendamentos."
+              description="Você não tem permissão para visualizar os Painel de Triagem de agendamentos."
             />
           );
         }
@@ -130,7 +139,7 @@ export default function AdminApp() {
         }
         return <AuditLogs />;
       case '/relatorios':
-        if (loggedEmployee.role !== 'gestor' && loggedEmployee.role !== 'auditor' && !permissions.includes('view_reports')) {
+        if (!hasRole('gestor') && !hasRole('auditor') && !permissions.includes('view_reports')) {
           window.location.hash = '#/dashboard';
           return null;
         }
@@ -144,7 +153,9 @@ export default function AdminApp() {
   };
 
   const getRoleBadgeLabel = (role?: string) => {
-    switch (role) {
+    const roles = role ? role.split(',').map(r => r.trim()) : [];
+    const mainRole = roles.find(r => ['recepcionista', 'gestor', 'auditor'].includes(r)) || role;
+    switch (mainRole) {
       case 'recepcionista':
         return 'Recepcionista';
       case 'gestor':
@@ -198,7 +209,7 @@ export default function AdminApp() {
             </a>
           )}
 
-          {(loggedEmployee.role === 'gestor' || loggedEmployee.role === 'recepcionista') && (
+          {(hasRole('gestor') || hasRole('recepcionista')) && (
             <a
               href="#/lobby"
               target="_blank"
@@ -244,7 +255,7 @@ export default function AdminApp() {
             </a>
           )}
 
-          {(loggedEmployee.role === 'gestor' || loggedEmployee.role === 'auditor' || permissions.includes('view_reports')) && (
+          {(hasRole('gestor') || hasRole('auditor') || permissions.includes('view_reports')) && (
             <a
               href="#/relatorios"
               onClick={() => setIsSidebarMobileOpen(false)}
