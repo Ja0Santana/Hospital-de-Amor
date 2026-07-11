@@ -18,7 +18,7 @@ import {
 } from './seeds';
 
 export const DB_NAME = 'HospitalAmorDB';
-export const DB_VERSION = 16;
+export const DB_VERSION = 17;
 
 let dbInstance: IDBDatabase | null = null;
 
@@ -48,34 +48,15 @@ export const DB_STORES = {
   CUSTOM_PRIORITIES: 'custom_priorities',
 } as const;
 
-export function initDb(): Promise<IDBDatabase> {
-  if (dbInstance) {
-    return Promise.resolve(dbInstance);
-  }
+interface DBMigration {
+  version: number;
+  run: (db: IDBDatabase, transaction: IDBTransaction) => void;
+}
 
-  return new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => reject(request.error);
-    request.onblocked = () => {
-      reject(
-        new Error(
-          'Conexão IndexedDB bloqueada por uma versão antiga aberta. Por favor, recarregue a página ou feche outras abas.'
-        )
-      );
-    };
-    request.onsuccess = () => {
-      dbInstance = request.result;
-      dbInstance.onversionchange = () => {
-        dbInstance?.close();
-        dbInstance = null;
-      };
-      resolve(dbInstance);
-    };
-
-    request.onupgradeneeded = () => {
-      const db = request.result;
-
+const MIGRATIONS: DBMigration[] = [
+  {
+    version: 16,
+    run: (db) => {
       if (!db.objectStoreNames.contains(DB_STORES.APPOINTMENTS)) {
         db.createObjectStore(DB_STORES.APPOINTMENTS, { keyPath: 'id' });
       }
@@ -162,6 +143,83 @@ export function initDb(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(DB_STORES.CUSTOM_PRIORITIES)) {
         db.createObjectStore(DB_STORES.CUSTOM_PRIORITIES, { keyPath: 'id' });
+      }
+    },
+  },
+  {
+    version: 17,
+    run: (_db, transaction) => {
+      console.info('[Migrations] Iniciando migração para a versão 17: adicionando índices de performance...');
+
+      const appStore = transaction.objectStore(DB_STORES.APPOINTMENTS);
+      if (!appStore.indexNames.contains('patientCpf')) {
+        appStore.createIndex('patientCpf', 'patientCpf', { unique: false });
+        console.info('[Migrations] Índice patientCpf adicionado em appointments.');
+      }
+      if (!appStore.indexNames.contains('specialty_exam')) {
+        appStore.createIndex('specialty_exam', ['specialtyId', 'examId'], { unique: false });
+        console.info('[Migrations] Índice composto specialty_exam adicionado em appointments.');
+      }
+
+      const symptomStore = transaction.objectStore(DB_STORES.SYMPTOMS_DIARY);
+      if (!symptomStore.indexNames.contains('patientCpf')) {
+        symptomStore.createIndex('patientCpf', 'patientCpf', { unique: false });
+        console.info('[Migrations] Índice patientCpf adicionado em symptoms_diary.');
+      }
+
+      const clinicalStore = transaction.objectStore(DB_STORES.CLINICAL_HISTORY);
+      if (!clinicalStore.indexNames.contains('patientCpf')) {
+        clinicalStore.createIndex('patientCpf', 'patientCpf', { unique: false });
+        console.info('[Migrations] Índice patientCpf adicionado em clinical_history.');
+      }
+
+      const donationStore = transaction.objectStore(DB_STORES.DONATIONS);
+      if (!donationStore.indexNames.contains('donorCpf')) {
+        donationStore.createIndex('donorCpf', 'donorCpf', { unique: false });
+        console.info('[Migrations] Índice donorCpf adicionado em donations.');
+      }
+
+      console.info('[Migrations] Migração para a versão 17 concluída com sucesso.');
+    },
+  },
+];
+
+export function initDb(): Promise<IDBDatabase> {
+  if (dbInstance) {
+    return Promise.resolve(dbInstance);
+  }
+
+  return new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => {
+      reject(
+        new Error(
+          'Conexão IndexedDB bloqueada por uma versão antiga aberta. Por favor, recarregue a página ou feche outras abas.'
+        )
+      );
+    };
+    request.onsuccess = () => {
+      dbInstance = request.result;
+      dbInstance.onversionchange = () => {
+        dbInstance?.close();
+        dbInstance = null;
+      };
+      resolve(dbInstance);
+    };
+
+    request.onupgradeneeded = (event) => {
+      const db = request.result;
+      const transaction = request.transaction!;
+      const oldVersion = event.oldVersion;
+
+      console.info(`[IndexedDB] Executando upgrades de schema. Versão local anterior: ${oldVersion}, Versão solicitada: ${DB_VERSION}`);
+
+      for (const migration of MIGRATIONS) {
+        if (migration.version > oldVersion) {
+          migration.run(db, transaction);
+        }
       }
     };
   }).then(async (db) => {
