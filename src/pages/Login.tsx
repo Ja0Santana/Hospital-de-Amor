@@ -156,12 +156,21 @@ export default function Login({ onLoginSuccess, theme, setTheme }: LoginProps) {
     try {
       const authenticatedUser = await authenticateUser(cleanCpf, pass);
       if (authenticatedUser) {
-        const userRole = authenticatedUser.role || 'patient';
+        let userRole = (authenticatedUser.role || 'patient').toLowerCase().trim();
+        if (userRole === 'paciente') userRole = 'patient';
+        if (userRole === 'doador') userRole = 'donor';
+
         if (userRole !== activeRole && userRole !== 'both') {
           setLoading(false);
-          setError(
-            `Este CPF está cadastrado como ${userRole === 'donor' ? 'Doador' : 'Paciente'}. Por favor, selecione a aba correta acima para entrar.`
-          );
+          if (['recepcionista', 'gestor', 'auditor'].includes(userRole)) {
+            setError(
+              'Este CPF está cadastrado como Colaborador Administrativo. Por favor, acesse o Portal Administrativo para entrar.'
+            );
+          } else {
+            setError(
+              `Este CPF está cadastrado como ${userRole === 'donor' ? 'Doador' : 'Paciente'}. Por favor, selecione a aba correta acima para entrar.`
+            );
+          }
           return;
         }
 
