@@ -1,0 +1,619 @@
+import { useState, useEffect } from 'react';
+import {
+  getSpecialties,
+  updateSpecialty,
+  getCalendarDays,
+  saveCalendarDay,
+  deleteCalendarDay,
+  getCapacityLimits,
+  saveCapacityLimit,
+  getAuditLogs,
+  addAuditLogAdmin,
+  getTransparencyData,
+  saveTransparencyData,
+  createSpecialty,
+  createExam,
+  syncAllPendingPepEntries,
+  syncAppointmentWithPep,
+  getAppointmentsForAdmin,
+  getTemporaryCapacityLimits,
+  createTemporaryCapacityLimit,
+  deleteTemporaryCapacityLimit,
+  getCustomPriorities,
+  createCustomPriority,
+  deleteCustomPriority,
+} from '../../../services/db';
+import type {
+  Specialty,
+  CalendarDay,
+  CapacityLimit,
+  AuditLog,
+  PatientUser,
+  TransparencyData,
+  Appointment,
+  TemporaryCapacityLimit,
+  CustomPriority,
+} from '../../../types';
+
+const DEFAULT_HOLIDAYS = [
+  { monthDay: '01-01', label: 'Confraternização Universal' },
+  { monthDay: '04-21', label: 'Tiradentes' },
+  { monthDay: '05-01', label: 'Dia do Trabalhador' },
+  { monthDay: '09-07', label: 'Independência do Brasil' },
+  { monthDay: '10-12', label: 'Nossa Senhora Aparecida' },
+  { monthDay: '11-02', label: 'Finados' },
+  { monthDay: '11-15', label: 'Proclamação da República' },
+  { monthDay: '11-20', label: 'Dia Nacional de Zumbi e da Consciência Negra' },
+  { monthDay: '12-25', label: 'Natal' },
+];
+
+interface UseAdminConfigProps {
+  loggedEmployee: PatientUser;
+}
+
+export function useAdminConfig({ loggedEmployee }: UseAdminConfigProps) {
+  const [activeTab, setActiveTab] = useState<
+    'exams' | 'calendar' | 'logs' | 'transparency' | 'pep' | 'accessibility'
+  >('exams');
+  const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [limits, setLimits] = useState<CapacityLimit[]>([]);
+  const [calendarDays, setCalendarDays] = useState<CalendarDay[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isProcessingPepBatch, setIsProcessingPepBatch] = useState(false);
+  const [pepBatchResult, setPepBatchResult] = useState('');
+  const [actionSuccess, setActionSuccess] = useState('');
+  const [actionError, setActionError] = useState('');
+
+  const [temporaryLimits, setTemporaryLimits] = useState<TemporaryCapacityLimit[]>(
+    []
+  );
+  const [customPriorities, setCustomPriorities] = useState<CustomPriority[]>([]);
+  const [transparencyData, setTransparencyData] = useState<TransparencyData | null>(
+    null
+  );
+
+  const loadData = async () => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      if (activeTab === 'exams') {
+        const specs = await getSpecialties();
+        const caps = await getCapacityLimits();
+        const temps = await getTemporaryCapacityLimits();
+        const prs = await getCustomPriorities();
+        setSpecialties(specs);
+        setLimits(caps);
+        setTemporaryLimits(temps);
+        setCustomPriorities(prs);
+      } else if (activeTab === 'calendar') {
+        const days = await getCalendarDays();
+        const sortedDays = days.sort((a, b) => a.date.localeCompare(b.date));
+        setCalendarDays(sortedDays);
+      } else if (activeTab === 'logs') {
+        const allLogs = await getAuditLogs();
+        const filtered = allLogs.filter((log) => log.module === 'Configurações');
+        setLogs(filtered.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+      } else if (activeTab === 'transparency') {
+        const trans = await getTransparencyData();
+        if (trans) {
+          setTransparencyData(trans);
+        }
+      } else if (activeTab === 'pep') {
+        const allApps = await getAppointmentsForAdmin();
+        setAppointments(allApps);
+        const allLogs = await getAuditLogs();
+        const pepLogs = allLogs.filter((log) => log.module === 'Integração PEP');
+        setLogs(pepLogs.sort((a, b) => b.timestamp.localeCompare(a.timestamp)));
+      }
+    } catch (e: any) {
+      setActionError(e.message || 'Erro ao carregar dados de configuração.');
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [activeTab]);
+
+  const handleCreateSpecialty = async (name: string) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await createSpecialty(name);
+      await addAuditLogAdmin(
+        `Especialidade "${name}" cadastrada no sistema`,
+        'Configurações',
+        'Cadastro de nova especialidade',
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess(`Especialidade "${name}" cadastrada com sucesso.`);
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao cadastrar especialidade.');
+    }
+  };
+
+  const handleCreateExam = async (
+    specId: string,
+    examData: any,
+    dailyLimit: number,
+    weeklyLimit?: number,
+    monthlyLimit?: number
+  ) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const created = await createExam(specId, examData, dailyLimit);
+      await saveCapacityLimit({
+        examId: created.id,
+        dailyLimit,
+        weeklyLimit,
+        monthlyLimit,
+      });
+      const spec = specialties.find((s) => s.id === specId);
+      await addAuditLogAdmin(
+        `Novo exame "${examData.name}" cadastrado na especialidade "${
+          spec?.name || ''
+        }": Limite ${dailyLimit} vagas, Manutenção ${
+          examData.maintenanceLimit
+        }, Sala ${examData.room}, Duração ${examData.duration}min, Custo R$${
+          examData.cost
+        }, Ativo: ${examData.isActive ? 'Sim' : 'Não'}`,
+        'Configurações',
+        'Cadastro de novo exame/consulta',
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess(`Exame/Consulta "${examData.name}" cadastrado com sucesso.`);
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao cadastrar exame.');
+    }
+  };
+
+  const handleSaveExamSettings = async (
+    specId: string,
+    examId: string,
+    examData: any,
+    dailyLimit: number,
+    weeklyLimit?: number,
+    monthlyLimit?: number
+  ) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const spec = specialties.find((s) => s.id === specId);
+      if (!spec) throw new Error('Especialidade não encontrada');
+      const oldExam = spec.exams.find((ex) => ex.id === examId);
+      if (!oldExam) throw new Error('Exame não encontrado');
+
+      const oldLimit = limits.find((l) => l.examId === examId)?.dailyLimit ?? 10;
+      const changes: Record<string, { old: any; new: any }> = {};
+
+      if ((oldExam.duration ?? 30) !== examData.duration) {
+        changes.duration = { old: oldExam.duration ?? 30, new: examData.duration };
+      }
+      if ((oldExam.room ?? 'Sala A') !== examData.room) {
+        changes.room = { old: oldExam.room ?? 'Sala A', new: examData.room };
+      }
+      if ((oldExam.cost ?? 0) !== examData.cost) {
+        changes.cost = { old: oldExam.cost ?? 0, new: examData.cost };
+      }
+      if (
+        (oldExam.requiresEncaminhamento ?? true) !==
+        examData.requiresEncaminhamento
+      ) {
+        changes.requiresEncaminhamento = {
+          old: oldExam.requiresEncaminhamento ?? true,
+          new: examData.requiresEncaminhamento,
+        };
+      }
+      if ((oldExam.isActive ?? true) !== examData.isActive) {
+        changes.isActive = {
+          old: oldExam.isActive ?? true,
+          new: examData.isActive,
+        };
+      }
+      if (oldLimit !== dailyLimit) {
+        changes.dailyLimit = { old: oldLimit, new: dailyLimit };
+      }
+      if ((oldExam.maintenanceLimit ?? 100) !== examData.maintenanceLimit) {
+        changes.maintenanceLimit = {
+          old: oldExam.maintenanceLimit ?? 100,
+          new: examData.maintenanceLimit,
+        };
+      }
+
+      const updatedExams = spec.exams.map((ex) => {
+        if (ex.id === examId) {
+          return { ...ex, ...examData };
+        }
+        return ex;
+      });
+
+      const updatedSpec: Specialty = { ...spec, exams: updatedExams };
+      await updateSpecialty(updatedSpec);
+      await saveCapacityLimit({
+        examId,
+        dailyLimit,
+        weeklyLimit,
+        monthlyLimit,
+      });
+
+      await addAuditLogAdmin(
+        `Configuração do exame "${examData.name}" atualizada: Limite ${dailyLimit} vagas, Manutenção ${examData.maintenanceLimit}, Sala ${examData.room}, Duração ${examData.duration}min, Custo R$${examData.cost}, Ativo: ${examData.isActive ? 'Sim' : 'Não'}`,
+        'Configurações',
+        `Parâmetros atualizados pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name,
+        Object.keys(changes).length > 0 ? changes : undefined
+      );
+
+      setActionSuccess(`Configurações de "${examData.name}" salvas com sucesso.`);
+      await loadData();
+    } catch (e: any) {
+      setActionError(e.message || 'Erro ao salvar configurações do exame.');
+    }
+  };
+
+  const handleAddTempLimit = async (
+    examId: string,
+    date: string,
+    limit: number
+  ) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await createTemporaryCapacityLimit({ examId, date, limit });
+      const examName =
+        specialties.flatMap((s) => s.exams).find((ex) => ex.id === examId)?.name ||
+        examId;
+      await addAuditLogAdmin(
+        `Criado limite temporário para o exame "${examName}" no dia ${date}: ${limit} vagas`,
+        'Configurações',
+        `Cota temporária inserida pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess('Cota temporária configurada com sucesso.');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao salvar cota temporária.');
+    }
+  };
+
+  const handleDeleteTempLimit = async (id: number) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const target = temporaryLimits.find((tl) => tl.id === id);
+      await deleteTemporaryCapacityLimit(id);
+      const examName =
+        specialties.flatMap((s) => s.exams).find((ex) => ex.id === target?.examId)
+          ?.name || target?.examId;
+      await addAuditLogAdmin(
+        `Removido limite temporário para o exame "${examName}" no dia ${target?.date}`,
+        'Configurações',
+        `Cota temporária removida pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess('Cota temporária removida com sucesso.');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao remover cota temporária.');
+    }
+  };
+
+  const handleAddPriority = async (name: string) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const id =
+        'priority-' +
+        name
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+      await createCustomPriority({ id, name: name.trim() });
+      await addAuditLogAdmin(
+        `Nova prioridade clínica criada: "${name.trim()}"`,
+        'Configurações',
+        `Prioridade cadastrada pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess('Prioridade clínica criada com sucesso.');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao criar prioridade.');
+    }
+  };
+
+  const handleDeletePriority = async (id: string) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const target = customPriorities.find((p) => p.id === id);
+      await deleteCustomPriority(id);
+      await addAuditLogAdmin(
+        `Removida prioridade clínica: "${target?.name || id}"`,
+        'Configurações',
+        `Prioridade excluída pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess('Prioridade clínica removida com sucesso.');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao remover prioridade.');
+    }
+  };
+
+  const handleAddBlock = async (
+    date: string,
+    label: string,
+    isWorkingDay: boolean
+  ) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      await saveCalendarDay({ date, label, isWorkingDay });
+      await addAuditLogAdmin(
+        `Adicionado bloqueio no calendário: ${date} (${label})`,
+        'Configurações',
+        `Data bloqueada pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess(`Data ${date} configurada com sucesso.`);
+      await loadData();
+    } catch (e: any) {
+      setActionError(e.message || 'Erro ao bloquear data no calendário.');
+    }
+  };
+
+  const handleDeleteBlock = async (date: string) => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const target = calendarDays.find((d) => d.date === date);
+      await deleteCalendarDay(date);
+      await addAuditLogAdmin(
+        `Removido bloqueio do calendário: ${date}`,
+        'Configurações',
+        `Justificativa anterior: ${target?.label || ''}`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess(`Bloqueio de ${date} removido com sucesso.`);
+      await loadData();
+    } catch (e: any) {
+      setActionError(e.message || 'Erro ao remover bloqueio.');
+    }
+  };
+
+  const handleImportDefaultHolidays = async () => {
+    setActionError('');
+    setActionSuccess('');
+    try {
+      const currentYear = new Date().getFullYear();
+      const years = [currentYear, currentYear + 1];
+
+      let count = 0;
+      for (const year of years) {
+        for (const hol of DEFAULT_HOLIDAYS) {
+          const dateStr = `${year}-${hol.monthDay}`;
+          const labelLower = hol.label.trim().toLowerCase();
+          const alreadyExists = calendarDays.some(
+            (d) => d.label.trim().toLowerCase() === labelLower
+          );
+
+          if (!alreadyExists) {
+            await saveCalendarDay({
+              date: dateStr,
+              label: hol.label,
+              isWorkingDay: false,
+            });
+            count++;
+          }
+        }
+      }
+
+      await addAuditLogAdmin(
+        `Importação de feriados padrão realizada: ${count} datas inseridas/atualizadas para os anos ${years.join(
+          ' e '
+        )}`,
+        'Configurações',
+        `Importação de feriados nacionais recorrentes`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      setActionSuccess(`Importação concluída. ${count} feriados inseridos/atualizados.`);
+      await loadData();
+    } catch (e: any) {
+      setActionError(e.message || 'Erro ao importar feriados.');
+    }
+  };
+
+  const handleMonthlyRecordChange = (
+    index: number,
+    field: 'entradas' | 'saidas' | 'atendimentos',
+    value: number
+  ) => {
+    if (!transparencyData) return;
+    const updatedRecords = [...transparencyData.monthlyRecords];
+    updatedRecords[index] = { ...updatedRecords[index], [field]: value };
+    setTransparencyData({
+      ...transparencyData,
+      monthlyRecords: updatedRecords,
+    });
+  };
+
+  const handleAddProject = (
+    title: string,
+    description: string,
+    date: string,
+    amount: number
+  ) => {
+    if (!transparencyData) return;
+    const newProj = {
+      id: 'proj-' + crypto.randomUUID().slice(0, 8),
+      title,
+      description,
+      completedDate: date,
+      amountRaised: amount,
+    };
+    setTransparencyData({
+      ...transparencyData,
+      projects: [newProj, ...transparencyData.projects],
+    });
+    setActionSuccess(
+      'Projeto adicionado à lista local (clique em "Publicar no Mural" para salvar definitivamente).'
+    );
+  };
+
+  const handleRemoveProject = (projId: string) => {
+    if (!transparencyData) return;
+    setTransparencyData({
+      ...transparencyData,
+      projects: transparencyData.projects.filter((p) => p.id !== projId),
+    });
+    setActionSuccess(
+      'Projeto removido da lista local (clique em "Publicar no Mural" para salvar definitivamente).'
+    );
+  };
+
+  const handlePublishTransparency = async (
+    oncologia: number,
+    mastologia: number,
+    radiologia: number,
+    geral: number
+  ) => {
+    if (!transparencyData) return;
+    setActionError('');
+    setActionSuccess('');
+
+    const sum = oncologia + mastologia + radiologia + geral;
+    if (sum !== 100) {
+      setActionError(
+        `A soma das porcentagens dos setores deve ser exatamente 100%. Soma atual: ${sum}%.`
+      );
+      return;
+    }
+
+    try {
+      const updatedSectors = [
+        { name: 'Oncologia', value: oncologia, color: '#e31463' },
+        { name: 'Mastologia', value: mastologia, color: '#f472b6' },
+        { name: 'Radiologia', value: radiologia, color: '#3b82f6' },
+        { name: 'Geral', value: geral, color: '#10b981' },
+      ];
+
+      const totalArrecadado = transparencyData.monthlyRecords.reduce(
+        (acc, curr) => acc + curr.entradas,
+        0
+      );
+      const totalAtendimentos = transparencyData.monthlyRecords.reduce(
+        (acc, curr) => acc + curr.atendimentos,
+        0
+      );
+
+      const updatedData = {
+        ...transparencyData,
+        lastUpdatedAt: new Date().toISOString(),
+        totalArrecadadoAno: totalArrecadado,
+        atendimentosAno: totalAtendimentos,
+        sectors: updatedSectors,
+      };
+
+      await saveTransparencyData(updatedData);
+      setTransparencyData(updatedData);
+
+      await addAuditLogAdmin(
+        `Mural de transparência publicado. Arrecadado no semestre: R$ ${totalArrecadado.toFixed(
+          2
+        )}, Atendimentos: ${totalAtendimentos}, Setores: Oncologia(${oncologia}%), Mastologia(${mastologia}%), Radiologia(${radiologia}%), Geral(${geral}%)`,
+        'Configurações',
+        `Mural de Transparência publicado pelo gestor`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+
+      setActionSuccess(
+        'Mural de transparência publicado e atualizado com sucesso para todos os doadores.'
+      );
+    } catch (e: any) {
+      setActionError(e.message || 'Erro ao publicar dados de transparência.');
+    }
+  };
+
+  const handleReprocessPepBatch = async () => {
+    setIsProcessingPepBatch(true);
+    setPepBatchResult('');
+    setActionSuccess('');
+    setActionError('');
+    try {
+      const res = await syncAllPendingPepEntries();
+      setPepBatchResult(
+        `Lote processado. Sucesso: ${res.successCount} | Falha: ${res.failCount}`
+      );
+      setActionSuccess('Processamento da fila de mensagens concluído.');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao processar lote do PEP.');
+    } finally {
+      setIsProcessingPepBatch(false);
+    }
+  };
+
+  const handleSinglePepSync = async (appId: string) => {
+    setActionSuccess('');
+    setActionError('');
+    try {
+      await syncAppointmentWithPep(appId);
+      setActionSuccess('Sincronização individual do PEP concluída.');
+      await loadData();
+    } catch (err: any) {
+      setActionError(err.message || 'Erro ao sincronizar agendamento com PEP.');
+    }
+  };
+
+  return {
+    activeTab,
+    setActiveTab,
+    specialties,
+    limits,
+    calendarDays,
+    logs,
+    appointments,
+    isProcessingPepBatch,
+    pepBatchResult,
+    actionSuccess,
+    actionError,
+    temporaryLimits,
+    customPriorities,
+    transparencyData,
+    loadData,
+    handleCreateSpecialty,
+    handleCreateExam,
+    handleSaveExamSettings,
+    handleAddTempLimit,
+    handleDeleteTempLimit,
+    handleAddPriority,
+    handleDeletePriority,
+    handleAddBlock,
+    handleDeleteBlock,
+    handleImportDefaultHolidays,
+    handleMonthlyRecordChange,
+    handleAddProject,
+    handleRemoveProject,
+    handlePublishTransparency,
+    handleReprocessPepBatch,
+    handleSinglePepSync,
+  };
+}
