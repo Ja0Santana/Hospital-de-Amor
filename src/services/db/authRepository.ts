@@ -29,11 +29,11 @@ export async function createUser(
     const getAllReq = storeCheck.getAll();
     getAllReq.onsuccess = () => {
       const allUsers = getAllReq.result as PatientUser[];
-      const emailExists = allUsers.some(
+      const emailOwner = allUsers.find(
         (u) =>
           u.email.trim().toLowerCase() === user.email.trim().toLowerCase()
       );
-      if (emailExists) {
+      if (emailOwner && normalizeCpf(emailOwner.cpf) !== cleanCpf) {
         reject(new Error('Este e-mail já está cadastrado em outra conta.'));
         return;
       }
@@ -46,29 +46,58 @@ export async function createUser(
       const existingRole = existing.role || 'patient';
       const newRole = user.role || 'patient';
 
-      if (existingRole === newRole || existingRole === 'both') {
+      const existingRolesList = existingRole.split(',').map((r) => r.trim());
+      if (existingRolesList.includes('both')) {
+        existingRolesList.push('patient', 'donor');
+      }
+
+      const newRolesList = newRole === 'both' ? ['patient', 'donor'] : [newRole];
+
+      const hasAllNewRoles = newRolesList.every((r) => existingRolesList.includes(r));
+      if (hasAllNewRoles) {
         throw new Error('Este CPF já está cadastrado');
       }
 
-      existing.role = 'both';
+      const updatedRoles = Array.from(new Set([...existingRolesList, ...newRolesList]));
+
+      const hasAdmin = updatedRoles.some((r) =>
+        ['recepcionista', 'gestor', 'auditor'].includes(r)
+      );
+      if (hasAdmin) {
+        existing.role = updatedRoles.filter((r) => r !== 'both').join(',') as any;
+      } else {
+        if (updatedRoles.includes('patient') && updatedRoles.includes('donor')) {
+          existing.role = 'both';
+        } else {
+          existing.role = updatedRoles[0] as any;
+        }
+      }
+
+      if (user.passwordHash) {
+        existing.passwordHash = user.passwordHash;
+      }
 
       return new Promise<void>((resolve, reject) => {
-        const stores =
-          newRole === 'donor'
-            ? [DB_STORES.USERS, DB_STORES.DONOR_POINTS]
-            : [DB_STORES.USERS];
+        const stores = newRolesList.includes('donor')
+          ? [DB_STORES.USERS, DB_STORES.DONOR_POINTS]
+          : [DB_STORES.USERS];
         const tx = db.transaction(stores, 'readwrite');
 
         const userStore = tx.objectStore(DB_STORES.USERS);
         userStore.put(existing);
 
-        if (newRole === 'donor') {
+        if (newRolesList.includes('donor')) {
           const donorPointsStore = tx.objectStore(DB_STORES.DONOR_POINTS);
-          donorPointsStore.put({
-            donorCpf: cleanCpf,
-            balance: 0,
-            level: 'Bronze',
-          });
+          const pointsReq = donorPointsStore.get(cleanCpf);
+          pointsReq.onsuccess = () => {
+            if (!pointsReq.result) {
+              donorPointsStore.put({
+                donorCpf: cleanCpf,
+                balance: 0,
+                level: 'Bronze',
+              });
+            }
+          };
         }
 
         tx.oncomplete = () => resolve();

@@ -1,5 +1,6 @@
 
-import { Search, Shield, Edit2, UserMinus, UserCheck } from 'lucide-react';
+import { useState } from 'react';
+import { Search, Shield, Edit2, UserMinus, UserCheck, Trash2 } from 'lucide-react';
 import type { PatientUser, CustomRole } from '../../../types';
 
 interface CollaboratorsTableProps {
@@ -10,6 +11,7 @@ interface CollaboratorsTableProps {
   customRoles: CustomRole[];
   onEdit: (user: PatientUser) => void;
   onToggleStatus: (cpf: string, currentActive: boolean) => Promise<void>;
+  onDelete: (cpf: string, name: string) => Promise<void>;
 }
 
 export default function CollaboratorsTable({
@@ -20,12 +22,16 @@ export default function CollaboratorsTable({
   customRoles,
   onEdit,
   onToggleStatus,
+  onDelete,
 }: CollaboratorsTableProps) {
+  const [confirmDeleteCpf, setConfirmDeleteCpf] = useState<string | null>(null);
   const getRoleBadgeLabel = (userRole?: string) => {
     if (!userRole) {
       return 'Staff';
     }
-    switch (userRole) {
+    const roles = userRole.split(',').map((r) => r.trim());
+    const mainRole = roles.find((r) => ['recepcionista', 'gestor', 'auditor'].includes(r)) || userRole;
+    switch (mainRole) {
       case 'recepcionista':
         return 'Recepcionista';
       case 'gestor':
@@ -33,8 +39,8 @@ export default function CollaboratorsTable({
       case 'auditor':
         return 'Auditor';
       default:
-        const custom = customRoles.find((r) => r.id === userRole);
-        return custom ? custom.name : userRole;
+        const custom = customRoles.find((r) => r.id === mainRole);
+        return custom ? custom.name : mainRole;
     }
   };
 
@@ -141,6 +147,33 @@ export default function CollaboratorsTable({
                           )}
                         </button>
                       )}
+
+                      {user.cpf !== loggedEmployeeCpf && (
+                        confirmDeleteCpf === user.cpf ? (
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={async () => { await onDelete(user.cpf, user.name); setConfirmDeleteCpf(null); }}
+                              className="inline-flex items-center gap-1 h-8 px-3 rounded-xl border border-red-300 bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all"
+                            >
+                              Confirmar
+                            </button>
+                            <button
+                              onClick={() => setConfirmDeleteCpf(null)}
+                              className="inline-flex items-center h-8 px-2.5 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 dark:bg-zinc-955 dark:border-zinc-800 dark:hover:bg-zinc-900 dark:text-zinc-400 font-bold text-xs transition-all"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDeleteCpf(user.cpf)}
+                            className="inline-flex items-center gap-1 h-8 px-3 rounded-xl border border-red-200 bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-350 text-zinc-650 dark:bg-zinc-955 dark:border-red-955/40 dark:hover:bg-red-955/25 dark:text-red-450 font-bold text-xs transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Remover
+                          </button>
+                        )
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -232,6 +265,33 @@ export default function CollaboratorsTable({
                         </>
                       )}
                     </button>
+                  )}
+
+                  {user.cpf !== loggedEmployeeCpf && (
+                    confirmDeleteCpf === user.cpf ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={async () => { await onDelete(user.cpf, user.name); setConfirmDeleteCpf(null); }}
+                          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-xl border border-red-300 bg-red-600 hover:bg-red-700 text-white font-bold text-[10px] transition-all"
+                        >
+                          Confirmar
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteCpf(null)}
+                          className="inline-flex items-center h-8 px-2 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-600 dark:bg-zinc-955 dark:border-zinc-800 dark:hover:bg-zinc-900 dark:text-zinc-400 font-bold text-[10px] transition-all"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteCpf(user.cpf)}
+                        className="inline-flex items-center gap-1 h-8 px-2.5 rounded-xl border border-red-200 bg-white hover:bg-red-50 hover:text-red-700 hover:border-red-350 text-zinc-650 dark:bg-zinc-955 dark:border-red-955/40 dark:hover:bg-red-955/25 dark:text-red-450 font-bold text-[10px] transition-all"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Remover
+                      </button>
+                    )
                   )}
                 </div>
               </div>

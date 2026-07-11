@@ -4,6 +4,8 @@ import {
   createUser, 
   updateUserStatusAdmin,
   updateUserAdmin,
+  deleteUserAdmin,
+  addAuditLogAdmin,
   getCustomRoles,
   saveCustomRole,
   deleteCustomRole
@@ -286,9 +288,10 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
     );
   };
 
-  const staffUsers = users.filter(user => 
-    user.role !== 'patient' && user.role !== 'donor' && user.role !== 'both'
-  );
+  const staffUsers = users.filter(user => {
+    const rolesList = user.role ? user.role.split(',').map(r => r.trim()) : [];
+    return rolesList.some(r => ['recepcionista', 'gestor', 'auditor'].includes(r));
+  });
 
   const filteredStaff = staffUsers.filter(user => 
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -298,7 +301,9 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
 
   const getRoleBadgeLabel = (userRole?: string) => {
     if (!userRole) return 'Staff';
-    switch (userRole) {
+    const roles = userRole.split(',').map(r => r.trim());
+    const mainRole = roles.find(r => ['recepcionista', 'gestor', 'auditor'].includes(r)) || userRole;
+    switch (mainRole) {
       case 'recepcionista':
         return 'Recepcionista';
       case 'gestor':
@@ -306,8 +311,8 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
       case 'auditor':
         return 'Auditor';
       default:
-        const custom = customRoles.find(r => r.id === userRole);
-        return custom ? custom.name : userRole;
+        const custom = customRoles.find(r => r.id === mainRole);
+        return custom ? custom.name : mainRole;
     }
   };
 
@@ -399,6 +404,24 @@ export default function AdminUsers({ loggedEmployee }: AdminUsersProps) {
                 setSuccessMsg('');
               }}
               onToggleStatus={handleToggleStatus}
+              onDelete={async (cpf, name) => {
+                setErrorMsg('');
+                setSuccessMsg('');
+                try {
+                  await deleteUserAdmin(cpf);
+                  await addAuditLogAdmin(
+                    'DELETE_USER',
+                    'Gestão da Equipe',
+                    `Colaborador ${name} (CPF: ${cpf}) removido da equipe`,
+                    loggedEmployee.cpf,
+                    loggedEmployee.name
+                  );
+                  setSuccessMsg(`Colaborador ${name} removido com sucesso.`);
+                  await loadUsers();
+                } catch (err: any) {
+                  setErrorMsg(err.message || 'Erro ao remover colaborador.');
+                }
+              }}
             />
 
             <SandboxEmailsViewer

@@ -21,18 +21,38 @@ function normalizeCpf(cpf: string): string {
   return cpf.replace(/\D/g, '');
 }
 
+let specialtiesCache: Specialty[] | null = null;
+let specialtiesCacheTime = 0;
+
+let citiesCache: City[] | null = null;
+let citiesCacheTime = 0;
+
+const CACHE_TTL = 5 * 60 * 1000;
+
+
 export async function getSpecialties(): Promise<Specialty[]> {
+  const now = Date.now();
+  if (specialtiesCache && now - specialtiesCacheTime < CACHE_TTL) {
+    return structuredClone(specialtiesCache);
+  }
+
   const db = await initDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORES.SPECIALTIES, 'readonly');
     const store = tx.objectStore(DB_STORES.SPECIALTIES);
     const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const res = request.result || [];
+      specialtiesCache = res;
+      specialtiesCacheTime = Date.now();
+      resolve(structuredClone(res));
+    };
     request.onerror = () => reject(request.error);
   });
 }
 
 export async function createSpecialty(name: string): Promise<Specialty> {
+  specialtiesCache = null;
   const db = await initDb();
   const id = `spec-${Date.now()}`;
   const newSpecialty: Specialty = {
@@ -54,6 +74,7 @@ export async function createExam(
   exam: Omit<Exam, 'id'>,
   dailyLimit: number
 ): Promise<Exam> {
+  specialtiesCache = null;
   const db = await initDb();
   const id = `exam-${Date.now()}`;
   const newExam: Exam = {
@@ -178,12 +199,22 @@ export async function triggerStatusUpdateEmail(
 }
 
 export async function getCities(): Promise<City[]> {
+  const now = Date.now();
+  if (citiesCache && now - citiesCacheTime < CACHE_TTL) {
+    return structuredClone(citiesCache);
+  }
+
   const db = await initDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORES.CITIES, 'readonly');
     const store = tx.objectStore(DB_STORES.CITIES);
     const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const res = request.result || [];
+      citiesCache = res;
+      citiesCacheTime = Date.now();
+      resolve(structuredClone(res));
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -329,12 +360,23 @@ export async function getAppointmentByCpf(
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORES.APPOINTMENTS, 'readonly');
     const store = tx.objectStore(DB_STORES.APPOINTMENTS);
-    const request = store.getAll();
+    
+    let request;
+    let isFallback = false;
+    try {
+      request = store.index('patientCpf').getAll(cleanCpf);
+    } catch (e) {
+      console.warn('[IndexedDB Fallback] Erro ao consultar index em appointments:', e);
+      request = store.getAll();
+      isFallback = true;
+    }
+
     request.onsuccess = () => {
-      const matches = request.result.filter(
-        (app) => normalizeCpf(app.patientCpf) === cleanCpf
-      );
-      resolve(matches);
+      let results = request.result || [];
+      if (isFallback) {
+        results = results.filter((app) => normalizeCpf(app.patientCpf) === cleanCpf);
+      }
+      resolve(results);
     };
     request.onerror = () => reject(request.error);
   });
@@ -502,16 +544,27 @@ export async function getSymptomLogs(
   return new Promise<SymptomLog[]>((resolve, reject) => {
     const tx = db.transaction(DB_STORES.SYMPTOMS_DIARY, 'readonly');
     const store = tx.objectStore(DB_STORES.SYMPTOMS_DIARY);
-    const req = store.getAll();
+    
+    let req;
+    let isFallback = false;
+    try {
+      req = store.index('patientCpf').getAll(cleanCpf);
+    } catch (e) {
+      console.warn('[IndexedDB Fallback] Erro ao consultar index em symptoms_diary:', e);
+      req = store.getAll();
+      isFallback = true;
+    }
+
     req.onsuccess = () => {
-      const results = (req.result || []) as SymptomLog[];
-      const filtered = results
-        .filter((log) => normalizeCpf(log.patientCpf) === cleanCpf)
-        .sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      resolve(filtered);
+      let results = (req.result || []) as SymptomLog[];
+      if (isFallback) {
+        results = results.filter((log) => normalizeCpf(log.patientCpf) === cleanCpf);
+      }
+      results.sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      resolve(results);
     };
     req.onerror = () => reject(req.error);
   });
@@ -589,15 +642,26 @@ export async function getClinicalRecords(
   return new Promise<ClinicalRecord[]>((resolve, reject) => {
     const tx = db.transaction(DB_STORES.CLINICAL_HISTORY, 'readonly');
     const store = tx.objectStore(DB_STORES.CLINICAL_HISTORY);
-    const req = store.getAll();
+    
+    let req;
+    let isFallback = false;
+    try {
+      req = store.index('patientCpf').getAll(cleanCpf);
+    } catch (e) {
+      console.warn('[IndexedDB Fallback] Erro ao consultar index em clinical_history:', e);
+      req = store.getAll();
+      isFallback = true;
+    }
+
     req.onsuccess = () => {
-      const results = (req.result || []) as ClinicalRecord[];
-      const filtered = results
-        .filter((record) => normalizeCpf(record.patientCpf) === cleanCpf)
-        .sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-      resolve(filtered);
+      let results = (req.result || []) as ClinicalRecord[];
+      if (isFallback) {
+        results = results.filter((record) => normalizeCpf(record.patientCpf) === cleanCpf);
+      }
+      results.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      resolve(results);
     };
     req.onerror = () => reject(req.error);
   });
@@ -1332,6 +1396,7 @@ export async function updatePatientContactInfo(
 }
 
 export async function updateSpecialty(specialty: Specialty): Promise<void> {
+  specialtiesCache = null;
   const db = await initDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORES.SPECIALTIES, 'readwrite');

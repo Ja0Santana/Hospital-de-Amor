@@ -52,13 +52,25 @@ export async function getDonationsByCpf(cpf: string): Promise<Donation[]> {
   return new Promise<Donation[]>((resolve, reject) => {
     const tx = db.transaction(DB_STORES.DONATIONS, 'readonly');
     const store = tx.objectStore(DB_STORES.DONATIONS);
-    const request = store.getAll();
+    
+    let request;
+    let isFallback = false;
+    try {
+      request = store.index('donorCpf').getAll(cleanCpf);
+    } catch (e) {
+      console.warn('[IndexedDB Fallback] Erro ao consultar index em donations:', e);
+      request = store.getAll();
+      isFallback = true;
+    }
+
     request.onsuccess = () => {
-      const results = (request.result || []) as Donation[];
-      const filtered = results.filter(
-        (d) => normalizeCpf(d.donorCpf) === cleanCpf
-      );
-      resolve(filtered);
+      let results = (request.result || []) as Donation[];
+      if (isFallback) {
+        results = results.filter(
+          (d) => normalizeCpf(d.donorCpf) === cleanCpf
+        );
+      }
+      resolve(results);
     };
     request.onerror = () => reject(request.error);
   });

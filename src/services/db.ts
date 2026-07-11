@@ -17,7 +17,23 @@ export async function deleteUserAndAppointments(cpf: string): Promise<void> {
     const clinicalStore = tx.objectStore('clinical_history');
     const subStore = tx.objectStore('recurring_subscriptions');
 
-    userStore.delete(cleanCpf);
+    const userGetReq = userStore.get(cleanCpf);
+    userGetReq.onsuccess = () => {
+      const userRecord = userGetReq.result;
+      if (userRecord) {
+        const rolesList = userRecord.role ? userRecord.role.split(',').map((r: string) => r.trim()) : [];
+        const hasAdmin = rolesList.some((r: string) => ['recepcionista', 'gestor', 'auditor'].includes(r));
+        if (hasAdmin) {
+          const updatedRoles = rolesList.filter((r: string) => r !== 'patient' && r !== 'donor' && r !== 'both');
+          userRecord.role = updatedRoles.join(',');
+          userStore.put(userRecord);
+        } else {
+          userStore.delete(cleanCpf);
+        }
+      } else {
+        userStore.delete(cleanCpf);
+      }
+    };
 
     const req = appStore.getAll();
     req.onsuccess = () => {
