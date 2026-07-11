@@ -1,4 +1,4 @@
-import type { PatientUser, UserRole } from '../../types';
+import type { PatientUser, UserRole, CustomRole, AuditLog } from '../../types';
 import { initDb, DB_STORES } from './base';
 
 function normalizeCpf(cpf: string): string {
@@ -423,3 +423,97 @@ export async function updateUserAdmin(
     tx.onerror = () => reject(tx.error);
   });
 }
+
+export async function updateUserStatusAdmin(
+  cpf: string,
+  active: boolean,
+  employeeCpf: string,
+  employeeName: string
+): Promise<void> {
+  const db = await initDb();
+  return new Promise<void>((resolve, reject) => {
+    const tx = db.transaction([DB_STORES.USERS, DB_STORES.AUDIT_LOGS], 'readwrite');
+    const userStore = tx.objectStore(DB_STORES.USERS);
+    const auditStore = tx.objectStore(DB_STORES.AUDIT_LOGS);
+
+    const getReq = userStore.get(cpf);
+    getReq.onsuccess = () => {
+      const user = getReq.result as PatientUser | undefined;
+      if (!user) {
+        reject(new Error('Usuário não encontrado.'));
+        return;
+      }
+
+      const oldActive = user.isActive !== false;
+      user.isActive = active;
+      userStore.put(user);
+
+      const log: AuditLog = {
+        id: 'log-' + crypto.randomUUID().slice(0, 8),
+        timestamp: new Date().toISOString(),
+        userCpf: employeeCpf,
+        userName: employeeName,
+        action: `${active ? 'Ativação' : 'Desativação'} do usuário ${user.name} (CPF: ${cpf})`,
+        module: 'Controle de Usuários',
+        ipAddress: '192.168.1.100',
+        details: `Usuário administrativo atualizado pelo gestor.`,
+        changes: {
+          isActive: { old: oldActive, new: active }
+        }
+      };
+      auditStore.add(log);
+    };
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+export async function getCustomRoles(): Promise<CustomRole[]> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORES.CUSTOM_ROLES, 'readonly');
+    const store = tx.objectStore(DB_STORES.CUSTOM_ROLES);
+    const request = store.getAll();
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveCustomRole(role: CustomRole): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORES.CUSTOM_ROLES, 'readwrite');
+    const store = tx.objectStore(DB_STORES.CUSTOM_ROLES);
+    const request = store.put(role);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function deleteCustomRole(id: string): Promise<void> {
+  const db = await initDb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORES.CUSTOM_ROLES, 'readwrite');
+    const store = tx.objectStore(DB_STORES.CUSTOM_ROLES);
+    const request = store.delete(id);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
+  gestor: ['view_appointments', 'confirm_appointments', 'manage_config', 'manage_users', 'view_audit'],
+  recepcionista: ['view_appointments', 'confirm_appointments'],
+  auditor: ['view_appointments', 'view_audit']
+};
+
+export async function getEmployeePermissions(role: string): Promise<string[]> {
+  if (DEFAULT_ROLE_PERMISSIONS[role]) {
+    return DEFAULT_ROLE_PERMISSIONS[role];
+  }
+  const roles = await getCustomRoles();
+  const custom = roles.find(r => r.id === role);
+  return custom ? custom.permissions : [];
+}
+
