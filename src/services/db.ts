@@ -1,4 +1,4 @@
-import type { Exam, Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, CustomRole, FeedbackResponse, TransparencyData, TemporaryCapacityLimit, CustomPriority } from '../types';
+import type { Exam, Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, CustomRole, FeedbackResponse, TemporaryCapacityLimit, CustomPriority } from '../types';
 import { initDb } from './db/base';
 import { computeSHA256, createAuditLog, getAuditLogs, addAuditLogAdmin } from './db/auditRepository';
 import { getUserByCpf, createUser, updateUserPassword, authenticateUser, getLoginAttempts, recordLoginAttempt, clearLoginAttempts, updatePatientUser, getAllUsersForAdmin, deleteUserAdmin, updateUserAdmin } from './db/authRepository';
