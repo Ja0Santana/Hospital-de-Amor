@@ -1,8 +1,9 @@
-import type { Exam, Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, UserRole, CustomRole, FeedbackResponse, TransparencyData, TemporaryCapacityLimit, CustomPriority } from '../types';
+import type { Exam, Specialty, City, Appointment, PatientUser, SymptomLog, ClinicalRecord, Donation, DonorPoints, SupportMessage, RecurringSubscription, AuditLog, AppointmentStatus, CalendarDay, CapacityLimit, CustomRole, FeedbackResponse, TransparencyData, TemporaryCapacityLimit, CustomPriority } from '../types';
 import { initDb } from './db/base';
 import { computeSHA256, createAuditLog, getAuditLogs, addAuditLogAdmin } from './db/auditRepository';
+import { getUserByCpf, createUser, updateUserPassword, authenticateUser, getLoginAttempts, recordLoginAttempt, clearLoginAttempts, updatePatientUser, getAllUsersForAdmin, deleteUserAdmin, updateUserAdmin } from './db/authRepository';
 
-export { initDb, computeSHA256, createAuditLog, getAuditLogs, addAuditLogAdmin };
+export { initDb, computeSHA256, createAuditLog, getAuditLogs, addAuditLogAdmin, getUserByCpf, createUser, updateUserPassword, authenticateUser, getLoginAttempts, recordLoginAttempt, clearLoginAttempts, updatePatientUser, getAllUsersForAdmin, deleteUserAdmin, updateUserAdmin };
 
 
 
@@ -383,199 +384,7 @@ export async function updateAppointment(appointment: Appointment): Promise<void>
   });
 }
 
-export async function getUserByCpf(cpf: string): Promise<PatientUser | null> {
-  const db = await initDb();
-  const cleanCpf = cpf.replace(/\D/g, "");
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('users', 'readonly');
-    const store = tx.objectStore('users');
-    const request = store.get(cleanCpf);
-    request.onsuccess = () => resolve(request.result || null);
-    request.onerror = () => reject(request.error);
-  });
-}
 
-export async function createUser(user: Omit<PatientUser, 'createdAt'>): Promise<void> {
-  const db = await initDb();
-  const cleanCpf = user.cpf.replace(/\D/g, "");
-
-  return new Promise<void>((resolve, reject) => {
-    const txCheck = db.transaction('users', 'readonly');
-    const storeCheck = txCheck.objectStore('users');
-    const getAllReq = storeCheck.getAll();
-    getAllReq.onsuccess = () => {
-      const allUsers = getAllReq.result as PatientUser[];
-      const emailExists = allUsers.some(u => u.email.trim().toLowerCase() === user.email.trim().toLowerCase());
-      if (emailExists) {
-        reject(new Error('Este e-mail já está cadastrado em outra conta.'));
-        return;
-      }
-      resolve();
-    };
-    txCheck.onerror = () => reject(txCheck.error);
-  }).then(async () => {
-    const existing = await getUserByCpf(cleanCpf);
-    if (existing) {
-      const existingRole = existing.role || 'patient';
-      const newRole = user.role || 'patient';
-
-      if (existingRole === newRole || existingRole === 'both') {
-        throw new Error('Este CPF já está cadastrado');
-      }
-
-      existing.role = 'both';
-
-      return new Promise<void>((resolve, reject) => {
-        const stores = newRole === 'donor' ? ['users', 'donor_points'] : ['users'];
-        const tx = db.transaction(stores, 'readwrite');
-        
-        const userStore = tx.objectStore('users');
-        userStore.put(existing);
-
-        if (newRole === 'donor') {
-          const donorPointsStore = tx.objectStore('donor_points');
-          donorPointsStore.put({
-            donorCpf: cleanCpf,
-            balance: 0,
-            level: 'Bronze'
-          });
-        }
-
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      });
-    }
-
-    const newUser: PatientUser = {
-      ...user,
-      cpf: cleanCpf,
-      createdAt: new Date().toISOString()
-    };
-
-    return new Promise<void>((resolve, reject) => {
-      const stores = newUser.role === 'donor' ? ['users', 'donor_points'] : ['users'];
-      const tx = db.transaction(stores, 'readwrite');
-      
-      const userStore = tx.objectStore('users');
-      userStore.add(newUser);
-
-      if (newUser.role === 'donor') {
-        const donorPointsStore = tx.objectStore('donor_points');
-        donorPointsStore.put({
-          donorCpf: cleanCpf,
-          balance: 0,
-          level: 'Bronze'
-        });
-      }
-
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
-  });
-}
-
-export async function updateUserPassword(cpf: string, newPassword: string): Promise<void> {
-  const db = await initDb();
-  const cleanCpf = cpf.replace(/\D/g, "");
-  const user = await getUserByCpf(cleanCpf);
-  if (!user) {
-    throw new Error('Usuário não encontrado.');
-  }
-
-  user.passwordHash = newPassword;
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('users', 'readwrite');
-    const store = tx.objectStore('users');
-    const request = store.put(user);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
-
-export async function authenticateUser(cpf: string, password: string): Promise<PatientUser | null> {
-  const cleanCpf = cpf.replace(/\D/g, "");
-  const user = await getUserByCpf(cleanCpf);
-  if (!user) {
-    return null;
-  }
-  if (user.passwordHash !== password) {
-    return null;
-  }
-  return user;
-}
-
-export async function updatePatientUser(cpf: string, data: Partial<Omit<PatientUser, 'cpf' | 'createdAt'>>): Promise<void> {
-  const db = await initDb();
-  const cleanCpf = cpf.replace(/\D/g, "");
-  const user = await getUserByCpf(cleanCpf);
-  if (!user) {
-    throw new Error('Usuário não encontrado.');
-  }
-
-  const oldEmail = user.email;
-  const oldPhone = user.phone;
-  const updatedUser: PatientUser = {
-    ...user,
-    ...data
-  };
-
-  const newEmail = updatedUser.email;
-  const newPhone = updatedUser.phone;
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(['users', 'appointments', 'email_queue'], 'readwrite');
-    const userStore = tx.objectStore('users');
-    const appStore = tx.objectStore('appointments');
-    const emailStore = tx.objectStore('email_queue');
-
-    userStore.put(updatedUser);
-
-    const emailChanged = newEmail?.trim().toLowerCase() !== oldEmail?.trim().toLowerCase();
-    const phoneChanged = newPhone?.trim() !== oldPhone?.trim();
-
-    const getAppsReq = appStore.getAll();
-    getAppsReq.onsuccess = () => {
-      const appointments = getAppsReq.result as Appointment[];
-      const patientApps = appointments.filter(
-        app => app.patientCpf.replace(/\D/g, "") === cleanCpf
-      );
-
-      if (emailChanged || phoneChanged) {
-        patientApps.forEach(app => {
-          if (emailChanged && newEmail) app.patientEmail = newEmail.trim();
-          if (phoneChanged && newPhone) app.patientPhone = newPhone.trim();
-          appStore.put(app);
-        });
-      }
-
-      if (emailChanged && newEmail) {
-        const emailReq = emailStore.getAll();
-        emailReq.onsuccess = () => {
-          const emails = emailReq.result;
-          const patientProtocols = new Set(patientApps.map(app => app.protocol.trim().toLowerCase()));
-          const oldEmailClean = oldEmail?.trim().toLowerCase();
-          const newEmailClean = newEmail.trim().toLowerCase();
-          for (const item of emails) {
-            const itemEmailClean = item.recipientEmail?.trim().toLowerCase();
-            const itemProtoClean = item.appointmentProtocol?.trim().toLowerCase();
-            const matchesEmail = itemEmailClean === oldEmailClean || itemEmailClean === newEmailClean;
-            const matchesProtocol = itemProtoClean && patientProtocols.has(itemProtoClean);
-            if (matchesEmail || matchesProtocol) {
-              if (item.bounced) {
-                item.bounced = false;
-                emailStore.put(item);
-              }
-            }
-          }
-        };
-      }
-    };
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
 
 export async function deleteUserAndAppointments(cpf: string): Promise<void> {
   const db = await initDb();
@@ -706,55 +515,7 @@ export async function deleteAppointmentDraft(cpf: string): Promise<void> {
   });
 }
 
-export async function getLoginAttempts(cpf: string): Promise<{ attemptsCount: number; blockedUntil: string | null } | null> {
-  const db = await initDb();
-  const cleanCpf = cpf.replace(/\D/g, "");
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('login_attempts', 'readonly');
-    const store = tx.objectStore('login_attempts');
-    const req = store.get(cleanCpf);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
-}
 
-export async function recordLoginAttempt(cpf: string, isSuccess: boolean): Promise<{ attemptsCount: number; blockedUntil: string | null }> {
-  const db = await initDb();
-  const cleanCpf = cpf.replace(/\D/g, "");
-  const currentRecord = await getLoginAttempts(cleanCpf);
-
-  const record = currentRecord || { cpf: cleanCpf, attemptsCount: 0, blockedUntil: null };
-
-  if (isSuccess) {
-    record.attemptsCount = 0;
-    record.blockedUntil = null;
-  } else {
-    record.attemptsCount += 1;
-    if (record.attemptsCount >= 5) {
-      record.blockedUntil = new Date(Date.now() + 2 * 60 * 1000).toISOString();
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('login_attempts', 'readwrite');
-    const store = tx.objectStore('login_attempts');
-    const req = store.put(record);
-    req.onsuccess = () => resolve({ attemptsCount: record.attemptsCount, blockedUntil: record.blockedUntil });
-    req.onerror = () => reject(req.error);
-  });
-}
-
-export async function clearLoginAttempts(cpf: string): Promise<void> {
-  const db = await initDb();
-  const cleanCpf = cpf.replace(/\D/g, "");
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('login_attempts', 'readwrite');
-    const store = tx.objectStore('login_attempts');
-    const req = store.delete(cleanCpf);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
 
 export async function addClinicalRecord(record: ClinicalRecord): Promise<void> {
   const db = await initDb();
@@ -1075,27 +836,7 @@ export async function getAppointmentsForAdmin(): Promise<Appointment[]> {
 
 
 
-export async function getAllUsersForAdmin(): Promise<PatientUser[]> {
-  const db = await initDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction('users', 'readonly');
-    const store = tx.objectStore('users');
-    const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
 
-export async function deleteUserAdmin(cpf: string): Promise<void> {
-  const db = await initDb();
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction('users', 'readwrite');
-    const store = tx.objectStore('users');
-    const request = store.delete(cpf);
-    request.onsuccess = () => resolve();
-    request.onerror = () => reject(request.error);
-  });
-}
 
 export async function updateAppointmentStatus(
   id: string,
@@ -1752,80 +1493,7 @@ export async function saveCapacityLimit(limit: CapacityLimit): Promise<void> {
 
 
 
-export async function updateUserAdmin(
-  cpf: string,
-  updatedData: { name: string; email: string; phone: string; role: UserRole; qualifiedExamIds?: string[] },
-  employeeCpf: string,
-  employeeName: string
-): Promise<void> {
-  const db = await initDb();
-  return new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(['users', 'audit_logs'], 'readwrite');
-    const userStore = tx.objectStore('users');
-    const auditStore = tx.objectStore('audit_logs');
 
-    const getReq = userStore.get(cpf);
-    getReq.onsuccess = () => {
-      const user = getReq.result as PatientUser | undefined;
-      if (!user) {
-        reject(new Error('Usuário não encontrado.'));
-        return;
-      }
-
-      const allReq = userStore.getAll();
-      allReq.onsuccess = () => {
-        const allUsers = allReq.result as PatientUser[];
-        const emailExists = allUsers.some(u => u.email.trim().toLowerCase() === updatedData.email.trim().toLowerCase() && u.cpf !== cpf);
-        if (emailExists) {
-          reject(new Error('Este e-mail já está cadastrado em outra conta.'));
-          return;
-        }
-
-        const oldName = user.name;
-        const oldEmail = user.email;
-        const oldPhone = user.phone;
-        const oldRole = user.role;
-        const oldQualified = user.qualifiedExamIds || [];
-
-        const changes: Record<string, { old: any; new: any }> = {};
-        if (oldName !== updatedData.name.trim()) changes.name = { old: oldName, new: updatedData.name.trim() };
-        if (oldEmail.toLowerCase() !== updatedData.email.trim().toLowerCase()) changes.email = { old: oldEmail, new: updatedData.email.trim() };
-        if (oldPhone !== updatedData.phone.trim()) changes.phone = { old: oldPhone, new: updatedData.phone.trim() };
-        if (oldRole !== updatedData.role) changes.role = { old: oldRole, new: updatedData.role };
-
-        const newQualified = updatedData.qualifiedExamIds !== undefined ? updatedData.qualifiedExamIds : oldQualified;
-        const isQualifiedEqual = oldQualified.length === newQualified.length && oldQualified.every(val => newQualified.includes(val));
-        if (!isQualifiedEqual) {
-          changes.qualifiedExamIds = { old: oldQualified, new: newQualified };
-        }
-
-        user.name = updatedData.name.trim();
-        user.email = updatedData.email.trim();
-        user.phone = updatedData.phone.trim();
-        user.role = updatedData.role;
-        user.qualifiedExamIds = newQualified;
-
-        userStore.put(user);
-
-        const log: AuditLog = {
-          id: 'log-' + crypto.randomUUID().slice(0, 8),
-          timestamp: new Date().toISOString(),
-          userCpf: employeeCpf,
-          userName: employeeName,
-          action: `Edição do usuário ${user.name} (CPF: ${cpf})`,
-          module: 'Controle de Usuários',
-          ipAddress: '192.168.1.100',
-          details: `Dados cadastrais atualizados pelo gestor.`,
-          changes: Object.keys(changes).length > 0 ? changes : undefined
-        };
-        auditStore.add(log);
-      };
-    };
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
 
 export async function getCustomRoles(): Promise<CustomRole[]> {
   const db = await initDb();
