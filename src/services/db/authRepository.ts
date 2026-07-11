@@ -29,11 +29,11 @@ export async function createUser(
     const getAllReq = storeCheck.getAll();
     getAllReq.onsuccess = () => {
       const allUsers = getAllReq.result as PatientUser[];
-      const emailExists = allUsers.some(
+      const emailOwner = allUsers.find(
         (u) =>
           u.email.trim().toLowerCase() === user.email.trim().toLowerCase()
       );
-      if (emailExists) {
+      if (emailOwner && normalizeCpf(emailOwner.cpf) !== cleanCpf) {
         reject(new Error('Este e-mail já está cadastrado em outra conta.'));
         return;
       }
