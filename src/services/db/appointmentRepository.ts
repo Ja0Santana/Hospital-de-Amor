@@ -360,12 +360,23 @@ export async function getAppointmentByCpf(
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORES.APPOINTMENTS, 'readonly');
     const store = tx.objectStore(DB_STORES.APPOINTMENTS);
-    const request = store.getAll();
+    
+    let request;
+    let isFallback = false;
+    try {
+      request = store.index('patientCpf').getAll(cleanCpf);
+    } catch (e) {
+      console.warn('[IndexedDB Fallback] Erro ao consultar index em appointments:', e);
+      request = store.getAll();
+      isFallback = true;
+    }
+
     request.onsuccess = () => {
-      const matches = request.result.filter(
-        (app) => normalizeCpf(app.patientCpf) === cleanCpf
-      );
-      resolve(matches);
+      let results = request.result || [];
+      if (isFallback) {
+        results = results.filter((app) => normalizeCpf(app.patientCpf) === cleanCpf);
+      }
+      resolve(results);
     };
     request.onerror = () => reject(request.error);
   });
@@ -533,16 +544,27 @@ export async function getSymptomLogs(
   return new Promise<SymptomLog[]>((resolve, reject) => {
     const tx = db.transaction(DB_STORES.SYMPTOMS_DIARY, 'readonly');
     const store = tx.objectStore(DB_STORES.SYMPTOMS_DIARY);
-    const req = store.getAll();
+    
+    let req;
+    let isFallback = false;
+    try {
+      req = store.index('patientCpf').getAll(cleanCpf);
+    } catch (e) {
+      console.warn('[IndexedDB Fallback] Erro ao consultar index em symptoms_diary:', e);
+      req = store.getAll();
+      isFallback = true;
+    }
+
     req.onsuccess = () => {
-      const results = (req.result || []) as SymptomLog[];
-      const filtered = results
-        .filter((log) => normalizeCpf(log.patientCpf) === cleanCpf)
-        .sort(
-          (a, b) =>
-            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      resolve(filtered);
+      let results = (req.result || []) as SymptomLog[];
+      if (isFallback) {
+        results = results.filter((log) => normalizeCpf(log.patientCpf) === cleanCpf);
+      }
+      results.sort(
+        (a, b) =>
+          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      );
+      resolve(results);
     };
     req.onerror = () => reject(req.error);
   });
@@ -620,15 +642,26 @@ export async function getClinicalRecords(
   return new Promise<ClinicalRecord[]>((resolve, reject) => {
     const tx = db.transaction(DB_STORES.CLINICAL_HISTORY, 'readonly');
     const store = tx.objectStore(DB_STORES.CLINICAL_HISTORY);
-    const req = store.getAll();
+    
+    let req;
+    let isFallback = false;
+    try {
+      req = store.index('patientCpf').getAll(cleanCpf);
+    } catch (e) {
+      console.warn('[IndexedDB Fallback] Erro ao consultar index em clinical_history:', e);
+      req = store.getAll();
+      isFallback = true;
+    }
+
     req.onsuccess = () => {
-      const results = (req.result || []) as ClinicalRecord[];
-      const filtered = results
-        .filter((record) => normalizeCpf(record.patientCpf) === cleanCpf)
-        .sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-        );
-      resolve(filtered);
+      let results = (req.result || []) as ClinicalRecord[];
+      if (isFallback) {
+        results = results.filter((record) => normalizeCpf(record.patientCpf) === cleanCpf);
+      }
+      results.sort(
+        (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+      );
+      resolve(results);
     };
     req.onerror = () => reject(req.error);
   });
