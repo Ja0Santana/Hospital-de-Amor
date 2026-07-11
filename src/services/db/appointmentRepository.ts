@@ -21,18 +21,38 @@ function normalizeCpf(cpf: string): string {
   return cpf.replace(/\D/g, '');
 }
 
+let specialtiesCache: Specialty[] | null = null;
+let specialtiesCacheTime = 0;
+
+let citiesCache: City[] | null = null;
+let citiesCacheTime = 0;
+
+const CACHE_TTL = 5 * 60 * 1000;
+
+
 export async function getSpecialties(): Promise<Specialty[]> {
+  const now = Date.now();
+  if (specialtiesCache && now - specialtiesCacheTime < CACHE_TTL) {
+    return structuredClone(specialtiesCache);
+  }
+
   const db = await initDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORES.SPECIALTIES, 'readonly');
     const store = tx.objectStore(DB_STORES.SPECIALTIES);
     const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const res = request.result || [];
+      specialtiesCache = res;
+      specialtiesCacheTime = Date.now();
+      resolve(structuredClone(res));
+    };
     request.onerror = () => reject(request.error);
   });
 }
 
 export async function createSpecialty(name: string): Promise<Specialty> {
+  specialtiesCache = null;
   const db = await initDb();
   const id = `spec-${Date.now()}`;
   const newSpecialty: Specialty = {
@@ -54,6 +74,7 @@ export async function createExam(
   exam: Omit<Exam, 'id'>,
   dailyLimit: number
 ): Promise<Exam> {
+  specialtiesCache = null;
   const db = await initDb();
   const id = `exam-${Date.now()}`;
   const newExam: Exam = {
@@ -178,12 +199,22 @@ export async function triggerStatusUpdateEmail(
 }
 
 export async function getCities(): Promise<City[]> {
+  const now = Date.now();
+  if (citiesCache && now - citiesCacheTime < CACHE_TTL) {
+    return structuredClone(citiesCache);
+  }
+
   const db = await initDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORES.CITIES, 'readonly');
     const store = tx.objectStore(DB_STORES.CITIES);
     const request = store.getAll();
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const res = request.result || [];
+      citiesCache = res;
+      citiesCacheTime = Date.now();
+      resolve(structuredClone(res));
+    };
     request.onerror = () => reject(request.error);
   });
 }
@@ -1332,6 +1363,7 @@ export async function updatePatientContactInfo(
 }
 
 export async function updateSpecialty(specialty: Specialty): Promise<void> {
+  specialtiesCache = null;
   const db = await initDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(DB_STORES.SPECIALTIES, 'readwrite');
