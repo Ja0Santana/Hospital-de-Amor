@@ -4,7 +4,7 @@ import { Card, CardContent } from '../../ui/Card';
 import { Button } from '../../ui/Button';
 import { Input } from '../../ui/Input';
 import { Label } from '../../ui/Label';
-import { Camera, CheckCircle2, AlertTriangle, User, Activity, HelpCircle } from 'lucide-react';
+import { Camera, CheckCircle2, AlertTriangle, User, Activity, HelpCircle, Calendar, Mail, Phone, MapPin } from 'lucide-react';
 import Tooltip from '../../ui/Tooltip';
 import { formatPhone, formatCpf } from '../../../lib/sanitizer';
 import type { PatientUser } from '../../../types';
@@ -178,7 +178,7 @@ export default function PersonalInfoForm({
               <Label className="text-xs font-semibold text-zinc-500">Data de Nascimento</Label>
               <div className="relative">
                 <Input value={user ? new Date(user.birthDate + 'T00:00:00').toLocaleDateString('pt-BR') : ''} disabled className="pl-9 bg-zinc-50 border-zinc-200 dark:bg-zinc-900 dark:border-zinc-800 text-zinc-500 rounded-xl" />
-                <span className="absolute left-3 top-3 w-4 h-4 text-zinc-400 flex items-center justify-center">📅</span>
+                <Calendar className="absolute left-3 top-3 w-4 h-4 text-zinc-400 pointer-events-none" />
               </div>
             </div>
 
@@ -186,7 +186,7 @@ export default function PersonalInfoForm({
               <Label htmlFor="email" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">E-mail de Contato</Label>
               <div className="relative">
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-9 border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl" />
-                <span className="absolute left-3 top-3 w-4 h-4 text-zinc-400 flex items-center justify-center">✉️</span>
+                <Mail className="absolute left-3 top-3 w-4 h-4 text-zinc-400 pointer-events-none" />
               </div>
             </div>
 
@@ -194,7 +194,7 @@ export default function PersonalInfoForm({
               <Label htmlFor="phone" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Telefone Principal</Label>
               <div className="relative">
                 <Input id="phone" type="text" value={formatPhone(phone)} onChange={(e) => setPhone(e.target.value)} maxLength={15} className="pl-9 border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl" />
-                <span className="absolute left-3 top-3 w-4 h-4 text-zinc-400 flex items-center justify-center">📞</span>
+                <Phone className="absolute left-3 top-3 w-4 h-4 text-zinc-400 pointer-events-none" />
               </div>
             </div>
 
@@ -202,7 +202,7 @@ export default function PersonalInfoForm({
               <Label htmlFor="state" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Estado (UF)</Label>
               <div className="relative">
                 <Input id="state" type="text" value={state} onChange={(e) => setState(e.target.value)} className="pl-9 border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl" />
-                <span className="absolute left-3 top-3 w-4 h-4 text-zinc-400 flex items-center justify-center">📍</span>
+                <MapPin className="absolute left-3 top-3 w-4 h-4 text-zinc-400 pointer-events-none" />
               </div>
             </div>
 
@@ -210,7 +210,7 @@ export default function PersonalInfoForm({
               <Label htmlFor="city" className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Cidade</Label>
               <div className="relative">
                 <Input id="city" type="text" value={city} onChange={(e) => setCity(e.target.value)} className="pl-9 border-zinc-200 dark:border-zinc-800 focus-visible:ring-primary rounded-xl" />
-                <span className="absolute left-3 top-3 w-4 h-4 text-zinc-400 flex items-center justify-center">📍</span>
+                <MapPin className="absolute left-3 top-3 w-4 h-4 text-zinc-400 pointer-events-none" />
               </div>
             </div>
           </div>
