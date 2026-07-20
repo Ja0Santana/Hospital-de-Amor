@@ -413,7 +413,7 @@ export default function Profile({
             onRequestDeleteAccount={handleRequestDelete}
           />
 
-          <LgpdAuditLogs />
+          <LgpdAuditLogs patientCpf={patientCpf} />
         </div>
       </div>
 

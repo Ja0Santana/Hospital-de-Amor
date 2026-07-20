@@ -114,6 +114,57 @@ export function useAdminDashboard({
   const [priorityInput, setPriorityInput] = useState<'Baixa' | 'Média' | 'Alta'>('Baixa');
   const [statusInput, setStatusInput] = useState<AppointmentStatus>('Pendente');
 
+  const [patientManchesterAlerts, setPatientManchesterAlerts] = useState<Record<string, { hasAlert: boolean; symptoms: string[] }>>({});
+
+  const processSymptomAlert = (logs: SymptomLog[]) => {
+    if (logs.length === 0) return { hasAlert: false, symptoms: [] as string[] };
+
+    const sorted = [...logs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const latestLog = sorted[0];
+
+    const durationSinceCreation = Date.now() - new Date(latestLog.createdAt).getTime();
+    const isRecent = durationSinceCreation <= 48 * 60 * 60 * 1000;
+    if (!isRecent) return { hasAlert: false, symptoms: [] as string[] };
+
+    const graveKeywords = ['febre', 'falta de ar', 'dispneia', 'dor forte', 'dor intensa', 'sangramento', 'convulsão'];
+    const alertSymptoms: string[] = [];
+
+    latestLog.symptoms.forEach((s) => {
+      const isGrave = graveKeywords.some((kw) => s.toLowerCase().includes(kw));
+      const intensity = latestLog.symptomIntensities?.[s];
+      if (isGrave || intensity === 'intenso') {
+        alertSymptoms.push(`${s}${intensity ? ` (${intensity})` : ''}`);
+      }
+    });
+
+    return {
+      hasAlert: alertSymptoms.length > 0,
+      symptoms: alertSymptoms,
+    };
+  };
+
+  useEffect(() => {
+    if (appointments.length === 0) return;
+
+    const uniqueCpfs = Array.from(new Set(appointments.map((a) => a.patientCpf)));
+    const loadAlerts = async () => {
+      const alertsMap: Record<string, { hasAlert: boolean; symptoms: string[] }> = {};
+      await Promise.all(
+        uniqueCpfs.map(async (cpf) => {
+          try {
+            const logs = await getSymptomLogs(cpf);
+            alertsMap[cpf] = processSymptomAlert(logs);
+          } catch (e) {
+            console.error(e);
+          }
+        })
+      );
+      setPatientManchesterAlerts(alertsMap);
+    };
+
+    loadAlerts();
+  }, [appointments]);
+
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleSetIsScheduling = (val: boolean) => {
@@ -465,6 +516,20 @@ export function useAdminDashboard({
     } catch (e) {
       console.error(e);
       setActionError('Ocorreu um erro ao atualizar os status em lote.');
+    }
+  };
+
+  const handleQuickPrioritizeHigh = async (appointmentId: string) => {
+    try {
+      await setAppointmentPriority(
+        appointmentId,
+        'Alta',
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      );
+      await loadData();
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -853,5 +918,7 @@ export function useAdminDashboard({
     handleSaveFilter,
     handleApplySavedFilter,
     handleDeleteSavedFilter,
+    patientManchesterAlerts,
+    handleQuickPrioritizeHigh,
   };
 }

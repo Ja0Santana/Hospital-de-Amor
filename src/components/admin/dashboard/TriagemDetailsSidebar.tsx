@@ -4,6 +4,7 @@ import {
   Calendar, Check, Clock, Tv 
 } from 'lucide-react';
 import type { Appointment, PatientUser, CapacityLimit, SymptomLog, AppointmentStatus } from '../../../types';
+import { addAuditLogAdmin } from '../../../services/db';
 
 interface TriagemDetailsSidebarProps {
   activeApp: Appointment;
@@ -111,6 +112,18 @@ export default function TriagemDetailsSidebar({
   scheduleSuccess
 }: TriagemDetailsSidebarProps) {
   const [visibleLogsCount, setVisibleLogsCount] = React.useState(3);
+
+  React.useEffect(() => {
+    if (activeApp) {
+      addAuditLogAdmin(
+        'READ_SENSITIVE_DATA',
+        'Triagem',
+        `Visualizou prontuário e histórico de sintomas do paciente CPF: ${activeApp.patientCpf} (Protocolo #${activeApp.protocol})`,
+        loggedEmployee.cpf,
+        loggedEmployee.name
+      ).catch(console.error);
+    }
+  }, [activeApp?.id]);
 
   const sortedLogs = React.useMemo(() => {
     return [...symptomLogs].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
