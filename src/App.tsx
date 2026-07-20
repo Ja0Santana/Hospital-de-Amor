@@ -39,6 +39,52 @@ function App() {
   const [userRole, setUserRole] = useState<'patient' | 'donor'>('patient');
   const [donationsTrigger, setDonationsTrigger] = useState(0);
   const [isDonationModalOpen, setIsDonationModalOpen] = useState(false);
+  const [activeToast, setActiveToast] = useState<{ message: string; protocol: string } | null>(null);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('hospital_amor_patient_user');
+    if (stored) {
+      try {
+        const { cpf, role } = JSON.parse(stored);
+        handleLoginSuccess(cpf, role);
+      } catch (e) {
+        localStorage.removeItem('hospital_amor_patient_user');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !patientCpf) return;
+
+    try {
+      const channel = new BroadcastChannel('hospital_amor_sync_channel');
+      channel.onmessage = (event) => {
+        const { type, protocol, patientCpf: targetCpf, newStatus } = event.data;
+        if (type === 'APPOINTMENT_STATUS_CHANGED' && targetCpf.replace(/\D/g, '') === patientCpf.replace(/\D/g, '')) {
+          window.dispatchEvent(new CustomEvent('appointment-status-updated', { detail: { protocol, newStatus } }));
+
+          setActiveToast({
+            message: `O status da sua solicitação #${protocol} foi atualizado para "${newStatus}".`,
+            protocol,
+          });
+        }
+      };
+      return () => {
+        channel.close();
+      };
+    } catch (e) {
+      console.error(e);
+    }
+  }, [isAuthenticated, patientCpf]);
+
+  useEffect(() => {
+    if (activeToast) {
+      const timer = setTimeout(() => {
+        setActiveToast(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [activeToast]);
 
   useEffect(() => {
     const handleScrollLock = () => {
@@ -89,6 +135,7 @@ function App() {
 
   const handleLoginSuccess = async (cpf: string, loggedRole: 'patient' | 'donor') => {
     setPatientCpf(cpf);
+    localStorage.setItem('hospital_amor_patient_user', JSON.stringify({ cpf, role: loggedRole }));
     try {
       const cleanCpf = cpf.replace(/\D/g, "");
       const user = await getUserByCpf(cleanCpf);
@@ -133,6 +180,7 @@ function App() {
     setSelectedProtocol('');
     setUserRole('patient');
     setCurrentPage('dashboard');
+    localStorage.removeItem('hospital_amor_patient_user');
     window.location.hash = '#/login';
   };
 
@@ -590,6 +638,40 @@ function App() {
           donorCpf={patientCpf}
           onDonationSuccess={() => setDonationsTrigger((prev) => prev + 1)}
         />
+
+        {activeToast && (
+          <div className="fixed bottom-6 right-6 z-[9999] max-w-sm bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-xl shadow-zinc-200/50 dark:shadow-none p-4 animate-in fade-in slide-in-from-bottom-5 duration-300 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-pink-50 dark:bg-pink-955/20 text-brand-pink flex items-center justify-center shrink-0 mt-0.5 animate-pulse">
+              <Activity className="w-4 h-4" />
+            </div>
+            <div className="flex-1 space-y-1 text-left">
+              <h4 className="text-xs font-black uppercase tracking-wider text-zinc-400">Atualização de Triagem</h4>
+              <p className="text-xs text-zinc-650 dark:text-zinc-300 font-medium leading-relaxed">
+                {activeToast.message}
+              </p>
+              <div className="pt-2 flex gap-2">
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    navigateTo('status-' + activeToast.protocol);
+                    setActiveToast(null);
+                  }}
+                  className="bg-brand-pink text-white hover:bg-brand-pink/90 text-[10px] font-bold py-1 px-2.5 rounded-lg"
+                >
+                  Ver Detalhes
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setActiveToast(null)}
+                  className="text-zinc-400 hover:text-zinc-550 dark:hover:text-zinc-300 text-[10px] font-bold py-1 px-2"
+                >
+                  Fechar
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </InactivityTimeout>
   );

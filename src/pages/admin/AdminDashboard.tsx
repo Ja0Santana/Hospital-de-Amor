@@ -135,6 +135,8 @@ export default function AdminDashboard({
     handleSaveFilter,
     handleApplySavedFilter,
     handleDeleteSavedFilter,
+    patientManchesterAlerts,
+    handleQuickPrioritizeHigh,
   } = useAdminDashboard({ loggedEmployee });
 
   const renderFeedback = () => {
@@ -322,6 +324,8 @@ export default function AdminDashboard({
           examRequiresEncaminhamento={examRequiresEncaminhamento}
           onCheckIn={handleRegisterCheckIn}
           openTriagemPanel={openTriagemPanel}
+          patientManchesterAlerts={patientManchesterAlerts}
+          handleQuickPrioritizeHigh={handleQuickPrioritizeHigh}
         />
       </div>
 
