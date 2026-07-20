@@ -169,7 +169,17 @@ export default function SymptomEvolutionChart({
         <p className="text-[10px] text-zinc-500">Acompanhamento dos últimos 7 dias de percepção de saúde.</p>
       </div>
       {loading ? (
-        <div className="h-48 flex items-center justify-center text-xs text-zinc-400">Carregando histórico...</div>
+        <div className="h-48 bg-zinc-50 dark:bg-zinc-950 rounded-3xl border border-zinc-100 dark:border-zinc-800 animate-pulse flex flex-col justify-between p-6">
+          <div className="flex justify-between items-center">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="h-2 w-8 bg-zinc-200 dark:bg-zinc-800 rounded-full" style={{ opacity: 1 - i * 0.15 }} />
+            ))}
+          </div>
+          <div className="flex-1 flex items-center justify-center">
+            <div className="h-4 w-40 bg-zinc-200 dark:bg-zinc-850 rounded-full" />
+          </div>
+          <div className="h-2 w-16 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
+        </div>
       ) : (
         renderEvolutionChart()
       )}

@@ -121,7 +121,19 @@ export async function exportSymptomsToPDF(logs: SymptomLog[], patientCpf: string
       minute: '2-digit',
     });
 
-    const symptomsText = log.symptoms.length > 0 ? log.symptoms.join(', ') : 'Nenhum sintoma';
+    const symptomsList = log.symptoms.map((symptom) => {
+      const intensity = log.symptomIntensities?.[symptom];
+      return intensity ? `${symptom} (${intensity})` : symptom;
+    });
+
+    let symptomsText = symptomsList.length > 0 ? symptomsList.join(', ') : 'Nenhum sintoma';
+    if (log.bodyRegions && log.bodyRegions.length > 0) {
+      const formattedRegions = log.bodyRegions
+        .map((r) => r.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase()))
+        .join(', ');
+      symptomsText += `\n[Zonas: ${formattedRegions}]`;
+    }
+
     const notesText = log.notes ? log.notes : 'Sem observações.';
 
     const notesLines = doc.splitTextToSize(notesText, colNotesWidth);

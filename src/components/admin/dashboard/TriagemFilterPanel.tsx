@@ -38,6 +38,8 @@ interface TriagemFilterPanelProps {
   handleApplySavedFilter: (filterState: any) => void;
   handleDeleteSavedFilter: (id: number, e: React.MouseEvent) => void;
   handleClearAllFilters: () => void;
+  filteredCount?: number;
+  totalCount?: number;
 }
 
 export default function TriagemFilterPanel({
@@ -69,10 +71,20 @@ export default function TriagemFilterPanel({
   handleSaveFilter,
   handleApplySavedFilter,
   handleDeleteSavedFilter,
-  handleClearAllFilters
+  handleClearAllFilters,
+  filteredCount,
+  totalCount,
 }: TriagemFilterPanelProps) {
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-sm space-y-6">
+      {typeof filteredCount === 'number' && typeof totalCount === 'number' && (
+        <div className="flex justify-between items-center text-[10px] font-bold text-zinc-400 dark:text-zinc-550 uppercase tracking-wider border-b border-zinc-100 dark:border-zinc-800 pb-2">
+          <span>Fila de Triagem</span>
+          <span className="bg-pink-100 text-pink-700 dark:bg-pink-950/20 dark:text-pink-400 px-2 py-0.5 rounded-lg font-mono">
+            Exibindo {filteredCount} de {totalCount} agendamentos
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="relative">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-450" />

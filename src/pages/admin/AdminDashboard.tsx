@@ -229,8 +229,13 @@ export default function AdminDashboard({
       <div className="space-y-8 animate-in fade-in">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-sans">
-              Painel de Triagem
+            <h1 className="text-3xl font-black text-zinc-900 dark:text-zinc-50 tracking-tight font-sans flex items-center gap-2">
+              <span>Painel de Triagem</span>
+              {activeFilters.length > 0 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-100 text-pink-700 dark:bg-pink-955/40 dark:text-pink-400 border border-pink-200/20 animate-in zoom-in-50">
+                  {activeFilters.length} {activeFilters.length === 1 ? 'filtro ativo' : 'filtros ativos'}
+                </span>
+              )}
             </h1>
             <p className="text-zinc-500 mt-1 text-sm">
               Fila de triagem clínica de solicitações de exames.
@@ -251,7 +256,7 @@ export default function AdminDashboard({
           setIsAlertsOpen={setIsAlertsOpen}
         />
 
-        <StatsCards appointments={appointments} />
+        <StatsCards appointments={appointments} isLoading={isInitialLoading} />
 
         <RealocationOffersPanel
           appointments={appointments}
@@ -288,6 +293,8 @@ export default function AdminDashboard({
           activeFilters={activeFilters}
           handleSaveFilter={handleSaveFilter}
           handleApplySavedFilter={handleApplySavedFilter}
+          filteredCount={filteredAppointments.length}
+          totalCount={appointments.length}
           handleDeleteSavedFilter={handleDeleteSavedFilter}
           handleClearAllFilters={handleClearAllFilters}
         />
