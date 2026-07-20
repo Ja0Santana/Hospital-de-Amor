@@ -11,6 +11,7 @@ interface AnalyticsChartsProps {
   onCityViewModeChange: (mode: 'quantitativo' | 'percentual') => void;
   examRankingMode: 'top' | 'bottom';
   onExamRankingModeChange: (mode: 'top' | 'bottom') => void;
+  isLoading?: boolean;
 }
 
 export default function AnalyticsCharts({
@@ -21,8 +22,36 @@ export default function AnalyticsCharts({
   cityViewMode,
   onCityViewModeChange,
   examRankingMode,
-  onExamRankingModeChange
+  onExamRankingModeChange,
+  isLoading
 }: AnalyticsChartsProps) {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-pulse">
+        {[...Array(3)].map((_, i) => (
+          <div key={i} className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-xs h-[360px] flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="h-3 w-28 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
+              <div className="h-2 w-full bg-zinc-150 dark:bg-zinc-850 rounded-full" />
+            </div>
+            <div className="flex-1 flex items-center justify-center">
+              {i === 0 ? (
+                <div className="w-40 h-40 rounded-full border-[16px] border-zinc-200 dark:border-zinc-850" />
+              ) : (
+                <div className="w-full space-y-4 px-4">
+                  {[...Array(4)].map((__, j) => (
+                    <div key={j} className="h-4 bg-zinc-200 dark:bg-zinc-855 rounded-lg" style={{ width: `${80 - j * 15}%` }} />
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="h-3 w-16 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   const chartCityRef = useRef<SVGSVGElement | null>(null);
   const chartExamsRef = useRef<SVGSVGElement | null>(null);
   const chartEvolutionRef = useRef<SVGSVGElement | null>(null);

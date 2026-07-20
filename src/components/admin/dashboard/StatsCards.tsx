@@ -4,12 +4,29 @@ import type { Appointment } from '../../../types';
 
 interface StatsCardsProps {
   appointments: Appointment[];
+  isLoading?: boolean;
 }
 
-export default function StatsCards({ appointments }: StatsCardsProps) {
+export default function StatsCards({ appointments, isLoading }: StatsCardsProps) {
   const countByStatus = (status: string) => {
     return appointments.filter((app) => app.status === status).length;
   };
+
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-5 rounded-2xl shadow-xs animate-pulse space-y-3">
+            <div className="h-2 w-12 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
+            <div className="flex items-center justify-between">
+              <div className="h-6 w-8 bg-zinc-250 dark:bg-zinc-750 rounded-lg" />
+              <div className="h-5 w-5 bg-zinc-200 dark:bg-zinc-800 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">

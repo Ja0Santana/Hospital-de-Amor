@@ -23,6 +23,10 @@ export default function BadgesCatalog({
 }: BadgesCatalogProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="md:col-span-2 p-3 bg-amber-50 dark:bg-amber-955/15 border border-amber-200/50 dark:border-amber-900/30 text-amber-800 dark:text-amber-400 rounded-xl text-[10px] font-semibold flex items-center gap-2">
+        <span className="font-extrabold uppercase bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded text-[8px]">Experimental</span>
+        <span>Catálogo de recompensas fora do core hospitalar. Fluxo inalterado.</span>
+      </div>
       {CATALOG_BADGES.map((badge) => {
         const finalCost = Math.round(badge.cost * (1 + prestige * 0.1));
         const alreadyRedeemed =

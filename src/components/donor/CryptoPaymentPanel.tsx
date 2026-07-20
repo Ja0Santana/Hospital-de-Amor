@@ -86,6 +86,10 @@ export default function CryptoPaymentPanel({
 
   return (
     <div className="p-4 bg-zinc-50 dark:bg-zinc-900/60 rounded-2xl border border-zinc-150 dark:border-zinc-800 space-y-4 animate-in fade-in">
+      <div className="p-3 bg-amber-50 dark:bg-amber-955/15 border border-amber-200/50 dark:border-amber-900/30 text-amber-800 dark:text-amber-400 rounded-xl text-[10px] font-semibold flex items-center gap-2">
+        <span className="font-extrabold uppercase bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded text-[8px]">Experimental</span>
+        <span>Fluxo de criptomoedas fora do core hospitalar. Parâmetros simulados.</span>
+      </div>
       <div className="space-y-1.5">
         <Label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">Selecione a Criptomoeda</Label>
         <select

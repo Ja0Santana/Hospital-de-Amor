@@ -33,6 +33,7 @@ interface AdminAnalyticsProps {
 export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [selectedCityFilter, setSelectedCityFilter] = useState<string>('');
   const [cityViewMode, setCityViewMode] = useState<'quantitativo' | 'percentual'>('quantitativo');
   const [examRankingMode, setExamRankingMode] = useState<'top' | 'bottom'>('top');
@@ -181,6 +182,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
   }, []);
 
   const loadData = async () => {
+    setIsLoading(true);
     try {
       const allApps = await getAppointmentsForAdmin();
       setAppointments(allApps);
@@ -190,6 +192,8 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
       setFeedbacks(allFeedbacks);
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -411,6 +415,7 @@ export default function AdminAnalytics({ loggedEmployee }: AdminAnalyticsProps) 
             onCityViewModeChange={setCityViewMode}
             examRankingMode={examRankingMode}
             onExamRankingModeChange={setExamRankingMode}
+            isLoading={isLoading}
           />
 
           <CityFilteredRequestsTable

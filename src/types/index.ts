@@ -156,6 +156,8 @@ export interface SymptomLog {
   symptoms: string[];
   notes: string;
   createdAt: string;
+  symptomIntensities?: Record<string, 'leve' | 'moderado' | 'intenso'>;
+  bodyRegions?: string[];
 }
 
 export interface ClinicalRecord {
