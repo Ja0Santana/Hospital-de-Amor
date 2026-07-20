@@ -3,7 +3,7 @@ interface TwoFactorSession {
   expiresAt: number;
 }
 
-const SESSION_KEY = 'hospital_amor_2fa_state';
+const SESSION_KEY = 'hospital_amor_admin_2fa_state';
 
 export function generateTwoFactorCode(): string {
   const code = Math.floor(100000 + Math.random() * 900000).toString();

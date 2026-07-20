@@ -25,6 +25,8 @@ interface TriagemQueueTableProps {
   examRequiresEncaminhamento: (examId: string) => boolean;
   onCheckIn: (id: string) => Promise<void>;
   openTriagemPanel: (app: Appointment) => void;
+  patientManchesterAlerts?: Record<string, { hasAlert: boolean; symptoms: string[] }>;
+  handleQuickPrioritizeHigh?: (id: string) => Promise<void>;
 }
 
 export default function TriagemQueueTable({
@@ -49,7 +51,9 @@ export default function TriagemQueueTable({
   hasMailBounce,
   examRequiresEncaminhamento,
   onCheckIn,
-  openTriagemPanel
+  openTriagemPanel,
+  patientManchesterAlerts = {},
+  handleQuickPrioritizeHigh
 }: TriagemQueueTableProps) {
   return (
     <div className="bg-white dark:bg-zinc-900 border border-zinc-250 dark:border-zinc-850 rounded-3xl p-6 shadow-sm space-y-6 mt-6">
@@ -225,6 +229,33 @@ export default function TriagemQueueTable({
                           }`}>
                             {isOverdue ? 'Aguardando Acompanhamento (Vencido)' : app.status === 'Aguardando Follow-up' ? 'Aguardando Acompanhamento' : app.status}
                           </span>
+                        )}
+
+                        {patientManchesterAlerts[app.patientCpf]?.hasAlert && (
+                          <div className="group relative inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-50 text-red-700 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20 animate-pulse block w-max cursor-help">
+                            <span>⚠️ Triagem Manchester</span>
+                            
+                            <div className="absolute bottom-full mb-1 left-0 hidden group-hover:block z-[999] w-64 bg-zinc-950 text-white text-[10px] p-2.5 rounded-xl shadow-xl space-y-1.5 pointer-events-none text-left">
+                              <p className="font-extrabold uppercase text-[8px] tracking-wider text-red-400 border-b border-white/10 pb-1">Sintomas Oncológicos Recentes:</p>
+                              {patientManchesterAlerts[app.patientCpf]?.symptoms.map((s) => (
+                                <p key={s} className="font-semibold leading-tight">• {s}</p>
+                              ))}
+                            </div>
+                            
+                            {app.priority !== 'Alta' && handleQuickPrioritizeHigh && (
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  await handleQuickPrioritizeHigh(app.id);
+                                }}
+                                className="ml-1 px-1.5 py-0.5 rounded bg-red-650 hover:bg-red-700 text-white text-[8px] font-black tracking-wide uppercase transition-all active:scale-95 shrink-0"
+                                title="Elevar para prioridade Alta"
+                              >
+                                Priorizar Alta
+                              </button>
+                            )}
+                          </div>
                         )}
                         {hasMailBounce(app) && (
                           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-800 dark:bg-red-955/20 dark:text-red-400 border border-red-200/20 animate-pulse block w-max">

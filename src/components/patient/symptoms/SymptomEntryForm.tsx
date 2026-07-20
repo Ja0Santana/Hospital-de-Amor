@@ -101,7 +101,7 @@ export default function SymptomEntryForm({ patientCpf, onSubmit }: SymptomEntryF
 
       <div className="space-y-3">
         <label className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Como você está se sentindo hoje?</label>
-        <div className="grid grid-cols-2 min-[420px]:grid-cols-3 sm:grid-cols-5 gap-2">
+        <div className="flex flex-wrap justify-center gap-2.5">
           {MOODS.map((m) => {
             const isActive = selectedMood === m.label;
             return (
@@ -109,7 +109,7 @@ export default function SymptomEntryForm({ patientCpf, onSubmit }: SymptomEntryF
                 key={m.label}
                 type="button"
                 onClick={() => setSelectedMood(m.label)}
-                className={`flex flex-col items-center p-3 rounded-2xl border transition-all duration-200 hover:scale-105 active:scale-95 ${
+                className={`flex-1 min-w-[80px] max-w-[105px] flex flex-col items-center p-3 rounded-xl border transition-all duration-200 hover:scale-105 active:scale-95 ${
                   isActive
                     ? 'border-brand-pink bg-brand-pink/5 text-brand-pink ring-2 ring-brand-pink/20 font-bold scale-[1.02]'
                     : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-400 hover:text-zinc-705'
@@ -128,7 +128,7 @@ export default function SymptomEntryForm({ patientCpf, onSubmit }: SymptomEntryF
           <label className="text-sm font-bold text-zinc-700 dark:text-zinc-300">Sintomas Percebidos</label>
           <span className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Selecione os aplicáveis</span>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
           {PREDEFINED_SYMPTOMS.map((symptom) => {
             const isChecked = selectedSymptoms.includes(symptom);
             return (
@@ -136,7 +136,7 @@ export default function SymptomEntryForm({ patientCpf, onSubmit }: SymptomEntryF
                 key={symptom}
                 type="button"
                 onClick={() => handleToggleSymptom(symptom)}
-                className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all ${
+                className={`w-full py-2.5 px-3 rounded-xl text-xs font-bold transition-all text-center ${
                   isChecked
                     ? 'bg-secondary text-secondary-foreground shadow-md shadow-secondary/15 hover:bg-secondary/95 scale-102'
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-650 dark:text-zinc-300 hover:bg-zinc-200/80'
@@ -152,9 +152,9 @@ export default function SymptomEntryForm({ patientCpf, onSubmit }: SymptomEntryF
               key={custom}
               type="button"
               onClick={() => handleToggleSymptom(custom)}
-              className="px-4 py-2 rounded-2xl text-xs font-bold bg-secondary text-secondary-foreground shadow-md shadow-secondary/15 hover:bg-secondary/95 scale-102 flex items-center gap-1.5"
+              className="w-full py-2.5 px-3 rounded-xl text-xs font-bold bg-secondary text-secondary-foreground shadow-md shadow-secondary/15 hover:bg-secondary/95 scale-102 text-center"
             >
-              <span>{custom}</span>
+              {custom}
             </button>
           ))}
 
@@ -162,19 +162,19 @@ export default function SymptomEntryForm({ patientCpf, onSubmit }: SymptomEntryF
             <button
               type="button"
               onClick={() => setIsAddingCustom(true)}
-              className="px-4 py-2 rounded-2xl text-xs font-bold border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:text-zinc-600 hover:border-zinc-400 dark:hover:text-zinc-350"
+              className="w-full py-2.5 px-3 rounded-xl text-xs font-bold border border-dashed border-zinc-300 dark:border-zinc-700 text-zinc-400 hover:text-zinc-600 hover:border-zinc-400 dark:hover:text-zinc-350 text-center"
             >
               + Outro sintoma
             </button>
           ) : (
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 col-span-2 sm:col-span-1">
               <input
                 type="text"
                 autoFocus
                 placeholder="Sintoma..."
                 value={customSymptom}
                 onChange={(e) => setCustomSymptom(e.target.value)}
-                className="h-8 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-xs focus:outline-none focus:ring-1 focus:ring-brand-pink dark:text-zinc-150"
+                className="w-full h-10 px-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-955 text-xs focus:outline-none focus:ring-1 focus:ring-brand-pink dark:text-zinc-150"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
@@ -184,11 +184,11 @@ export default function SymptomEntryForm({ patientCpf, onSubmit }: SymptomEntryF
                   }
                 }}
               />
-              <Button type="button" size="sm" className="h-8 rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 px-3" onClick={handleAddCustomSymptom}>
+              <Button type="button" size="sm" className="h-10 rounded-xl bg-zinc-800 text-white hover:bg-zinc-700 px-3 shrink-0" onClick={handleAddCustomSymptom}>
                 Add
               </Button>
-              <Button type="button" variant="ghost" size="sm" className="h-8 rounded-xl px-2 text-zinc-400" onClick={() => setIsAddingCustom(false)}>
-                Cancelar
+              <Button type="button" variant="ghost" size="sm" className="h-10 rounded-xl px-2 text-zinc-400 shrink-0" onClick={() => setIsAddingCustom(false)}>
+                X
               </Button>
             </div>
           )}

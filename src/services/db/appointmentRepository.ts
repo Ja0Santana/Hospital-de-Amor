@@ -698,6 +698,9 @@ export async function updateAppointmentStatus(
 ): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
+    let appProtocol = '';
+    let appPatientCpf = '';
+
     const tx = db.transaction(
       [DB_STORES.APPOINTMENTS, DB_STORES.AUDIT_LOGS, DB_STORES.EMAIL_QUEUE],
       'readwrite'
@@ -712,6 +715,8 @@ export async function updateAppointmentStatus(
         reject(new Error('Agendamento não encontrado.'));
         return;
       }
+      appProtocol = app.protocol;
+      appPatientCpf = app.patientCpf;
       const oldStatus = app.status;
       app.status = status;
       app.observations = observations;
@@ -750,7 +755,22 @@ export async function updateAppointmentStatus(
       auditStore.add(log);
     };
 
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = () => {
+      try {
+        const channel = new BroadcastChannel('hospital_amor_sync_channel');
+        channel.postMessage({
+          type: 'APPOINTMENT_STATUS_CHANGED',
+          appointmentId: id,
+          protocol: appProtocol,
+          patientCpf: appPatientCpf,
+          newStatus: status,
+        });
+        channel.close();
+      } catch (e) {
+        console.error(e);
+      }
+      resolve();
+    };
     tx.onerror = () => reject(tx.error);
   });
 }
@@ -767,6 +787,9 @@ export async function confirmAppointmentSchedule(
 ): Promise<void> {
   const db = await initDb();
   return new Promise<void>((resolve, reject) => {
+    let appProtocol = '';
+    let appPatientCpf = '';
+
     const tx = db.transaction(
       [
         DB_STORES.APPOINTMENTS,
@@ -795,6 +818,8 @@ export async function confirmAppointmentSchedule(
         reject(new Error('Agendamento não encontrado.'));
         return;
       }
+      appProtocol = currentApp.protocol;
+      appPatientCpf = currentApp.patientCpf;
 
       const calReq = calStore.get(date);
       calReq.onsuccess = () => {
@@ -1121,7 +1146,22 @@ export async function confirmAppointmentSchedule(
       };
     };
 
-    tx.oncomplete = () => resolve();
+    tx.oncomplete = () => {
+      try {
+        const channel = new BroadcastChannel('hospital_amor_sync_channel');
+        channel.postMessage({
+          type: 'APPOINTMENT_STATUS_CHANGED',
+          appointmentId: id,
+          protocol: appProtocol,
+          patientCpf: appPatientCpf,
+          newStatus: 'Confirmado',
+        });
+        channel.close();
+      } catch (e) {
+        console.error(e);
+      }
+      resolve();
+    };
     tx.onerror = () => reject(tx.error);
   });
 }

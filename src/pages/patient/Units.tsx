@@ -95,6 +95,14 @@ export default function Units({ onNavigate }: UnitsProps) {
 
   const processedUnits = getProcessedUnits();
 
+  const closeUnits = userCoords
+    ? (processedUnits as any[]).filter((u) => u.distance !== undefined && u.distance < 500)
+    : [];
+
+  const farUnits = userCoords
+    ? (processedUnits as any[]).filter((u) => u.distance === undefined || u.distance >= 500)
+    : [];
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto px-4 py-6 text-left">
       <div>
@@ -105,7 +113,7 @@ export default function Units({ onNavigate }: UnitsProps) {
         >
           ← Voltar ao Início
         </Button>
-        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 font-sans">
+        <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-zinc-50 tracking-tight font-sans">
           Nossas Unidades
         </h1>
         <p className="text-zinc-500 mt-1">
@@ -128,12 +136,58 @@ export default function Units({ onNavigate }: UnitsProps) {
         specialties={SPECIALTIES}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {processedUnits.map((unit, index) => {
-          const isClosest = userCoords !== null && index === 0;
-          return <UnitCard key={unit.id} unit={unit} isClosest={isClosest} />;
-        })}
-      </div>
+      {userCoords ? (
+        <div className="space-y-8">
+          {closeUnits.length > 0 && (
+            <div className="space-y-4">
+              <h2 className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-wider flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Unidades Próximas (Até 500 km)
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {closeUnits.map((unit, index) => (
+                  <UnitCard key={unit.id} unit={unit} isClosest={index === 0} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {farUnits.length > 0 && (
+            <div className="space-y-4 pt-6 border-t border-zinc-200 dark:border-zinc-800">
+              <h2 className="text-xs font-black uppercase text-zinc-400 tracking-wider">
+                Outras Unidades do Hospital de Amor
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {farUnits.map((unit) => (
+                  <UnitCard key={unit.id} unit={unit} isClosest={false} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {closeUnits.length === 0 && farUnits.length === 0 && (
+            <div className="py-12 text-center text-zinc-550 text-xs font-semibold">
+              Nenhuma unidade encontrada para os filtros aplicados.
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {processedUnits.map((unit) => (
+              <UnitCard key={unit.id} unit={unit} isClosest={false} />
+            ))}
+          </div>
+          {processedUnits.length === 0 && (
+            <div className="py-12 text-center text-zinc-550 text-xs font-semibold">
+              Nenhuma unidade encontrada para os filtros aplicados.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
